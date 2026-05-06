@@ -90,19 +90,6 @@ interface WizardState {
     found: boolean;
   };
   /**
-   * Commit do resultado de uma aplicação via IA (fallback Opus em escopo
-   * cirúrgico). Usado quando o find+replace literal falha (trecho_original
-   * fora de sincronia) ou quando o erro é informativo (sem âncora). Quem
-   * gera os argumentos é o caminho `applySuggestionToScope` da UI — esta
-   * action só recebe o conteúdo já reescrito + chapters atualizados,
-   * tira snapshot da Escrita, atualiza output, e marca o erro como aplicado.
-   */
-  applyRevisorCorrectionViaAi: (
-    errorId: string,
-    newContent: string,
-    newChapters: EscritaChapter[],
-  ) => void;
-  /**
    * Atualiza o cânone de entidades do roteiro. Persiste no localStorage e
    * desmarca a aprovação se o conteúdo mudar (toda edição depois de aprovar
    * exige re-aprovar). Strings vazias / só whitespace deletam o campo.
@@ -512,79 +499,6 @@ export const useWizard = create<WizardState>((set, get) => ({
       applied: result.applied.includes(errorId),
       found: result.applied.includes(errorId),
     };
-  },
-
-  applyRevisorCorrectionViaAi: (errorId, newContent, newChapters) => {
-    const state = get();
-    const roteiro = state.roteiro;
-    if (!roteiro) return;
-    const outputs = roteiro.outputs;
-    if (!outputs.escrita?.content) return;
-
-    // Descobre em qual revisor (1 ou 2) está esse erro.
-    let stepKey: RevisorStepKey | null = null;
-    let err: RevisorError | undefined;
-    for (const k of REVISOR_STEPS) {
-      const found = outputs[k]?.metadata?.errors?.find((e) => e.id === errorId);
-      if (found) {
-        stepKey = k;
-        err = found;
-        break;
-      }
-    }
-    if (!stepKey || !err) return;
-
-    state.pushOutputToHistory(
-      "escrita",
-      `Antes da correção via IA do Erro #${err.numero}`,
-    );
-
-    const now = new Date().toISOString();
-
-    set((s) => {
-      if (!s.roteiro) return s;
-
-      const updatedEscrita: StepOutput = {
-        ...s.roteiro.outputs.escrita!,
-        content: newContent,
-        edited: true,
-        editedAt: now,
-        metadata: {
-          ...s.roteiro.outputs.escrita!.metadata,
-          chapters: newChapters,
-        },
-      };
-
-      const revisor = s.roteiro.outputs[stepKey!];
-      if (!revisor) {
-        return {
-          roteiro: persist({
-            ...s.roteiro,
-            outputs: { ...s.roteiro.outputs, escrita: updatedEscrita },
-          }),
-        };
-      }
-      const updatedRevisor: StepOutput = {
-        ...revisor,
-        metadata: {
-          ...revisor.metadata,
-          errors: (revisor.metadata?.errors ?? []).map((e) =>
-            e.id === errorId ? { ...e, applied: true, appliedAt: now } : e,
-          ),
-        },
-      };
-
-      return {
-        roteiro: persist({
-          ...s.roteiro,
-          outputs: {
-            ...s.roteiro.outputs,
-            escrita: updatedEscrita,
-            [stepKey!]: updatedRevisor,
-          },
-        }),
-      };
-    });
   },
 
   setCanone: (canone) =>

@@ -2210,10 +2210,6 @@ function PremissaWizard() {
   const [streamingPhase, setStreamingPhase] = useState<
     null | "resumo" | "estrutura"
   >(null);
-  // Erro inline mostrado próximo aos botões. Sem isso, falhas (stream vazio,
-  // HTTP 500, fetch error) ficavam só em console.error — invisível pra revisora,
-  // que via o botão "não fazer nada" e clicava de novo no vácuo.
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isEditingResumo, setIsEditingResumo] = useState(false);
   const [isEditingContent, setIsEditingContent] = useState(false);
   const [isEditingManual, setIsEditingManual] = useState(false);
@@ -2286,7 +2282,6 @@ function PremissaWizard() {
     setIsGenerating(true);
     setLiveStream("");
     setStreamingPhase("resumo");
-    setErrorMessage(null);
 
     const startedAt = new Date().toISOString();
 
@@ -2310,14 +2305,12 @@ function PremissaWizard() {
         }),
         signal: ctrl.signal,
       });
-      if (!res.ok || !res.body) {
+      if (!res.ok && res.status !== 200) {
         const errText = await res.text().catch(() => "");
-        throw new Error(`HTTP ${res.status}: ${errText.slice(0, 200) || res.statusText}`);
+        throw new Error(`HTTP ${res.status}: ${errText.slice(0, 200)}`);
       }
       const fullText = (await readStreamFully(res, ctrl.signal)).trim();
-      if (!fullText) {
-        throw new Error("O agente não retornou nenhum texto. Tente novamente.");
-      }
+      if (!fullText) return;
 
       const now = new Date().toISOString();
       setOutput("premissa", {
@@ -2346,7 +2339,6 @@ function PremissaWizard() {
     } catch (e) {
       if (!(e instanceof Error && e.name === "AbortError")) {
         console.error("[premissa] erro fase resumo:", e);
-        setErrorMessage(e instanceof Error ? e.message : String(e));
       }
     } finally {
       setIsGenerating(false);
@@ -2375,17 +2367,10 @@ function PremissaWizard() {
   const approveAndGenerateEstrutura = useCallback(async (instructionOverride?: string) => {
     resumoRef.current?.flush();
     briefingRef.current?.flush();
-    // resumoRef só está montado quando isEditingResumo=true (ver render do
-    // bloco resumo). No fluxo padrão "gerou → aprovou direto", a ref é null
-    // e getValue() retorna undefined. Usa `||` em vez de `??` para que o
-    // fallback caia corretamente: resumoDraftStored vem do selector com `?? ""`,
-    // e `??` não cai em string vazia, então a cadeia retornaria "" e o
-    // botão "Aprovar e gerar estrutura" travaria sem feedback (caminho mais
-    // comum do bug — `if (!resumoTrim) return;` silencioso).
     const resumoDraft =
-      resumoRef.current?.getValue() || resumoDraftStored || resumo;
+      resumoRef.current?.getValue() ?? resumoDraftStored ?? resumo;
     const briefingDraft =
-      briefingRef.current?.getValue() || briefingDraftStored || briefing;
+      briefingRef.current?.getValue() ?? briefingDraftStored ?? briefing;
     const resumoTrim = resumoDraft.trim();
     const briefingTrim = briefingDraft.trim() || briefing;
     if (!resumoTrim || isGenerating) return;
@@ -2413,7 +2398,6 @@ function PremissaWizard() {
     setIsGenerating(true);
     setLiveStream("");
     setStreamingPhase("estrutura");
-    setErrorMessage(null);
 
     try {
       const res = await fetch("/api/agent/premissa", {
@@ -2428,14 +2412,12 @@ function PremissaWizard() {
         }),
         signal: ctrl.signal,
       });
-      if (!res.ok || !res.body) {
+      if (!res.ok && res.status !== 200) {
         const errText = await res.text().catch(() => "");
-        throw new Error(`HTTP ${res.status}: ${errText.slice(0, 200) || res.statusText}`);
+        throw new Error(`HTTP ${res.status}: ${errText.slice(0, 200)}`);
       }
       const estrutura = (await readStreamFully(res, ctrl.signal)).trim();
-      if (!estrutura) {
-        throw new Error("O agente não retornou nenhuma estrutura. Tente novamente.");
-      }
+      if (!estrutura) return;
 
       const fullContent = `# RESUMO\n\n${resumoTrim}\n\n# ESTRUTURA COMPLETA\n\n${estrutura}`;
       const now = new Date().toISOString();
@@ -2460,7 +2442,6 @@ function PremissaWizard() {
     } catch (e) {
       if (!(e instanceof Error && e.name === "AbortError")) {
         console.error("[premissa] erro fase estrutura:", e);
-        setErrorMessage(e instanceof Error ? e.message : String(e));
       }
     } finally {
       setIsGenerating(false);
@@ -2490,7 +2471,6 @@ function PremissaWizard() {
     setIsGenerating(false);
     setStreamingPhase(null);
     setLiveStream("");
-    setErrorMessage(null);
   }, [setIsGenerating]);
 
   // ─── Aplicar instrução adicional (caixa de "chat") ─────────────────
@@ -2533,7 +2513,6 @@ function PremissaWizard() {
       metadata: { ...meta, premissaManualPaste: true },
     });
     setIsEditingManual(!content);
-    setErrorMessage(null);
   }, [setOutput, content, output?.generatedAt, meta]);
 
   const switchToAutomatic = useCallback(() => {
@@ -2544,7 +2523,6 @@ function PremissaWizard() {
     });
     contentRef.current?.setValue("");
     setIsEditingManual(false);
-    setErrorMessage(null);
   }, [setOutput, meta]);
 
   const saveManualEdit = useCallback(() => {
@@ -3000,28 +2978,6 @@ function PremissaWizard() {
               </div>
             </>
           )}
-        </div>
-      )}
-
-      {/* ─── Banner de erro inline ─── */}
-      {/* Sem isso, falhas (stream vazio, HTTP 500, fetch error) ficavam só em
-          console.error — invisível pra revisora, que via o botão "não fazer nada"
-          e clicava de novo no vácuo. */}
-      {errorMessage && (
-        <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive flex items-start gap-2">
-          <AlertTriangle className="size-4 mt-0.5 shrink-0" />
-          <div className="flex-1">
-            <p className="font-semibold">Falha ao gerar — clique no botão de novo para tentar.</p>
-            <p className="text-xs opacity-80 mt-0.5">{errorMessage}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setErrorMessage(null)}
-            aria-label="Fechar aviso"
-            className="text-base leading-none opacity-60 hover:opacity-100 px-1"
-          >
-            ×
-          </button>
         </div>
       )}
 
