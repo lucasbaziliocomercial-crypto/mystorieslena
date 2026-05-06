@@ -54,7 +54,7 @@ Identificação de parte e capítulo:
 
 REGRAS PRO TRECHO ORIGINAL:
 
-1. Se o erro tem trecho específico no roteiro (citação literal mencionada no markdown ou facilmente localizável): trecho_original DEVE ser LITERAL — copia exata. A engine faz find+replace.
+1. Se o erro tem trecho específico no roteiro (citação literal mencionada no markdown ou facilmente localizável): trecho_original DEVE ser LITERAL — copia exata. A engine faz find+replace por substring contínua. CONTIGUIDADE OBRIGATÓRIA: copie um único bloco de texto adjacente do roteiro, sem juntar parágrafos não-adjacentes nem inverter a ordem em que aparecem. Se o erro toca duas regiões diferentes, emita um <erro> SEPARADO por ocorrência com sufixo letra (numero="3a", "3b"). Misturar fragmentos descontíguos faz a substituição falhar e o erro passa batido.
 
 2. Se o erro é TRANSVERSAL (não tem trecho específico — ex: "Epílogo ausente", "Inconsistência de nome entre premissa e roteiro", "Capítulo duplicado", "Numeração quebrada", "Discrepância documental"): deixe <trecho_original></trecho_original> VAZIO. Use trecho_corrigido pra descrever a AÇÃO que a roteirista precisa tomar (ex: "Adicionar epílogo conforme estrutura aprovada", "Atualizar a Premissa trocando X por Y"). NÃO INVENTE trecho_original — vazio é o correto.
 
