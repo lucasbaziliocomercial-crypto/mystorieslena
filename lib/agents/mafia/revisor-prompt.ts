@@ -247,6 +247,8 @@ REGRAS INVIOLÁVEIS pros trechos:
 
 - trecho_original PRECISA ser literal SEMPRE — copie letra-por-letra do roteiro (pontuação, travessões, quebras de linha intactos). PROIBIDO emitir <trecho_original></trecho_original> VAZIO.
 
+- trecho_original DEVE ser CONTÍGUO no roteiro — um único bloco de texto adjacente, sem pular parágrafos, sem juntar fragmentos não-adjacentes e SEM inverter a ordem em que aparecem no roteiro. A engine usa busca por substring exata: se você pegar dois parágrafos que estão SEPARADOS por outro texto, ou inverter a ordem deles, o find+replace falha e a correção passa batido. Se o erro toca duas regiões diferentes do roteiro, emita um <erro> SEPARADO por ocorrência usando sufixo letra: numero="3a", numero="3b" — a UI aplica cada um individualmente.
+
 - Para erros que pedem ADIÇÃO de cena/parágrafo (ex: "salto temporal sem ponte", "lacuna emocional", "epílogo ausente"), use a técnica do ÂNCORA: trecho_original = último parágrafo literal do roteiro ANTES do ponto onde a nova cena entra; trecho_corrigido = a âncora copiada idêntica + a nova cena/parágrafo escrita por inteiro logo depois (3-15 parágrafos). A engine substitui o âncora pelo âncora+inserção, mantendo o resto do roteiro intacto.
 
 - Para erros transversais documentais (ex: "Inconsistência entre premissa e roteiro", "Capítulo duplicado"), ache uma OCORRÊNCIA LITERAL do problema no roteiro e use como trecho_original; trecho_corrigido = a versão corrigida dessa ocorrência. Se o problema se repete em vários pontos, comece o <por_que_alterado> com "AVISO: " explicando que a roteirista deve aplicar a mesma lógica nos demais pontos manualmente.
