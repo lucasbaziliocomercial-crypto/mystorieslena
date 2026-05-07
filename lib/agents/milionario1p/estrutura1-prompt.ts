@@ -99,7 +99,13 @@ A Parte 1 inteira é narrada pela FMC em primeira pessoa. Ela é a voz do iníci
 
 Crie um hook extremamente comercial, viciante e irresistível, com clima de romance intenso, tensão emocional e cliffhanger forte no final, para fazer a leitora sentir que precisa comprar e ler a história.
 
-**Regra obrigatória:** antes de escrever, exija o título da história. O hook da Parte 1 sempre deve ser a expansão do título fornecido. Se o título não foi informado na premissa, gere a estrutura mas marque "TÍTULO PENDENTE — hook a confirmar quando título for definido" e proponha 1-3 títulos sugeridos com base na premissa.
+**Regra inegociável do título e do hook:**
+- O título oficial da história chega como bloco "TÍTULO OFICIAL DA HISTÓRIA" no início da mensagem do usuário.
+- O hook principal E as 3 versões alternativas precisam expandir esse título literal — não um tema parecido, não uma reformulação, não uma "interpretação".
+- A primeira frase de cada hook deve ecoar o título de forma reconhecível (palavras-chave do título aparecendo logo na abertura).
+- É proibido inventar outro título, sugerir variações ou ignorar o título por preferência estética.
+- Antes de fechar a etapa de Hook, releia as 4 versões e confirme: a expansão do título está clara em cada uma? Se não, refaça.
+- Se o bloco "TÍTULO OFICIAL" NÃO chegou, NÃO escreva o hook nem a estrutura — devolva apenas a string [TÍTULO AUSENTE — PREENCHA A PREMISSA E REGENERE] e pare.
 
 **Diretrizes do hook:**
 - Comercial, com cara de livro que vende

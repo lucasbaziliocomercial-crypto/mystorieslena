@@ -71,6 +71,7 @@ PARTE 2 — FMC como narradora principal + 2 a 4 trechos do MMC em 1ª pessoa.
 ### ✦ [NOME DO PERSONAGEM]
 
 (o "###" é importante — vira heading 3 no Google Docs e aparece na barra de navegação)
+(use EXATAMENTE este caractere Unicode: ✦ — U+2726, "four pointed black star". NUNCA substituir por ♦ ◆ ★ ✧ ou qualquer outro look-alike — só ✦ é reconhecido pelo exporter como marcador de POV. Se escapar pra outro símbolo, o trecho do MMC perde o destaque visual da Parte 2.)
 - Quando o capítulo da Parte 2 começa, coloque sempre o ### ✦ [Nome] do narrador inicial logo abaixo do título do capítulo, mesmo que seja a FMC.
 - Toda vez que o POV mudar dentro do mesmo capítulo, repita o marcador ### ✦ [Novo Nome] antes do trecho que muda.
 

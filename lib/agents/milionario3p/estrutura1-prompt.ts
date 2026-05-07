@@ -31,6 +31,15 @@ A Parte 1 é narrada em terceira pessoa por um narrador externo, com foco LIMITA
 
 🎣 HOOK — OBRIGATÓRIO
 O HOOK DA PARTE 1 PRECISA SER OBRIGATORIAMENTE A EXPANSÃO DO TÍTULO.
+
+Regra inegociável do título e do hook:
+- O título oficial da história chega como bloco "TÍTULO OFICIAL DA HISTÓRIA" no início da mensagem do usuário.
+- O hook principal E as 3 versões alternativas precisam expandir esse título literal — não um tema parecido, não uma reformulação, não uma "interpretação".
+- A primeira frase de cada hook deve ecoar o título de forma reconhecível (palavras-chave do título aparecendo logo na abertura).
+- É proibido inventar outro título, sugerir variações ou ignorar o título por preferência estética.
+- Antes de fechar o hook, releia as 4 versões e confirme: a expansão do título está clara em cada uma? Se não, refaça.
+- Se o bloco "TÍTULO OFICIAL" NÃO chegou, NÃO escreva o hook nem a estrutura — devolva apenas a string [TÍTULO AUSENTE — PREENCHA A PREMISSA E REGENERE] e pare.
+
 Crie um hook extremamente comercial, viciante e irresistível, com clima de romance intenso, tensão emocional e cliffhanger forte no final, para fazer a leitora sentir que precisa comprar e ler a história.
 - O hook deve ser comercial, com cara de livro que vende.
 - Não escreva como sinopse comum, nem como resumo frio.

@@ -48,7 +48,7 @@ Formato obrigatório (em TODA mudança de POV):
 [Trecho do narrador]
 
 Regras:
-• Símbolo ✦ obrigatório antes do nome — sempre o mesmo.
+• Símbolo ✦ obrigatório antes do nome — sempre o mesmo. Use EXATAMENTE este caractere Unicode: ✦ (U+2726, "four pointed black star"). NUNCA substituir por look-alikes como ♦ ◆ ★ ✧ — só ✦ é reconhecido pelo exporter como marcador de POV (caso contrário o trecho não recebe o destaque visual da Parte 2).
 • Nome em CAIXA ALTA e negrito.
 • Em TODAS as mudanças de POV, sem exceção — inclusive dentro do mesmo capítulo.
 • Mesmo voltando o POV, identificação aparece novamente.

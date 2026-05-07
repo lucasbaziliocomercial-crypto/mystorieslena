@@ -3,6 +3,7 @@ import type { Agent } from "../types";
 import { buildEstruturaContinuationMessage } from "../continuation-prompt";
 import { buildCanoneBlock } from "../_shared/canone-block";
 import { CANONE_RULE } from "../_shared/canone-rule";
+import { extractTituloFromPremissa } from "../_shared/extract-titulo";
 import { ESTRUTURA_MASTER_PROMPT } from "./estrutura-master-prompt";
 import { ESTRUTURA1_PROMPT } from "./estrutura1-prompt";
 
@@ -31,6 +32,7 @@ export const estrutura1Agent: Agent = {
   buildUserMessage: (ctx) => {
     const premissa = ctx.previousOutputs.premissa?.content?.trim() ?? "";
     const canoneBlock = buildCanoneBlock(ctx.canone);
+    const titulo = extractTituloFromPremissa(premissa);
 
     // Modo "Continuar de onde parou": a geração anterior foi interrompida e
     // o output parcial está em `currentOutput`. O agente continua exatamente
@@ -100,6 +102,14 @@ export const estrutura1Agent: Agent = {
       return refine.join("\n\n");
     }
 
+    if (premissa && !titulo) {
+      return [
+        "Não consegui localizar o `TÍTULO PROVISÓRIO:` na premissa fornecida. O hook da Parte 1 é OBRIGATORIAMENTE a expansão do título — sem ele, não há como gerar a estrutura.",
+        "Devolva APENAS a string a seguir e nada mais (sem explicação, sem alternativa, sem hook):",
+        "[TÍTULO AUSENTE — PREENCHA A PREMISSA COM 'TÍTULO PROVISÓRIO: <nome>' E REGENERE]",
+      ].join("\n\n");
+    }
+
     const sections: string[] = [];
 
     sections.push(
@@ -114,6 +124,22 @@ export const estrutura1Agent: Agent = {
 
     if (canoneBlock) {
       sections.push(canoneBlock);
+    }
+
+    if (titulo) {
+      sections.push(
+        [
+          `━━━ TÍTULO OFICIAL DA HISTÓRIA (FONTE PRIMÁRIA — usar EXATAMENTE este título no hook) ━━━`,
+          ``,
+          `"${titulo}"`,
+          ``,
+          `⚠️ REGRA INEGOCIÁVEL:`,
+          `• O hook principal E as 3 versões alternativas DEVEM expandir este título literal.`,
+          `• A primeira frase de cada hook precisa ecoar/traduzir o título — não citar de forma decorativa, não trocar por sinônimos, não suavizar.`,
+          `• É proibido inventar outro título, sugerir alternativas ou ignorar este.`,
+          `• Antes de fechar o hook, releia: a expansão do título está clara nas 4 versões? Se não, refaça.`,
+        ].join("\n"),
+      );
     }
 
     if (premissa) {

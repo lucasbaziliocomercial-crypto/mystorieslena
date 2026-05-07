@@ -47,8 +47,16 @@ const STYLE_HR =
 // background-color em span como destaque de texto e em block como caixa.
 const STYLE_HIGHLIGHT_MMC = "background-color: #d9ead3";
 
+// Símbolo "marcador de POV" — o prompt da Escrita instrui ✦ (U+2726) mas o
+// LLM às vezes emite ♦ (U+2666), visualmente parecido mas codepoint diferente.
+// Aceitar ambos (e ◆ U+25C6 como rede de segurança) garante que TODA mudança
+// de POV da Parte 2 seja reconhecida — caso contrário o trecho fica como
+// parágrafo cru, sem virar Heading 3 no Docs e sem destaque verde do MMC.
+const POV_SYMBOL_CLASS = "[\\u2726\\u2666\\u25C6]"; // ✦ ♦ ◆
+const POV_PREFIX_STRIP_RE = new RegExp(`^${POV_SYMBOL_CLASS}\\s*`);
+
 function nomeCanonico(s: string): string {
-  return s.replace(/^✦\s*/, "").trim().toLowerCase();
+  return s.replace(POV_PREFIX_STRIP_RE, "").trim().toLowerCase();
 }
 
 function preprocessRoteiro(raw: string): string {
@@ -76,7 +84,10 @@ function preprocessRoteiro(raw: string): string {
   // de MMC. Não casa quando já tem `### ` na frente (esse prefixo bloqueia
   // o `^[ \t]*` por causa do `#`).
   preprocessed = preprocessed.replace(
-    /^[ \t]*\*{0,2}✦[ \t]+([^\n*]+?)\*{0,2}[ \t]*$/gm,
+    new RegExp(
+      `^[ \\t]*\\*{0,2}${POV_SYMBOL_CLASS}[ \\t]+([^\\n*]+?)\\*{0,2}[ \\t]*$`,
+      "gm",
+    ),
     (_m, name) => `### ✦ ${name.trim()}`,
   );
   return preprocessed;
@@ -103,7 +114,7 @@ export function detectMaleLeadName(raw: string): string | null {
     const h3 = line.match(/^###\s+(.+)$/);
     if (!h3) continue;
 
-    const display = h3[1].replace(/^✦\s*/, "").trim();
+    const display = h3[1].replace(POV_PREFIX_STRIP_RE, "").trim();
     if (!display) continue;
 
     const canonical = display.toLowerCase();
@@ -181,17 +192,77 @@ export function extractMaleLeadNameFromEstrutura(
   estruturaContent: string | undefined | null,
 ): string | null {
   if (!estruturaContent) return null;
-  const re =
-    /PROTAGONISTA\s+MASCULINO\s*\(MMC\)[^\n]*\n(?:[^\n]*\n){0,5}?\s*(?:[-•*]\s*)?\*{0,2}Nome\*{0,2}\s*[:\-—]\s*([^\n,([]+)/i;
-  const m = estruturaContent.match(re);
-  if (!m) return null;
-  const fullName = m[1]
-    .trim()
-    .replace(/^\*+|\*+$/g, "")
-    .trim();
-  if (!fullName) return null;
-  const firstName = fullName.split(/\s+/)[0];
-  return firstName || null;
+
+  // Captura a SEÇÃO "PROTAGONISTA MASCULINO (MMC)" — do header dela até a
+  // próxima seção em caixa alta (ex.: "PROTAGONISTA FEMININA", "ANTAGONISTA",
+  // "TRAMA") ou fim de string. Sem delimitar a seção, varremos Nome:s de
+  // outros personagens. Limitado a 2000 chars pra não pegar a estrutura toda.
+  const headerMatch = estruturaContent.match(
+    /PROTAGONISTA\s+MASCULINO\s*\(MMC\)[^\n]*\n/i,
+  );
+  if (!headerMatch || headerMatch.index === undefined) return null;
+  const sectionStart = headerMatch.index + headerMatch[0].length;
+  const rest = estruturaContent.slice(sectionStart, sectionStart + 2000);
+  // Procura a próxima linha "ALL CAPS de pelo menos 5 letras" (próxima seção).
+  // Se não achar, usa o fim do slice. Tolerante a markdown header (`##`/`#`)
+  // e bullets emoji antes do título.
+  const nextSectionRe = /\n(?:#{1,3}\s+)?[^\n]{0,4}\b[A-ZÁÉÍÓÚÂÊÔÃÕÇ]{4,}/;
+  const nextMatch = rest.match(nextSectionRe);
+  const section = nextMatch && nextMatch.index !== undefined
+    ? rest.slice(0, nextMatch.index)
+    : rest;
+
+  // Pega TODAS as linhas "Nome..." (incluindo "Nome corrigido", "Nome real",
+  // "Nome do personagem" etc.). O LLM às vezes anota um aviso/correção no
+  // primeiro `Nome:` (ex.: "⚠️ ATENÇÃO: nome substituído por estar na lista
+  // de proibidos") e coloca o nome real numa linha "Nome corrigido:" depois.
+  // Sem essa lógica, o detector retornaria "⚠️" e nenhum POV ficaria verde.
+  const nameLineRe =
+    /^[ \t]*(?:[-•*]\s*)?\*{0,2}Nome[^\n:—\-]*\*{0,2}\s*[:\-—]\s*(.+?)\s*$/gim;
+  const candidates: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = nameLineRe.exec(section)) !== null) {
+    candidates.push(m[1].trim());
+  }
+  if (candidates.length === 0) return null;
+
+  const isPlausibleName = (raw: string): string | null => {
+    let cleaned = raw.replace(/^\*+|\*+$/g, "").trim();
+    cleaned = cleaned.replace(/^\*+|\*+$/g, "").trim(); // remove ** wrapping again se sobrar
+    if (!cleaned) return null;
+    // Rejeita avisos/disclaimers do LLM. Não basta cortar `^\*+|\*+$` — o
+    // valor pode começar com ⚠️, "ATENÇÃO", "ATTENTION", "ATTENTION!",
+    // "Sem nome", "(a definir)", etc.
+    const lc = cleaned.toLowerCase();
+    if (
+      /^[⚠️❗❌🚫]/.test(cleaned) ||
+      /\b(aten[cç][aã]o|proibido|substitu[ií]d|disclaimer|n[aã]o\s+definido|sem\s+nome|a\s+definir|placeholder)\b/i.test(
+        cleaned,
+      ) ||
+      lc.startsWith("(") ||
+      lc.length < 2
+    ) {
+      return null;
+    }
+    // Exige pelo menos uma letra (caso o LLM tenha colocado só símbolos).
+    if (!/[A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç]/.test(cleaned)) return null;
+    // Pega o primeiro token "nome-like" (letras/acentos/hífen, sem aspas/vírgula).
+    const firstToken = cleaned
+      .split(/[\s,()"'—\-]+/)
+      .find((t) => /^[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç]+$/.test(t));
+    if (firstToken) return firstToken;
+    // Fallback: primeiro token simples (já passou validação básica).
+    const fallback = cleaned.split(/\s+/)[0];
+    return /^[A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç]/.test(fallback) ? fallback : null;
+  };
+
+  // Prioridade: último candidato plausível (correções vêm DEPOIS do original
+  // — "Nome corrigido", "Nome real" etc. ficam abaixo de "Nome").
+  for (let i = candidates.length - 1; i >= 0; i--) {
+    const name = isPlausibleName(candidates[i]);
+    if (name) return name;
+  }
+  return null;
 }
 
 /**
@@ -252,7 +323,7 @@ export function detectMaleLeadFromFullRoteiro(raw: string): string | null {
 
     const h3 = line.match(/^###\s+(.+)$/);
     if (h3) {
-      const display = h3[1].replace(/^✦\s*/, "").trim();
+      const display = h3[1].replace(POV_PREFIX_STRIP_RE, "").trim();
       if (display) {
         currentPovCanonical = display.toLowerCase();
         ensureBucket(currentPovCanonical, display);

@@ -30,7 +30,17 @@ Capítulos finais (final do 3, 4, 5 e 6 se houver): ritmo mais respirado na reso
 REGRA DE DISTRIBUIÇÃO: se a resolução dos conflitos ficar amontoada em um único capítulo, use 6 capítulos obrigatoriamente. É preferível 6 capítulos bem distribuídos do que 5 com o último sobrecarregado.
 
 🎣 HOOK — OBRIGATÓRIO
-O HOOK DA PARTE 1 PRECISA SER OBRIGATORIAMENTE A EXPANSÃO DO TÍTULO. Antes de escrever, exija o título da história. O hook deve:
+O HOOK DA PARTE 1 PRECISA SER OBRIGATORIAMENTE A EXPANSÃO DO TÍTULO.
+
+Regra inegociável do título e do hook:
+- O título oficial da história chega como bloco "TÍTULO OFICIAL DA HISTÓRIA" no início da mensagem do usuário.
+- O hook principal E as 3 versões alternativas precisam expandir esse título literal — não um tema parecido, não uma reformulação, não uma "interpretação".
+- A primeira frase de cada hook deve ecoar o título de forma reconhecível (palavras-chave do título aparecendo logo na abertura).
+- É proibido inventar outro título, sugerir variações ou ignorar o título por preferência estética.
+- Antes de fechar o hook, releia as 4 versões e confirme: a expansão do título está clara em cada uma? Se não, refaça.
+- Se o bloco "TÍTULO OFICIAL" NÃO chegou, NÃO escreva o hook nem a estrutura — devolva apenas a string [TÍTULO AUSENTE — PREENCHA A PREMISSA E REGENERE] e pare.
+
+O hook deve:
 • Ser comercial, com cara de livro que vende.
 • Despertar curiosidade, obsessão, tensão e urgência emocional.
 • Fazer a leitora pensar: "eu preciso saber o que aconteceu".
