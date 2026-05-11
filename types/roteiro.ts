@@ -4,7 +4,8 @@ export type StepId =
   | "estrutura2"
   | "escrita"
   | "revisor1"
-  | "revisor2";
+  | "revisor2"
+  | "overview";
 
 export const STEP_ORDER: StepId[] = [
   "premissa",
@@ -13,6 +14,7 @@ export const STEP_ORDER: StepId[] = [
   "escrita",
   "revisor1",
   "revisor2",
+  "overview",
 ];
 
 export const STEP_LABELS: Record<StepId, string> = {
@@ -22,6 +24,7 @@ export const STEP_LABELS: Record<StepId, string> = {
   escrita: "Escrita",
   revisor1: "Revisor — Parte 1",
   revisor2: "Revisor — Parte 2",
+  overview: "Overview Final",
 };
 
 /** Steps de revisão (úteis pra checks tipo `REVISOR_STEPS.includes(step)`). */
@@ -271,6 +274,7 @@ export interface RoteiroDrafts {
   escrita?: { input?: string };
   revisor1?: { input?: string };
   revisor2?: { input?: string };
+  overview?: { input?: string };
 }
 
 export interface Roteiro {

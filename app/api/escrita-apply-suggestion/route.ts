@@ -28,12 +28,15 @@ interface SuggestionItem {
   sugestao: string;
   porqueAlterado?: string;
   gravidade?: string;
+  /** Trecho âncora original, quando o erro tem um. Sinaliza pro Opus
+   *  "mexa apenas nessa parte" no escopo window. */
+  trechoOriginal?: string;
 }
 
 interface Body {
   escritaContent: string;
-  /** Escopo do trecho: capítulo, parte, ou roteiro inteiro. */
-  scopeKind?: "chapter" | "part" | "full";
+  /** Escopo do trecho: janela de parágrafos, capítulo, parte, ou roteiro inteiro. */
+  scopeKind?: "window" | "chapter" | "part" | "full";
   /** Rótulo legível ("Cap. 4 da Parte 2", "Parte 1 inteira"). */
   scopeLabel?: string;
   /** Lista de sugestões a aplicar de uma vez. */
@@ -52,26 +55,35 @@ interface Body {
 const APPLY_SUGGESTION_SYSTEM_PROMPT = `Você é um editor literário aplicando UMA OU MAIS sugestões de revisão num trecho de roteiro brasileiro de romance em primeira pessoa (POV da FMC).
 
 Sua única função:
-1. Ler o trecho recebido (capítulo único, Parte inteira ou roteiro todo — escopo informado no user message)
+1. Ler o trecho recebido (janela de parágrafos, capítulo único, Parte inteira ou roteiro todo — escopo informado no user message)
 2. Aplicar TODAS as sugestões da lista — cada uma na ordem em que aparecem
 3. Devolver o trecho INTEIRO modificado, no MESMO formato
 
 REGRAS RÍGIDAS — qualquer violação invalida o output:
 • Devolva exatamente o ESCOPO recebido, nem mais, nem menos.
-• Mantenha banners de Parte recebidos: "═══════════════════════════════════════\\nPARTE 1\\n═══════════════════════════════════════"
-• Mantenha headers de capítulo no formato "# Capítulo N — Título" (mesma numeração e títulos exceto se a sugestão pedir mudar).
 • Mantenha 1ª pessoa, voz da FMC, todos os eventos e diálogos existentes.
 • Aplique TODAS as sugestões da lista — nada além delas.
 • Sem cortar, sem resumir, sem usar "[...]" ou marcadores de elipse.
 • Sem comentários, sem explicações, sem "[aplicado]", sem markdown extra.
-• Sem ** ou _ ou # extras (só os headers de capítulo originais).
-• NUNCA copie o texto literal das sugestões para o conteúdo do roteiro. As sugestões são ORDENS pra você executar — NÃO fazem parte do roteiro. Se você se pegar começando o capítulo com "Expandir...", "Adicionar...", "Incluir...", "Reescrever...", "(a)... (b)...", ou "conforme cravado", PARE — está copiando o briefing em vez de aplicar a mudança. APAGUE e reescreva como narrativa em primeira pessoa.
+• Sem ** ou _ ou # extras (só os headers de capítulo originais quando o escopo é capítulo+).
+• NUNCA copie o texto literal das sugestões para o conteúdo do roteiro. As sugestões são ORDENS pra você executar — NÃO fazem parte do roteiro. Se você se pegar começando com "Expandir...", "Adicionar...", "Incluir...", "Reescrever...", "(a)... (b)...", ou "conforme cravado", PARE — está copiando o briefing em vez de aplicar a mudança. APAGUE e reescreva como narrativa em primeira pessoa.
+
+ESCOPO "WINDOW" (janela de ~3-5 parágrafos contíguos dentro de um capítulo):
+• NÃO começa nem termina com header "# Capítulo N". O escopo é um RECORTE de parágrafos do meio (ou início, ou fim) do capítulo.
+• Devolva exatamente os parágrafos modificados, com a MESMA quantidade de quebras (\\n\\n) entre eles que o input tem. Não junte parágrafos, não separe parágrafos.
+• Mexa APENAS no que a sugestão pede. Os parágrafos vizinhos servem só de contexto pra você ver tom/voz/continuidade — preserve-os literalmente exceto onde a sugestão exige alteração explícita.
+• Quando a sugestão tem "Trecho âncora" definido: é nele que a mudança acontece — os outros parágrafos servem só de contexto.
+• OBRIGATÓRIO APLICAR A MUDANÇA: a sugestão DEVE produzir uma alteração visível no texto. Devolver o input quase intacto (só normalizando whitespace/pontuação) é FALHA — significa que você não fez o trabalho. Se a sugestão pede remover repetição, REMOVA. Se pede trocar nome, TROQUE. Se pede cortar redundância, CORTE. Nunca devolva a janela "como veio" achando que está ok — o sistema vai rejeitar e o usuário vai reclamar.
+• Quando o problema é REPETIÇÃO ENTRE PARÁGRAFOS (mesmo dado, frase ou metáfora aparecendo 2+ vezes na janela), reescreva TODAS as ocorrências dentro da janela — não basta corrigir uma. Mantenha apenas a primeira menção completa e enxugue as repetições subsequentes.
+
+ESCOPO "CHAPTER" / "PART" / "FULL":
+• Mantenha banners de Parte recebidos: "═══════════════════════════════════════\\nPARTE 1\\n═══════════════════════════════════════"
+• Mantenha headers de capítulo no formato "# Capítulo N — Título" (mesma numeração e títulos exceto se a sugestão pedir mudar).
 
 INSTRUÇÕES POR TIPO DE SUGESTÃO:
 • Trocar nomes/termos ("X por Y"): SUBSTITUIÇÃO LITERAL em todas as ocorrências dentro DO ESCOPO.
 • Adicionar conteúdo novo ("Adicionar epílogo"): adicione no lugar apropriado mantendo tom e voz da FMC.
 • Reescrever passagens (ex: localização Chicago → NY): reescreva PRESERVANDO ritmo, eventos e tensão.
-• REMOVER capítulos DUPLICADOS: se o escopo contém o mesmo "# Capítulo N — Título" (mesmo número e título dentro da mesma Parte) aparecendo MAIS DE UMA VEZ, mantenha APENAS UMA versão (a mais completa/coerente) e DELETE as outras ocorrências. Não renumere os outros capítulos.
 • REMOVER conteúdo: se uma sugestão pedir explicitamente remover algo, REMOVA literalmente.
 • MÚLTIPLAS SUGESTÕES no mesmo escopo: aplique TODAS — se uma diz "trocar X por Y" e outra diz "adicionar Z no início", faça ambas. Não pule nenhuma.
 
@@ -107,7 +119,9 @@ export async function POST(req: NextRequest) {
   }
 
   const escopoTexto =
-    scopeKind === "chapter"
+    scopeKind === "window"
+      ? `UMA JANELA DE PARÁGRAFOS DENTRO DE UM CAPÍTULO${scopeLabel ? ` (${scopeLabel})` : ""}`
+      : scopeKind === "chapter"
       ? `UM CAPÍTULO ISOLADO${scopeLabel ? ` (${scopeLabel})` : ""}`
       : scopeKind === "part"
       ? `UMA PARTE INTEIRA${scopeLabel ? ` (${scopeLabel})` : ""}`
@@ -126,6 +140,9 @@ export async function POST(req: NextRequest) {
       lines.push(`SUGESTÃO ${i + 1}/${suggestions.length}${s.numero ? ` (Erro #${s.numero})` : ""}:`);
       lines.push(`Título: ${s.titulo}`);
       lines.push(`Ação: ${s.sugestao}`);
+      if (s.trechoOriginal?.trim()) {
+        lines.push(`Trecho âncora (mexa apenas aqui): ${s.trechoOriginal}`);
+      }
       if (s.porqueAlterado?.trim()) {
         lines.push(`Motivo: ${s.porqueAlterado}`);
       }
@@ -145,8 +162,26 @@ export async function POST(req: NextRequest) {
     `━━━ TRECHO RECEBIDO (escopo: ${escopoTexto}) ━━━\n\n${escritaContent}`,
   );
 
+  const formatRules =
+    scopeKind === "window"
+      ? [
+          "• NÃO inicie nem termine com header de capítulo (`# Capítulo N`) — o escopo é só uma fatia de parágrafos consecutivos do meio/início/fim do cap.",
+          "• Devolva exatamente os parágrafos modificados — mesma quantidade de blocos separados por `\\n\\n` que o input tinha.",
+          "• Preserve literalmente os parágrafos vizinhos da âncora (servem só de contexto). Modifique APENAS o que a sugestão pede.",
+          "• Sem banners de Parte (`═══`), sem headers, sem comentários.",
+          "• 1ª pessoa, voz da FMC, tom narrativo.",
+        ].join("\n")
+      : [
+          `• Headers "# Capítulo N — Título" exatamente como estão (mesmo número, mesmo título — exceto se uma sugestão pedir mudar)`,
+          scopeKind === "part" || scopeKind === "full"
+            ? "• Banners de Parte (═══) se presentes no input"
+            : "• Sem inventar banner de Parte se o input não tinha",
+          "• Mesma quantidade de capítulos do input — não adicione, não remova (exceto se uma sugestão pedir explicitamente)",
+          "• 1ª pessoa, voz da FMC, tom narrativo",
+        ].join("\n");
+
   sections.push(
-    `━━━ FORMATO DE SAÍDA ━━━\n\nDevolva o ESCOPO RECEBIDO modificado, mantendo:\n• Headers "# Capítulo N — Título" exatamente como estão (mesmo número, mesmo título — exceto se uma sugestão pedir mudar)\n• ${scopeKind === "part" || scopeKind === "full" ? "Banners de Parte (═══) se presentes no input" : "Sem inventar banner de Parte se o input não tinha"}\n• Mesma quantidade de capítulos do input — não adicione, não remova (exceto se uma sugestão pedir explicitamente)\n• 1ª pessoa, voz da FMC, tom narrativo\n\nAplique TODAS as ${suggestions.length} sugestões acima, dentro do escopo recebido. Sem comentários, sem prefixos. Comece direto pelo conteúdo modificado.`,
+    `━━━ FORMATO DE SAÍDA ━━━\n\nDevolva o ESCOPO RECEBIDO modificado, mantendo:\n${formatRules}\n\nAplique TODAS as ${suggestions.length} sugestões acima, dentro do escopo recebido. Sem comentários, sem prefixos. Comece direto pelo conteúdo modificado.`,
   );
 
   const userMessage = sections.join("\n\n");

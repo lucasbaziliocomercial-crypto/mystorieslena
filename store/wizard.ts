@@ -12,6 +12,8 @@ import type {
 import { STEP_ORDER, REVISOR_STEPS } from "@/types/roteiro";
 import { scheduleSave, flushPendingSave } from "@/lib/storage";
 import { applyCorrections } from "@/lib/parse-revisor-output";
+import { dedupChapters } from "@/lib/dedup-chapters";
+import { concatenateChapters } from "@/lib/parse-escrita-output";
 
 type RevisorStepKey = (typeof REVISOR_STEPS)[number];
 
@@ -102,6 +104,18 @@ interface WizardState {
     newContent: string,
     newChapters: EscritaChapter[],
   ) => void;
+  /**
+   * Remove capítulos duplicados na Escrita (mesmo part+number+title aparecendo
+   * 2+ vezes). Mantém a versão com mais palavras de cada grupo. Push de
+   * snapshot pra history stack permite undo. Sem IA — instantâneo.
+   *
+   * Devolve resumo dos grupos removidos pra UI exibir feedback ("3 cópias do
+   * Cap. 4 removidas").
+   */
+  dedupRevisorChapters: () => {
+    removedCount: number;
+    groups: Array<{ part?: string; number: number; copiesRemoved: number }>;
+  };
   /**
    * Atualiza o cânone de entidades do roteiro. Persiste no localStorage e
    * desmarca a aprovação se o conteúdo mudar (toda edição depois de aprovar
@@ -423,6 +437,17 @@ export const useWizard = create<WizardState>((set, get) => ({
         for (const id of res.appliedIds) appliedSet.add(id);
       }
     }
+    // Última defesa: se o content NÃO mudou de verdade (whitespace ignorado),
+    // a "aplicação" foi no-op silencioso. Acontecia quando trecho_original ===
+    // trecho_corrigido OU quando o `applyCorrections` antigo trocava só a 1ª
+    // ocorrência mas o usuário esperava ver mudança visível. Não marca applied.
+    if (
+      appliedSet.size > 0 &&
+      monolithic.text.replace(/\s+/g, " ").trim() ===
+        escritaOutput.content.replace(/\s+/g, " ").trim()
+    ) {
+      return { applied: [], failed: errorIds };
+    }
     const applied = targetErrors
       .filter((e) => appliedSet.has(e.id))
       .map((e) => e.id);
@@ -585,6 +610,53 @@ export const useWizard = create<WizardState>((set, get) => ({
         }),
       };
     });
+  },
+
+  dedupRevisorChapters: () => {
+    const state = get();
+    const roteiro = state.roteiro;
+    const empty = { removedCount: 0, groups: [] as Array<{ part?: string; number: number; copiesRemoved: number }> };
+    if (!roteiro) return empty;
+    const escrita = roteiro.outputs.escrita;
+    const chapters = escrita?.metadata?.chapters;
+    if (!escrita?.content || !chapters || chapters.length === 0) return empty;
+
+    const { chapters: deduped, removed } = dedupChapters(chapters);
+    if (removed.length === 0) return empty;
+
+    state.pushOutputToHistory("escrita", "Antes de remover capítulos duplicados");
+
+    const now = new Date().toISOString();
+    const newContent = concatenateChapters(deduped);
+
+    set((s) => {
+      if (!s.roteiro?.outputs.escrita) return s;
+      const updatedEscrita: StepOutput = {
+        ...s.roteiro.outputs.escrita,
+        content: newContent,
+        edited: true,
+        editedAt: now,
+        metadata: {
+          ...s.roteiro.outputs.escrita.metadata,
+          chapters: deduped,
+        },
+      };
+      return {
+        roteiro: persist({
+          ...s.roteiro,
+          outputs: { ...s.roteiro.outputs, escrita: updatedEscrita },
+        }),
+      };
+    });
+
+    return {
+      removedCount: removed.reduce((acc, g) => acc + (g.indices.length - 1), 0),
+      groups: removed.map((g) => ({
+        part: g.part,
+        number: g.number,
+        copiesRemoved: g.indices.length - 1,
+      })),
+    };
   },
 
   setCanone: (canone) =>

@@ -20,6 +20,7 @@ import { estrutura2Agent } from "./estrutura2";
 import { escritaAgent } from "./escrita";
 import { revisorAgentTemplate } from "./revisor";
 import { buildRevisorAgent } from "../_shared/build-revisor-agent";
+import { buildOverviewAgent } from "../_shared/build-overview-agent";
 import { ESCRITA_SYSTEM_PROMPT } from "./escrita-prompt";
 import {
   REVISOR_EXTRACT_SYSTEM_PROMPT,
@@ -33,6 +34,7 @@ export const milionario1pAgents: Record<StepId, Agent> = {
   escrita: escritaAgent,
   revisor1: buildRevisorAgent({ template: revisorAgentTemplate, part: 1 }),
   revisor2: buildRevisorAgent({ template: revisorAgentTemplate, part: 2 }),
+  overview: buildOverviewAgent(),
 };
 
 export const milionario1pEscritaSystemPrompt = ESCRITA_SYSTEM_PROMPT;

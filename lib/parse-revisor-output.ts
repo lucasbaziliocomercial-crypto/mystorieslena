@@ -422,6 +422,18 @@ export function serializeRevisorErrors(errors: RevisorError[]): string {
  * Tenta primeiro match literal; se o trecho não bate exatamente (aspas
  * curvas vs retas, travessão diferente, whitespace), tenta match fuzzy
  * normalizado. Devolve o texto novo + lista de IDs aplicados/falhados.
+ *
+ * Comportamento de N ocorrências: o `trecho_original` do Revisor é, em
+ * tese, uma âncora única. Quando ele aparece >1 vez no texto, isso quase
+ * sempre significa erro transversal (mesma frase/parágrafo repetida) e o
+ * usuário espera que a correção pegue todas as instâncias. Por isso fazemos
+ * substituição IDEMPOTENTE: trocamos TODAS as ocorrências do trecho pela
+ * versão corrigida. Se o trecho realmente aparece em contextos não
+ * relacionados, o Revisor errou ao escolher uma âncora curta demais — o
+ * fix é trocar a âncora, não pular as outras instâncias.
+ *
+ * Falha um erro como `failed` se: trecho_original ausente, não encontrado
+ * no texto, OU se trecho_original === trecho_corrigido (no-op silencioso).
  */
 export function applyCorrections(
   baseText: string,
@@ -437,17 +449,37 @@ export function applyCorrections(
       failedIds.push(err.id);
       continue;
     }
-    const range = findTrechoInText(text, original);
-    if (!range) {
+    // Guard contra Revisor emitir trecho_original === trecho_corrigido —
+    // ia marcar applied=true sem mudar nada (caminho mais comum pro bug
+    // "APLICADO mas texto idêntico").
+    if (original === err.trechoCorrigido) {
       failedIds.push(err.id);
       continue;
     }
-    // Substituição literal — só a primeira ocorrência. Se houver duplicadas,
-    // o agente deveria ter dado contexto suficiente pra desambiguar (frase
-    // completa). Substituir todas é arriscado.
-    text =
-      text.slice(0, range.start) + err.trechoCorrigido + text.slice(range.end);
-    appliedIds.push(err.id);
+
+    // Loop até esgotar as ocorrências. Cada iteração re-procura a partir do
+    // texto JÁ atualizado — evita match recursivo se a substituição contém
+    // o trecho original (raro, mas seguro).
+    let replacedAny = false;
+    while (true) {
+      const range = findTrechoInText(text, original);
+      if (!range) break;
+      text =
+        text.slice(0, range.start) +
+        err.trechoCorrigido +
+        text.slice(range.end);
+      replacedAny = true;
+      // Se trecho_corrigido contém o trecho_original (caso de inserção
+      // aditiva, ex: "X" → "X Y"), o while geraria loop infinito.
+      // Detecta isso comparando o conteúdo resultante: se o ponto de
+      // inserção avançou pelo menos um caractere, ok; senão, sai.
+      if (err.trechoCorrigido.includes(original)) break;
+    }
+    if (replacedAny) {
+      appliedIds.push(err.id);
+    } else {
+      failedIds.push(err.id);
+    }
   }
 
   return { text, appliedIds, failedIds };

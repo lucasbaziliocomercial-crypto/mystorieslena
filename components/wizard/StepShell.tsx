@@ -1345,6 +1345,17 @@ export function StepShell({ step }: Props) {
         });
         setDraft(finalContent);
         setLiveStream("");
+      } else if (!isRefine && step === "overview" && acc.trim()) {
+        // Overview Final — bullet list em markdown puro, sem parsing nem
+        // metadata extra. O default branch do generate() não tem ramo
+        // dedicado, então sem este o setOutput inicial (content="") fica
+        // congelado e o output some quando o stream termina.
+        setOutput(step, {
+          content: acc,
+          generatedAt: startedAt,
+        });
+        setDraft(acc);
+        setLiveStream("");
       }
 
       setIsGenerating(false);
@@ -1975,7 +1986,8 @@ const StepUserInputBox = memo(function StepUserInputBox({
     | "estrutura2"
     | "escrita"
     | "revisor1"
-    | "revisor2";
+    | "revisor2"
+    | "overview";
   const [pendingInput, setPendingInput] = useDraft(
     draftStep,
     "input",
@@ -1990,9 +2002,11 @@ const StepUserInputBox = memo(function StepUserInputBox({
   const placeholder =
     step === "escrita"
       ? "Ex.: deixe o tom mais intenso na Parte 2 · enfatize o conflito interno do MMC · adicione mais humor nos primeiros capítulos\n\n(Deixe vazio para o agente derivar 100% das estruturas aprovadas)"
-      : idx === 0
-        ? "Ex.: romance com executiva herdeira que retorna pra cidade natal..."
-        : "Ex.: deixe o tom mais intenso, foco no conflito interno...";
+      : step === "overview"
+        ? "Ex.: foque em duplicações no clímax · cheque nomes na cena íntima do Cap. 14\n\n(Deixe vazio para varredura estrutural completa)"
+        : idx === 0
+          ? "Ex.: romance com executiva herdeira que retorna pra cidade natal..."
+          : "Ex.: deixe o tom mais intenso, foco no conflito interno...";
 
   return (
     <section className="flex flex-col gap-2">
