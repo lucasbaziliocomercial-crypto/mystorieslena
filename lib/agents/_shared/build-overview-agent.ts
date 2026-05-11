@@ -32,7 +32,7 @@ export function buildOverviewAgent(): Agent {
       const sections: string[] = [];
 
       sections.push(
-        "Você vai fazer a revisão ESTRUTURAL do roteiro completo abaixo (Parte 1 + Parte 2 juntas — o roteiro já passou pelos dois Revisores literários e algumas correções podem já ter sido aplicadas). Aplique EXATAMENTE os critérios do system prompt. NÃO comente sobre estilo, ritmo, voz ou qualidade narrativa. Liste em tópicos APENAS os erros estruturais encontrados.",
+        "Você vai fazer a revisão ESTRUTURAL do roteiro completo abaixo (Parte 1 + Parte 2 juntas — o roteiro já passou pelos dois Revisores literários e algumas correções podem já ter sido aplicadas). Aplique EXATAMENTE os critérios do system prompt. NÃO comente sobre estilo, ritmo, voz ou qualidade narrativa. Entregue no FORMATO OBRIGATÓRIO do system prompt: primeiro a lista em tópicos, depois o bloco XML <erros_detalhados> com cada erro estruturado pra a UI aplicar 1-clique.",
       );
 
       if (canoneBlock) {
@@ -56,7 +56,7 @@ export function buildOverviewAgent(): Agent {
       }
 
       sections.push(
-        "━━━ AÇÃO ━━━\n\nFaça a varredura estrutural agora. Liste em tópicos APENAS os erros encontrados nas categorias do system prompt. Comece direto pela lista — sem preâmbulo, sem análise literária, sem sugestões criativas. Se nenhum erro estrutural for detectado, responda exatamente: \"Nenhum erro estrutural encontrado.\"",
+        "━━━ AÇÃO ━━━\n\nFaça a varredura estrutural agora. Entregue:\n1) Seção \"📋 ERROS ESTRUTURAIS ENCONTRADOS\" em markdown com bullets — um por erro, citando localização e trecho-evidência curto.\n2) Seção \"🔧 CORREÇÕES APLICÁVEIS (XML)\" com o bloco <erros_detalhados> — um <erro> por item da lista, com trecho_original literal e trecho_corrigido plug-and-play.\n\nSe NENHUM erro estrutural for encontrado, responda apenas \"Nenhum erro estrutural encontrado.\" e pule o XML. Comece direto pela seção de erros — sem preâmbulo, sem análise literária, sem sugestões criativas.",
       );
 
       return sections.join("\n\n");

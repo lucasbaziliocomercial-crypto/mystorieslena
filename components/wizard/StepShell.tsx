@@ -1346,15 +1346,33 @@ export function StepShell({ step }: Props) {
         setDraft(finalContent);
         setLiveStream("");
       } else if (!isRefine && step === "overview" && acc.trim()) {
-        // Overview Final — bullet list em markdown puro, sem parsing nem
-        // metadata extra. O default branch do generate() não tem ramo
-        // dedicado, então sem este o setOutput inicial (content="") fica
-        // congelado e o output some quando o stream termina.
+        // Overview Final — analisa o roteiro completo (P1+P2) procurando
+        // erros estruturais e devolve markdown + bloco <erros_detalhados>
+        // no mesmo formato do Revisor. Parseamos o XML pra popular os
+        // cards de correção 1-clique e snapshotamos o hash da Escrita pra
+        // a UI detectar drift (escrita editada depois desta análise).
+        // Prefixamos os IDs com `ov-` pra não colidir com IDs do Revisor
+        // (que usa `p1-`/`p2-`) caso ambos apareçam ao mesmo tempo na UI.
+        const parsedErrors = parseRevisorErrors(acc).map((e) => ({
+          ...e,
+          id: `ov-${e.id}`,
+        }));
+        const cleanContent = stripErrosDetalhados(acc);
+        const escritaContent =
+          roteiro.outputs.escrita?.content?.trim() ?? "";
+        const escritaSnapshotHash = escritaContent
+          ? hashEscritaContent(escritaContent)
+          : undefined;
+
         setOutput(step, {
-          content: acc,
+          content: cleanContent,
+          metadata: {
+            errors: parsedErrors,
+            ...(escritaSnapshotHash ? { escritaSnapshotHash } : {}),
+          },
           generatedAt: startedAt,
         });
-        setDraft(acc);
+        setDraft(cleanContent);
         setLiveStream("");
       }
 
@@ -1795,7 +1813,7 @@ export function StepShell({ step }: Props) {
           </div>
         )}
 
-        {isRevisorStep(step) &&
+        {(isRevisorStep(step) || step === "overview") &&
           hasContent &&
           !isGenerating &&
           !isEditing &&
@@ -1910,7 +1928,7 @@ export function StepShell({ step }: Props) {
               <DownloadEscritaButton roteiro={roteiro} />
             </>
           )}
-          {isRevisorStep(step) && (
+          {(isRevisorStep(step) || step === "overview") && (
             <>
               <CopyPartButton roteiro={roteiro} part={1} />
               <CopyPartButton roteiro={roteiro} part={2} />

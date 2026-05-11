@@ -15,7 +15,15 @@ import { applyCorrections } from "@/lib/parse-revisor-output";
 import { dedupChapters } from "@/lib/dedup-chapters";
 import { concatenateChapters } from "@/lib/parse-escrita-output";
 
-type RevisorStepKey = (typeof REVISOR_STEPS)[number];
+/**
+ * Steps cujo `metadata.errors[]` alimenta os cards de correção 1-clique.
+ * Hoje: revisor1, revisor2 (cada um escopado por Parte) + overview (varredura
+ * estrutural sobre P1+P2 inteiros). As funções `applyRevisorCorrection*`
+ * iteram esta lista pra encontrar o erro pelo id e marcar `applied: true` no
+ * step de origem certo. Adicionar um novo step com cards = adicionar aqui.
+ */
+const ERROR_SOURCE_STEPS = [...REVISOR_STEPS, "overview"] as const;
+type ErrorSourceStepKey = (typeof ERROR_SOURCE_STEPS)[number];
 
 interface WizardState {
   roteiro: Roteiro | null;
@@ -378,14 +386,16 @@ export const useWizard = create<WizardState>((set, get) => ({
       return { applied: [], failed: errorIds };
     }
 
-    // Os erros vivem em DOIS steps agora: revisor1 (Parte 1) e revisor2
-    // (Parte 2). Procura em ambos — cada erro carrega seu próprio step de
-    // origem pra que a marcação `applied: true` volte pro metadata correto
-    // depois (sem isso, marcar erro do revisor2 como aplicado iria pisar
-    // no metadata do revisor1 vazio).
-    const allErrorsByStep: Array<{ err: RevisorError; step: RevisorStepKey }> =
-      [];
-    for (const stepKey of REVISOR_STEPS) {
+    // Os erros vivem em vários steps: revisor1 (P1), revisor2 (P2) e
+    // overview (varredura estrutural P1+P2). Procura em todos — cada erro
+    // carrega seu próprio step de origem pra que a marcação `applied: true`
+    // volte pro metadata correto depois (sem isso, marcar erro do overview
+    // como aplicado iria pisar no metadata do revisor1 vazio).
+    const allErrorsByStep: Array<{
+      err: RevisorError;
+      step: ErrorSourceStepKey;
+    }> = [];
+    for (const stepKey of ERROR_SOURCE_STEPS) {
       const errs = roteiro.outputs[stepKey]?.metadata?.errors ?? [];
       for (const err of errs) allErrorsByStep.push({ err, step: stepKey });
     }
@@ -460,10 +470,11 @@ export const useWizard = create<WizardState>((set, get) => ({
     }
 
     // Agrupa os erros aplicados por step de origem — cada um vai atualizar
-    // SEU metadata, sem cruzar pro outro revisor.
-    const appliedByStep: Record<RevisorStepKey, Set<string>> = {
+    // SEU metadata, sem cruzar pro outro source.
+    const appliedByStep: Record<ErrorSourceStepKey, Set<string>> = {
       revisor1: new Set(),
       revisor2: new Set(),
+      overview: new Set(),
     };
     for (const t of targets) {
       if (applied.includes(t.err.id)) appliedByStep[t.step].add(t.err.id);
@@ -488,17 +499,17 @@ export const useWizard = create<WizardState>((set, get) => ({
         }),
       };
 
-      // Marca os erros aplicados em cada outputs.revisorN.metadata.errors[].
-      const revisorPatches: Partial<Record<RevisorStepKey, StepOutput>> = {};
-      for (const stepKey of REVISOR_STEPS) {
-        const revisor = s.roteiro.outputs[stepKey];
+      // Marca os erros aplicados em cada outputs.<step>.metadata.errors[].
+      const stepPatches: Partial<Record<ErrorSourceStepKey, StepOutput>> = {};
+      for (const stepKey of ERROR_SOURCE_STEPS) {
+        const source = s.roteiro.outputs[stepKey];
         const stepApplied = appliedByStep[stepKey];
-        if (!revisor || stepApplied.size === 0) continue;
-        revisorPatches[stepKey] = {
-          ...revisor,
+        if (!source || stepApplied.size === 0) continue;
+        stepPatches[stepKey] = {
+          ...source,
           metadata: {
-            ...revisor.metadata,
-            errors: (revisor.metadata?.errors ?? []).map((e) =>
+            ...source.metadata,
+            errors: (source.metadata?.errors ?? []).map((e) =>
               stepApplied.has(e.id)
                 ? { ...e, applied: true, appliedAt: now }
                 : e,
@@ -513,8 +524,9 @@ export const useWizard = create<WizardState>((set, get) => ({
           outputs: {
             ...s.roteiro.outputs,
             escrita: updatedEscrita,
-            ...(revisorPatches.revisor1 && { revisor1: revisorPatches.revisor1 }),
-            ...(revisorPatches.revisor2 && { revisor2: revisorPatches.revisor2 }),
+            ...(stepPatches.revisor1 && { revisor1: stepPatches.revisor1 }),
+            ...(stepPatches.revisor2 && { revisor2: stepPatches.revisor2 }),
+            ...(stepPatches.overview && { overview: stepPatches.overview }),
           },
         }),
       };
@@ -526,9 +538,11 @@ export const useWizard = create<WizardState>((set, get) => ({
   applyRevisorCorrection: (errorId) => {
     const state = get();
     const outputs = state.roteiro?.outputs;
-    const err =
-      outputs?.revisor1?.metadata?.errors?.find((e) => e.id === errorId) ??
-      outputs?.revisor2?.metadata?.errors?.find((e) => e.id === errorId);
+    let err: RevisorError | undefined;
+    for (const k of ERROR_SOURCE_STEPS) {
+      err = outputs?.[k]?.metadata?.errors?.find((e) => e.id === errorId);
+      if (err) break;
+    }
     const label = err
       ? `Antes da correção do Erro #${err.numero}`
       : "Antes da correção do Revisor";
@@ -546,10 +560,10 @@ export const useWizard = create<WizardState>((set, get) => ({
     const outputs = roteiro.outputs;
     if (!outputs.escrita?.content) return;
 
-    // Descobre em qual revisor (1 ou 2) está esse erro.
-    let stepKey: RevisorStepKey | null = null;
+    // Descobre em qual step de origem está esse erro (revisor1, revisor2, overview).
+    let stepKey: ErrorSourceStepKey | null = null;
     let err: RevisorError | undefined;
-    for (const k of REVISOR_STEPS) {
+    for (const k of ERROR_SOURCE_STEPS) {
       const found = outputs[k]?.metadata?.errors?.find((e) => e.id === errorId);
       if (found) {
         stepKey = k;
