@@ -11,7 +11,7 @@ import type {
 } from "@/types/roteiro";
 import { STEP_ORDER, REVISOR_STEPS } from "@/types/roteiro";
 import { scheduleSave, flushPendingSave } from "@/lib/storage";
-import { applyCorrections } from "@/lib/parse-revisor-output";
+import { applyCorrections, stripXmlCruft } from "@/lib/parse-revisor-output";
 import { dedupChapters } from "@/lib/dedup-chapters";
 import { concatenateChapters } from "@/lib/parse-escrita-output";
 
@@ -580,17 +580,27 @@ export const useWizard = create<WizardState>((set, get) => ({
 
     const now = new Date().toISOString();
 
+    // Defesa final: sanitiza o conteúdo + chapters vindos da IA antes de
+    // gravar. Cobre o caso (raro) em que o agente de correção via IA emite
+    // um capítulo com tag XML do schema cravada — mesma família de bug do
+    // applyCorrections via find+replace.
+    const sanitizedContent = stripXmlCruft(newContent);
+    const sanitizedChapters: EscritaChapter[] = newChapters.map((ch) => ({
+      ...ch,
+      content: stripXmlCruft(ch.content),
+    }));
+
     set((s) => {
       if (!s.roteiro) return s;
 
       const updatedEscrita: StepOutput = {
         ...s.roteiro.outputs.escrita!,
-        content: newContent,
+        content: sanitizedContent,
         edited: true,
         editedAt: now,
         metadata: {
           ...s.roteiro.outputs.escrita!.metadata,
-          chapters: newChapters,
+          chapters: sanitizedChapters,
         },
       };
 

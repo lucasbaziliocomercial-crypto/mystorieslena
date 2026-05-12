@@ -48,27 +48,43 @@ function getInner(block: string, tagName: string): string | undefined {
 
 /**
  * Remove tags do schema <erros_detalhados> que tenham sido capturadas DENTRO
- * de um campo (trecho_original / trecho_corrigido / por_que_alterado).
+ * de um campo de RevisorError (trecho_original / trecho_corrigido /
+ * por_que_alterado) ou que tenham sido injetadas no roteiro final via
+ * applyCorrections quando o LLM emitiu um trecho_corrigido mal-formado.
  *
  * Cenário do bug que motivou isso: o LLM ocasionalmente emite um <erro> em
  * que o `<trecho_corrigido>` contém, como texto, literalmente as tags do
- * próximo erro (ou tags de fechamento aninhadas). O parser greedy/lazy capta
- * essa string como o conteúdo do campo e, ao chamar `applyCorrections`, o
- * find+replace literal INSERE essas tags no roteiro final da Escrita — fica
- * cravado "...</trecho_original> <trecho_corrigido>..." no meio da narrativa.
+ * próximo erro (ou tags de fechamento aninhadas). O parser captura essa
+ * string como o conteúdo do campo e o find+replace literal injeta as tags
+ * no roteiro — fica cravado "...</trecho_original> <trecho_corrigido>..."
+ * no meio da narrativa do Step 4.
  *
- * Sanitização defensiva: qualquer tag do schema dentro de um campo é cruft
- * do modelo, NÃO conteúdo legítimo do roteiro (o roteiro nunca contém XML).
- * Removemos sem mercê. Colapsamos whitespace duplicado deixado pela remoção.
+ * O roteiro de Romance NUNCA contém XML legítimo, então qualquer ocorrência
+ * dessas tags é cruft e some sem perda.
+ *
+ * `sanitizeXmlCruft`  — strip + normaliza whitespace (campos curtos).
+ * `stripXmlCruft`     — só strip, preserva whitespace (textos longos como
+ *                       o roteiro inteiro, onde colapsar `\n{3,}` quebraria
+ *                       formatação intencional de cenas/parágrafos).
  */
 const XML_CRUFT_RE =
   /<\/?(?:erros_detalhados|erro|trecho_original|trecho_corrigido|por_que_alterado)\b[^>]*>/gi;
 
+export function hasXmlCruft(text: string): boolean {
+  if (!text) return false;
+  XML_CRUFT_RE.lastIndex = 0;
+  return XML_CRUFT_RE.test(text);
+}
+
+export function stripXmlCruft(text: string): string {
+  if (!text) return text;
+  if (!hasXmlCruft(text)) return text;
+  return text.replace(XML_CRUFT_RE, "");
+}
+
 export function sanitizeXmlCruft(text: string): string {
   if (!text) return text;
-  if (!XML_CRUFT_RE.test(text)) return text;
-  // Reset lastIndex porque o test() acima moveu o cursor da regex global.
-  XML_CRUFT_RE.lastIndex = 0;
+  if (!hasXmlCruft(text)) return text;
   return text
     .replace(XML_CRUFT_RE, "")
     .replace(/[ \t]{2,}/g, " ")
@@ -529,6 +545,13 @@ export function applyCorrections(
       failedIds.push(err.id);
     }
   }
+
+  // Última linha de defesa: mesmo que TODAS as camadas anteriores tenham
+  // falhado e algum trecho_corrigido tenha conseguido injetar tags do schema
+  // (`<trecho_original>`, `</trecho_corrigido>`, etc.) no texto, removemos
+  // antes de devolver. Usa `stripXmlCruft` (não `sanitize`) pra NÃO mexer
+  // em whitespace/parágrafos do roteiro — só apaga as tags cravadas.
+  text = stripXmlCruft(text);
 
   return { text, appliedIds, failedIds };
 }

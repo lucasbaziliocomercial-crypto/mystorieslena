@@ -1,7 +1,14 @@
 import { compressToUTF16, decompressFromUTF16 } from "lz-string";
 
-import type { Roteiro, StepGenerationSnapshot, StepId } from "@/types/roteiro";
+import type {
+  EscritaChapter,
+  Roteiro,
+  StepGenerationSnapshot,
+  StepId,
+  StepOutput,
+} from "@/types/roteiro";
 import { DEFAULT_CATEGORY } from "@/types/roteiro";
+import { hasXmlCruft, stripXmlCruft } from "@/lib/parse-revisor-output";
 
 const KEY = "veludo:roteiros";
 
@@ -102,6 +109,109 @@ function migrateLegacy(r: Roteiro): Roteiro {
 }
 
 /**
+ * Limpa tags do schema <erros_detalhados> que tenham vazado pro conteúdo da
+ * Escrita em aplicações de correção anteriores ao fix. O LLM ocasionalmente
+ * emitia um <trecho_corrigido> contendo, como texto, literalmente as tags
+ * `</trecho_original>` e `<trecho_corrigido>` — o find+replace do Revisor/
+ * Overview então gravava esse XML cru no roteiro final do Step 4. Sanitiza:
+ *
+ *  • outputs.escrita.content (texto monolítico)
+ *  • outputs.escrita.metadata.chapters[i].content (capítulos parseados)
+ *  • history.escrita[i].content (snapshots — o histórico também pode ter
+ *    pego cruft num save anterior)
+ *  • history.escrita[i].metadata.chapters[j].content
+ *
+ * Idempotente — só executa o replace quando detecta cruft. Roteiros limpos
+ * pulam tudo via `hasXmlCruft` early-return. Roda no listRoteiros, então o
+ * próximo save persiste a versão limpa automaticamente.
+ */
+function cleanEscritaXmlCruft(output: StepOutput | undefined):
+  | { output: StepOutput; changed: boolean }
+  | { output: StepOutput | undefined; changed: false } {
+  if (!output) return { output, changed: false };
+  let changed = false;
+  let nextContent = output.content;
+  if (hasXmlCruft(nextContent)) {
+    nextContent = stripXmlCruft(nextContent);
+    changed = true;
+  }
+  let nextChapters: EscritaChapter[] | undefined = output.metadata?.chapters;
+  if (nextChapters && nextChapters.some((c) => hasXmlCruft(c.content))) {
+    nextChapters = nextChapters.map((c) =>
+      hasXmlCruft(c.content) ? { ...c, content: stripXmlCruft(c.content) } : c,
+    );
+    changed = true;
+  }
+  if (!changed) return { output, changed: false };
+  return {
+    output: {
+      ...output,
+      content: nextContent,
+      ...(nextChapters
+        ? {
+            metadata: {
+              ...(output.metadata ?? {}),
+              chapters: nextChapters,
+            },
+          }
+        : {}),
+    },
+    changed: true,
+  };
+}
+
+function sanitizeRoteiroXmlCruft(r: Roteiro): Roteiro {
+  let changed = false;
+  let outputs = r.outputs;
+  const cleaned = cleanEscritaXmlCruft(r.outputs?.escrita);
+  if (cleaned.changed && cleaned.output) {
+    outputs = { ...r.outputs, escrita: cleaned.output };
+    changed = true;
+  }
+
+  let history = r.history;
+  const escritaHistory = r.history?.escrita;
+  if (escritaHistory && escritaHistory.length > 0) {
+    let snapshotsChanged = false;
+    const nextSnapshots: StepGenerationSnapshot[] = escritaHistory.map(
+      (snap) => {
+        const cleanContent = hasXmlCruft(snap.content)
+          ? stripXmlCruft(snap.content)
+          : snap.content;
+        const snapChapters = snap.metadata?.chapters;
+        const chaptersHasCruft =
+          !!snapChapters && snapChapters.some((c) => hasXmlCruft(c.content));
+        if (cleanContent === snap.content && !chaptersHasCruft) return snap;
+        snapshotsChanged = true;
+        return {
+          ...snap,
+          content: cleanContent,
+          ...(chaptersHasCruft && snapChapters
+            ? {
+                metadata: {
+                  ...(snap.metadata ?? {}),
+                  chapters: snapChapters.map((c) =>
+                    hasXmlCruft(c.content)
+                      ? { ...c, content: stripXmlCruft(c.content) }
+                      : c,
+                  ),
+                },
+              }
+            : {}),
+        };
+      },
+    );
+    if (snapshotsChanged) {
+      history = { ...(r.history ?? {}), escrita: nextSnapshots };
+      changed = true;
+    }
+  }
+
+  if (!changed) return r;
+  return { ...r, outputs, ...(history ? { history } : {}) };
+}
+
+/**
  * Trunca qualquer pilha de history que esteja acima do HISTORY_CAP. Roteiros
  * salvos por versões antigas podem ter até 20 snapshots — esse prune roda na
  * leitura pra que a primeira gravação após a atualização já saia enxuta.
@@ -164,6 +274,7 @@ export function listRoteiros(): Roteiro[] {
     return parsed
       .map(migrateLegacy)
       .map(pruneHistory)
+      .map(sanitizeRoteiroXmlCruft)
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   } catch {
     return [];
