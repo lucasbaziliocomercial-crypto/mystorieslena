@@ -28,7 +28,8 @@ export type RewriteValidationReason =
   | "echo"
   | "too-short"
   | "too-long"
-  | "instruction-prefix";
+  | "instruction-prefix"
+  | "marker-stripped";
 
 export interface RewriteValidationInput {
   newContent: string;
@@ -65,6 +66,14 @@ const ECHO_MIN_CONTENT_WORDS = 30;
  */
 const INSTRUCTION_PREFIX_RE =
   /^\s*(?:Expandir|Encurtar|Adicionar|Remover|Reescrever|Incluir|Aplicar|Corrigir|Mudar|Substituir|Alterar|Trocar|Ajustar|Refazer)\b[^\n]{0,400}?(?:\([a-z]\)|aproximadamente\s+\d|conforme\s+(?:cravado|a\s+estrutura|o\s+aprovado))/i;
+
+// Marcadores que o export-html.ts depende pra calcular coloração verde da
+// voz masculina na Parte 2. Apagá-los no reescrita quebra o destaque no PDF
+// final — `### ✦ Nome` deixa o parágrafo sem POV detectado, `# PARTE N`
+// faz o walker perder o boundary de Parte. Aceita ✦/♦/◆ porque o LLM
+// alterna entre eles (mesmo conjunto que POV_SYMBOL_CLASS em export-html.ts).
+const POV_MARKER_RE = /^###\s+[✦♦◆]/gm;
+const PART_MARKER_RE = /^#\s+PARTE\s+[12]\b/gim;
 
 function normalizeForCompare(s: string): string {
   return s
@@ -163,6 +172,23 @@ export function validateRewrite(
         };
       }
     }
+  }
+
+  const originalContent = input.originalContent ?? "";
+  const originalPovMarkers = originalContent.match(POV_MARKER_RE)?.length ?? 0;
+  const newPovMarkers = newContent.match(POV_MARKER_RE)?.length ?? 0;
+  const originalPartMarkers = originalContent.match(PART_MARKER_RE)?.length ?? 0;
+  const newPartMarkers = newContent.match(PART_MARKER_RE)?.length ?? 0;
+  if (
+    newPovMarkers < originalPovMarkers ||
+    newPartMarkers < originalPartMarkers
+  ) {
+    return {
+      ok: false,
+      reason: "marker-stripped",
+      message:
+        "A reescrita apagou marcadores de POV/Parte (### ✦ Nome ou # PARTE N). Esses markers são necessários pra coloração do PDF — texto original mantido.",
+    };
   }
 
   return { ok: true };

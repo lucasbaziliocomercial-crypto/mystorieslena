@@ -3,7 +3,6 @@
 import {
   memo,
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -36,8 +35,6 @@ import {
 import { detectDuplicateChapters } from "@/lib/dedup-chapters";
 import { useWizard } from "@/store/wizard";
 import { cn } from "@/lib/utils";
-import { ConfirmAiRewriteDialog } from "./ConfirmAiRewriteDialog";
-import { countWords } from "@/lib/word-count";
 
 interface Props {
   errors: RevisorError[];
@@ -97,14 +94,6 @@ export function RevisorErrorsView({ errors, escritaSnapshotHash }: Props) {
     [escritaChapters],
   );
 
-  // Modal de confirmação pra reescrita ampla (escopo "chapter" — erros sem
-  // âncora cirúrgica). Lifted aqui em vez de em cada card pra simplificar e
-  // permitir reuso futuro pelo "Aplicar todas pendentes".
-  const [confirmingErrorId, setConfirmingErrorId] = useState<string | null>(null);
-  // Após confirmação no modal, esse signal dispara o card a aplicar de fato.
-  const [confirmedErrorIds, setConfirmedErrorIds] = useState<Set<string>>(
-    () => new Set(),
-  );
   // Resposta da última dedup pra mostrar feedback "3 cópias removidas".
   const [dedupFeedback, setDedupFeedback] = useState<string | null>(null);
 
@@ -198,16 +187,16 @@ export function RevisorErrorsView({ errors, escritaSnapshotHash }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classifiedPending, escritaHash, escritaChapters]);
 
-  // Para o "Aplicar todas pendentes" — só os de escopo "window" rodam em
-  // batch. Os que exigem confirmação (chapter) ou estão bloqueados (dedup
-  // pendente) precisam de ação individual.
+  // Para o "Aplicar todas pendentes" — escopos "window" e "smart-locate"
+  // rodam em batch (ambos são cirúrgicos: window faz splice direto, smart-
+  // locate faz find+replace via XML pairs do Opus). Bloqueados (duplicatas
+  // ou sem cap identificado) ficam de fora — precisam de ação manual.
   const pendingAiIds = useMemo(
     () =>
       pendingAiIdsAll.filter((id) => {
         const info = scopeInfoById.get(id);
-        // Sem info = sem escrita; será desabilitado no card.
         if (!info) return false;
-        return info.kind === "window";
+        return info.kind === "window" || info.kind === "smart-locate";
       }),
     [pendingAiIdsAll, scopeInfoById],
   );
@@ -237,29 +226,23 @@ export function RevisorErrorsView({ errors, escritaSnapshotHash }: Props) {
       errorId: string,
       onChunk?: (acc: string) => void,
       signal?: AbortSignal,
-      opts?: { confirmed?: boolean },
     ) => {
       const err = errors.find((e) => e.id === errorId);
       if (!err || !escritaContent) return { applied: false };
 
-      // Bloqueio explícito: escopo sem âncora ou com duplicatas → não chama
-      // Opus. Card mostra mensagem clara pedindo dedup ou edição manual.
+      // Bloqueio explícito: escopo sem âncora cirúrgica → não chama Opus.
+      // Card mostra mensagem específica (dedup, edição manual, etc).
       const preview = previewApplyScope(err, escritaContent, escritaChapters);
       if (preview.kind === "blocked") {
+        const msg =
+          preview.blockedReason === "duplicate-chapter"
+            ? "Capítulos duplicados detectados — remova as duplicatas no banner do topo antes de aplicar."
+            : "Não foi possível identificar o capítulo do erro. Edite manualmente no Step 4.";
         return {
           applied: false,
           validationFailed: true,
-          validationMessage:
-            preview.blockedReason === "duplicate-chapter"
-              ? "Capítulos duplicados detectados — remova as duplicatas no banner do topo antes de aplicar."
-              : "Não foi possível identificar o capítulo do erro. Edite manualmente no Step 4.",
+          validationMessage: msg,
         };
-      }
-      // Reescrita ampla (cap inteiro) exige confirmação prévia. Sem isso,
-      // o caller (card) deve abrir o modal e re-chamar com {confirmed:true}.
-      if (preview.requiresConfirmation && !opts?.confirmed) {
-        setConfirmingErrorId(errorId);
-        return { applied: false, validationFailed: false, requiresConfirmation: true };
       }
 
       const result = await applySuggestionToScope({
@@ -291,27 +274,6 @@ export function RevisorErrorsView({ errors, escritaSnapshotHash }: Props) {
       `${r.removedCount} cópia${r.removedCount === 1 ? "" : "s"} removida${r.removedCount === 1 ? "" : "s"}: ${parts}.`,
     );
   }, [dedupAction]);
-
-  const confirmingError = useMemo(
-    () => (confirmingErrorId ? errors.find((e) => e.id === confirmingErrorId) : null),
-    [confirmingErrorId, errors],
-  );
-  const confirmingScope = confirmingError
-    ? scopeInfoById.get(confirmingError.id)
-    : undefined;
-  const confirmingChapter = useMemo(() => {
-    if (!confirmingError) return null;
-    return (
-      escritaChapters.find(
-        (c) =>
-          (confirmingError.parte === 1 ? "Parte 1" : confirmingError.parte === 2 ? "Parte 2" : c.part) === c.part &&
-          c.number === confirmingError.capitulo,
-      ) ?? null
-    );
-  }, [confirmingError, escritaChapters]);
-  const confirmingApproxWords = confirmingChapter
-    ? countWords(confirmingChapter.content)
-    : undefined;
 
   // Mapa errorId → kind, pra cada ErrorCard saber qual variante renderizar
   // sem reclassificar.
@@ -453,33 +415,10 @@ export function RevisorErrorsView({ errors, escritaSnapshotHash }: Props) {
               onApplyViaAi={handleApplyOneViaAi}
               scopeKind={scopeInfo?.kind}
               scopeBlockedReason={scopeInfo?.blockedReason}
-              scopeRequiresConfirmation={scopeInfo?.requiresConfirmation}
-              autoConfirm={confirmedErrorIds.has(err.id)}
-              onAutoConfirmConsumed={() =>
-                setConfirmedErrorIds((prev) => {
-                  const next = new Set(prev);
-                  next.delete(err.id);
-                  return next;
-                })
-              }
             />
           );
         })}
       </div>
-
-      <ConfirmAiRewriteDialog
-        open={!!confirmingErrorId}
-        scopeLabel={confirmingScope?.label ?? "capítulo afetado"}
-        approxWords={confirmingApproxWords}
-        errorTitle={confirmingError?.titulo}
-        onConfirm={() => {
-          if (!confirmingErrorId) return;
-          const id = confirmingErrorId;
-          setConfirmedErrorIds((prev) => new Set(prev).add(id));
-          setConfirmingErrorId(null);
-        }}
-        onCancel={() => setConfirmingErrorId(null)}
-      />
     </div>
   );
 }
@@ -618,30 +557,22 @@ interface CardProps {
   // Recebe o id do erro pra que o parent possa passar um único callback
   // memoizado para todos os cards (sem `() => applyOne(err.id)` por render).
   onApply: (errorId: string) => { applied: boolean; found: boolean };
-  /** Fallback IA (Opus em escopo cirúrgico) — usado quando kind=unmatched
-   *  ou kind=informativo (com trecho_corrigido). Stream de chunks via onChunk
-   *  pra preview ao vivo no card. */
+  /** Fallback IA (Opus em janela cirúrgica) — só roda quando o escopo é
+   *  "window". Qualquer outro escopo cai em manual no Step 4 (sem reescrita
+   *  de capítulo inteiro). Stream de chunks via onChunk pra preview ao vivo. */
   onApplyViaAi: (
     errorId: string,
     onChunk?: (acc: string) => void,
     signal?: AbortSignal,
-    opts?: { confirmed?: boolean },
   ) => Promise<{
     applied: boolean;
     validationFailed?: boolean;
     validationMessage?: string;
-    requiresConfirmation?: boolean;
   }>;
-  /** Tipo de escopo pré-calculado pelo parent (window/chapter/blocked). */
+  /** Tipo de escopo pré-calculado pelo parent (window/blocked). */
   scopeKind?: ScopeKind;
-  /** Motivo do bloqueio (duplicate-chapter / no-chapter-anchor). */
+  /** Motivo do bloqueio. */
   scopeBlockedReason?: BlockedReason;
-  /** Se true, clicar em "Aplicar via IA" abre o modal de confirmação primeiro. */
-  scopeRequiresConfirmation?: boolean;
-  /** Setado pelo parent quando a usuária aprovou no modal — dispara aplicação. */
-  autoConfirm?: boolean;
-  /** Callback pra parent limpar o flag autoConfirm depois de consumido. */
-  onAutoConfirmConsumed?: () => void;
 }
 
 /**
@@ -672,9 +603,6 @@ const ErrorCard = memo(function ErrorCard({
   onApplyViaAi,
   scopeKind,
   scopeBlockedReason,
-  scopeRequiresConfirmation,
-  autoConfirm,
-  onAutoConfirmConsumed,
 }: CardProps) {
   const { emoji, label } = gravityLabel(error.gravidade);
   const [pending, startTransition] = useTransition();
@@ -722,65 +650,42 @@ const ErrorCard = memo(function ErrorCard({
     });
   };
 
-  const handleApplyViaAi = useCallback(
-    async (opts?: { confirmed?: boolean }) => {
-      setAiError(null);
-      setAiPreview("");
-      // Quando o parent ainda vai abrir o modal, NÃO mostramos spinner —
-      // a aplicação só começa depois da confirmação.
-      const willOpenModal =
-        scopeRequiresConfirmation && !opts?.confirmed;
-      if (!willOpenModal) setAiPending(true);
-      aiAbortRef.current = new AbortController();
-      try {
-        const result = await onApplyViaAi(
-          error.id,
-          (acc) => setAiPreview(acc),
-          aiAbortRef.current.signal,
-          opts,
+  const handleApplyViaAi = useCallback(async () => {
+    setAiError(null);
+    setAiPreview("");
+    setAiPending(true);
+    aiAbortRef.current = new AbortController();
+    try {
+      const result = await onApplyViaAi(
+        error.id,
+        (acc) => setAiPreview(acc),
+        aiAbortRef.current.signal,
+      );
+      if (result.validationFailed) {
+        setAiError(
+          result.validationMessage ??
+            "A IA devolveu uma resposta inesperada — texto original mantido.",
         );
-        if (result.requiresConfirmation) {
-          // Parent abriu o modal — esperamos autoConfirm voltar.
-          setAiPending(false);
-          return;
-        }
-        if (result.validationFailed) {
-          setAiError(
-            result.validationMessage ??
-              "A IA devolveu uma resposta inesperada — texto original mantido.",
-          );
-        } else if (!result.applied) {
-          setAiError(
-            "Não foi possível aplicar a correção via IA. Tente novamente ou edite manualmente no Step 4.",
-          );
-        }
-      } catch (e) {
-        if ((e as Error)?.name !== "AbortError") {
-          setAiError(
-            (e as Error)?.message ?? "Erro inesperado ao aplicar via IA.",
-          );
-        }
-      } finally {
-        if (!willOpenModal) setAiPending(false);
-        aiAbortRef.current = null;
+      } else if (!result.applied) {
+        setAiError(
+          "Não foi possível aplicar a correção via IA. Tente novamente ou edite manualmente no Step 4.",
+        );
       }
-    },
-    [error.id, onApplyViaAi, scopeRequiresConfirmation],
-  );
+    } catch (e) {
+      if ((e as Error)?.name !== "AbortError") {
+        setAiError(
+          (e as Error)?.message ?? "Erro inesperado ao aplicar via IA.",
+        );
+      }
+    } finally {
+      setAiPending(false);
+      aiAbortRef.current = null;
+    }
+  }, [error.id, onApplyViaAi]);
 
   const handleCancelAi = () => {
     aiAbortRef.current?.abort();
   };
-
-  // Quando o parent sinaliza que a usuária confirmou no modal, dispara
-  // a aplicação efetiva e limpa o flag pra evitar dispatch duplicado.
-  useEffect(() => {
-    if (autoConfirm && !aiPending) {
-      onAutoConfirmConsumed?.();
-      void handleApplyViaAi({ confirmed: true });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoConfirm]);
 
   // Append "(Parte N)" no título se a parte é conhecida E o agente ainda
   // não colocou isso no titulo (alguns títulos já vêm com a info — não
@@ -904,7 +809,7 @@ const ErrorCard = memo(function ErrorCard({
           </div>
         )}
 
-        {kind === "unmatched" && !error.applied && !isBlocked && (
+        {kind === "unmatched" && !error.applied && scopeKind === "window" && (
           <div className="rounded-md border border-sky-300 bg-sky-50 px-3 py-2.5 flex items-start gap-2">
             <Sparkles className="size-4 text-sky-700 mt-0.5 shrink-0" />
             <div className="flex flex-col gap-0.5">
@@ -912,9 +817,44 @@ const ErrorCard = memo(function ErrorCard({
                 Trecho âncora fora de sincronia
               </span>
               <span className="text-xs text-sky-900 leading-relaxed">
-                {scopeKind === "window"
-                  ? 'O Revisor montou o trecho âncora em ordem trocada, mas eu localizei a região afetada. Use "Aplicar via IA" abaixo — o Opus reescreve só uma janela de ~5 parágrafos ao redor do trecho, mantendo o resto do capítulo intacto.'
-                  : 'O Revisor montou o trecho âncora em ordem trocada ou misturou parágrafos descontíguos, então a substituição literal não casa. Use "Aplicar via IA" abaixo — vai abrir uma confirmação porque o Opus precisa reescrever o capítulo inteiro.'}
+                O Revisor montou o trecho âncora em ordem trocada, mas eu
+                localizei a região afetada. Use &quot;Aplicar via IA&quot;
+                abaixo — o Opus reescreve só uma janela de ~5 parágrafos ao
+                redor do trecho, mantendo o resto do capítulo intacto.
+              </span>
+            </div>
+          </div>
+        )}
+
+        {kind === "unmatched" && !error.applied && scopeKind === "smart-locate" && (
+          <div className="rounded-md border border-sky-300 bg-sky-50 px-3 py-2.5 flex items-start gap-2">
+            <Sparkles className="size-4 text-sky-700 mt-0.5 shrink-0" />
+            <div className="flex flex-col gap-0.5">
+              <span className="text-xs font-bold text-sky-900 uppercase tracking-wide">
+                Aplicação assistida por IA
+              </span>
+              <span className="text-xs text-sky-900 leading-relaxed">
+                O trecho âncora não casou literalmente, então o Opus vai ler
+                o capítulo, localizar onde a correção entra e devolver pares
+                de find+replace. O código aplica só esses pares — o resto do
+                capítulo fica intacto.
+              </span>
+            </div>
+          </div>
+        )}
+
+        {isInformativo && !error.applied && scopeKind === "smart-locate" && (
+          <div className="rounded-md border border-sky-300 bg-sky-50 px-3 py-2.5 flex items-start gap-2">
+            <Sparkles className="size-4 text-sky-700 mt-0.5 shrink-0" />
+            <div className="flex flex-col gap-0.5">
+              <span className="text-xs font-bold text-sky-900 uppercase tracking-wide">
+                Sem trecho âncora — aplicação assistida por IA
+              </span>
+              <span className="text-xs text-sky-900 leading-relaxed">
+                A revisora descreveu o problema sem trecho literal. O Opus vai
+                ler o capítulo, identificar onde a correção entra e devolver
+                pares de find+replace — só esses pedaços mudam, o resto do
+                capítulo fica intacto.
               </span>
             </div>
           </div>
@@ -931,26 +871,24 @@ const ErrorCard = memo(function ErrorCard({
               </span>
               <span className="text-xs text-red-900 leading-relaxed">
                 {scopeBlockedReason === "duplicate-chapter"
-                  ? "Este erro toca um capítulo que aparece mais de uma vez na Escrita. Use o botão \"Remover duplicatas\" no banner amarelo do topo antes de aplicar via IA — sem isso, a reescrita pegaria várias versões."
-                  : 'O erro não identifica em qual capítulo a correção entra. Leia a sugestão abaixo e edite o roteiro manualmente no Step 4.'}
+                  ? 'Este erro toca um capítulo que aparece mais de uma vez na Escrita. Use o botão "Remover duplicatas" no banner amarelo do topo antes de aplicar via IA — sem isso, a reescrita pegaria várias versões.'
+                  : "O erro não identifica em qual capítulo a correção entra. Leia a sugestão abaixo e edite o roteiro manualmente no Step 4."}
               </span>
             </div>
           </div>
         )}
 
-        {isInformativo && !error.applied && (
+        {isInformativo && !error.applied && !isBlocked && scopeKind !== "smart-locate" && (
           <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2.5 flex items-start gap-2">
             <AlertTriangle className="size-4 text-amber-700 mt-0.5 shrink-0" />
             <div className="flex flex-col gap-0.5">
               <span className="text-xs font-bold text-amber-900 uppercase tracking-wide">
-                {canApplyViaAi
-                  ? "Sem trecho âncora — aplicar via IA"
-                  : "Revisão manual necessária"}
+                Revisão manual necessária
               </span>
               <span className="text-xs text-amber-900 leading-relaxed">
-                {canApplyViaAi
-                  ? "A revisora não conseguiu propor um trecho literal. Use \"Aplicar via IA\" abaixo — o Opus reescreve o escopo afetado seguindo a sugestão."
-                  : "A revisora não conseguiu propor um trecho literal pra aplicar automaticamente. Leia a sugestão abaixo e edite o roteiro manualmente no Step 4."}
+                A revisora não conseguiu propor um trecho literal pra aplicar
+                automaticamente. Leia a sugestão abaixo e edite o roteiro
+                manualmente no Step 4.
               </span>
             </div>
           </div>
@@ -1071,22 +1009,13 @@ const ErrorCard = memo(function ErrorCard({
             ) : (
               <Button
                 size="sm"
-                onClick={() => handleApplyViaAi()}
+                onClick={handleApplyViaAi}
                 disabled={disabled}
-                className={cn(
-                  "gap-2 text-white",
-                  scopeRequiresConfirmation
-                    ? "bg-amber-600 hover:bg-amber-700"
-                    : "bg-sky-600 hover:bg-sky-700",
-                )}
-                title={
-                  scopeRequiresConfirmation
-                    ? "Sem trecho âncora cirúrgico — vai pedir confirmação porque o Opus reescreve o capítulo inteiro"
-                    : "Opus reescreve só uma janela de ~5 parágrafos ao redor do trecho, mantendo o resto do capítulo intacto"
-                }
+                className="gap-2 bg-sky-600 hover:bg-sky-700 text-white"
+                title="Opus reescreve só uma janela de ~5 parágrafos ao redor do trecho, mantendo o resto do capítulo intacto"
               >
                 <Sparkles className="size-4" />
-                {scopeRequiresConfirmation ? "Aplicar via IA (reescreve cap)" : "Aplicar via IA"}
+                Aplicar via IA
               </Button>
             )
           ) : (

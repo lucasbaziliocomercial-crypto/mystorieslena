@@ -35,8 +35,15 @@ interface SuggestionItem {
 
 interface Body {
   escritaContent: string;
-  /** Escopo do trecho: janela de parágrafos, capítulo, parte, ou roteiro inteiro. */
-  scopeKind?: "window" | "chapter" | "part" | "full";
+  /**
+   * Escopo do trecho:
+   * - window: janela de ~5 parágrafos. Opus reescreve a janela inteira.
+   * - smart-locate: cap inteiro como CONTEXTO. Opus devolve pares XML
+   *   `<correcao><original/><corrigido/></correcao>` — código aplica
+   *   find+replace deterministicamente. Cap nunca é reescrito direto.
+   * - chapter/part/full: LEGADO (mantido pra compat — nunca chamado).
+   */
+  scopeKind?: "window" | "smart-locate" | "chapter" | "part" | "full";
   /** Rótulo legível ("Cap. 4 da Parte 2", "Parte 1 inteira"). */
   scopeLabel?: string;
   /** Lista de sugestões a aplicar de uma vez. */
@@ -75,6 +82,28 @@ ESCOPO "WINDOW" (janela de ~3-5 parágrafos contíguos dentro de um capítulo):
 • Quando a sugestão tem "Trecho âncora" definido: é nele que a mudança acontece — os outros parágrafos servem só de contexto.
 • OBRIGATÓRIO APLICAR A MUDANÇA: a sugestão DEVE produzir uma alteração visível no texto. Devolver o input quase intacto (só normalizando whitespace/pontuação) é FALHA — significa que você não fez o trabalho. Se a sugestão pede remover repetição, REMOVA. Se pede trocar nome, TROQUE. Se pede cortar redundância, CORTE. Nunca devolva a janela "como veio" achando que está ok — o sistema vai rejeitar e o usuário vai reclamar.
 • Quando o problema é REPETIÇÃO ENTRE PARÁGRAFOS (mesmo dado, frase ou metáfora aparecendo 2+ vezes na janela), reescreva TODAS as ocorrências dentro da janela — não basta corrigir uma. Mantenha apenas a primeira menção completa e enxugue as repetições subsequentes.
+
+🟢 CRÍTICO — PRESERVAR MARCADORES DE POV E PARTE:
+Se o trecho recebido contém um header de POV (\`### ✦ Nome\`, podendo usar os símbolos ✦/♦/◆) ou um separador de Parte (\`# PARTE 1\` / \`# PARTE 2\`), COPIE ESSE MARCADOR EXATAMENTE COMO VEIO na sua saída — mesma linha, mesmo símbolo, mesma posição relativa em relação aos parágrafos vizinhos. Esses marcadores são invisíveis pro leitor final mas são USADOS PRA COLORAÇÃO DO PDF (voz masculina destacada em verde na Parte 2). Se você apagar, mover ou substituir esses headers, a validação rejeita a sua resposta e o texto original é mantido — você perde o trabalho. Não invente novos markers; apenas preserve os que estão no input.
+
+ESCOPO "SMART-LOCATE" (cap inteiro como contexto, devolva APENAS pares XML find+replace):
+• Você recebe o CAPÍTULO INTEIRO mas NÃO PODE reescrevê-lo. Sua função é localizar onde a correção entra e devolver SOMENTE os trechos pequenos a trocar — o código aplica deterministicamente.
+• Formato OBRIGATÓRIO de saída (sem prefácio, sem markdown):
+
+<correcoes>
+<correcao>
+<original>[bloco contíguo de texto copiado LETRA-POR-LETRA do capítulo, incluindo pontuação, travessões e quebras de linha originais]</original>
+<corrigido>[a versão corrigida desse mesmo bloco]</corrigido>
+</correcao>
+</correcoes>
+
+• <original> DEVE ser uma cópia LITERAL de uma sequência contígua que aparece NO CAPÍTULO. Qualquer divergência (aspa curva vs reta, espaço extra, palavra trocada) quebra o find+replace.
+• <corrigido> resolve o problema descrito pelo Revisor. Mantenha tamanho similar ao original — não expanda nem encolha drasticamente.
+• Mantenha cada par PEQUENO: idealmente 1-3 parágrafos por <correcao>. Não engloba o cap inteiro.
+• Erros TRANSVERSAIS (mesma repetição em N pontos do cap): emita N blocos <correcao>, um por ocorrência. Cada par fica pequeno.
+• MÍNIMO UM par. Sem nenhum <correcao> a aplicação falha.
+• NÃO devolva o capítulo modificado. NÃO devolva headers. NÃO devolva narrativa solta. SOMENTE o bloco <correcoes>...</correcoes>.
+• NÃO ecoe a instrução da sugestão dentro de <original> ou <corrigido> — esses campos só contêm prosa do capítulo (original) e prosa corrigida (corrigido).
 
 ESCOPO "CHAPTER" / "PART" / "FULL":
 • Mantenha banners de Parte recebidos: "═══════════════════════════════════════\\nPARTE 1\\n═══════════════════════════════════════"
@@ -121,6 +150,8 @@ export async function POST(req: NextRequest) {
   const escopoTexto =
     scopeKind === "window"
       ? `UMA JANELA DE PARÁGRAFOS DENTRO DE UM CAPÍTULO${scopeLabel ? ` (${scopeLabel})` : ""}`
+      : scopeKind === "smart-locate"
+      ? `UM CAPÍTULO INTEIRO COMO CONTEXTO — VOCÊ DEVE DEVOLVER APENAS PARES XML <correcao><original/><corrigido/></correcao>, SEM REESCREVER O CAPÍTULO${scopeLabel ? ` (${scopeLabel})` : ""}`
       : scopeKind === "chapter"
       ? `UM CAPÍTULO ISOLADO${scopeLabel ? ` (${scopeLabel})` : ""}`
       : scopeKind === "part"
@@ -163,12 +194,23 @@ export async function POST(req: NextRequest) {
   );
 
   const formatRules =
-    scopeKind === "window"
+    scopeKind === "smart-locate"
+      ? [
+          "• Devolva APENAS o bloco <correcoes>...</correcoes> contendo um ou mais <correcao>.",
+          "• Cada <original> é UMA CÓPIA LITERAL de uma sequência contígua do capítulo (letra-por-letra, inclui pontuação, travessões, quebras de linha).",
+          "• Cada <corrigido> é a versão corrigida desse mesmo trecho — resolve o problema da sugestão.",
+          "• Mantenha cada par PEQUENO: 1-3 parágrafos. Não engloba o cap inteiro num par só.",
+          "• Erros transversais (mesma repetição em vários pontos): emita um <correcao> por ocorrência.",
+          "• NÃO devolva o capítulo todo. NÃO devolva headers. NÃO devolva prosa solta. SÓ o XML.",
+          "• NÃO ecoe o texto da sugestão dentro do XML — só prosa do roteiro.",
+        ].join("\n")
+      : scopeKind === "window"
       ? [
           "• NÃO inicie nem termine com header de capítulo (`# Capítulo N`) — o escopo é só uma fatia de parágrafos consecutivos do meio/início/fim do cap.",
           "• Devolva exatamente os parágrafos modificados — mesma quantidade de blocos separados por `\\n\\n` que o input tinha.",
           "• Preserve literalmente os parágrafos vizinhos da âncora (servem só de contexto). Modifique APENAS o que a sugestão pede.",
-          "• Sem banners de Parte (`═══`), sem headers, sem comentários.",
+          "• Se o input começa com `### ✦ Nome` (header de POV) ou `# PARTE 1`/`# PARTE 2`, COPIE essa linha intacta no início da sua saída — esses headers são usados pra coloração do PDF.",
+          "• Sem comentários, sem `[aplicado]`, sem banners decorativos (`═══`) extras que não estejam no input.",
           "• 1ª pessoa, voz da FMC, tom narrativo.",
         ].join("\n")
       : [
@@ -180,8 +222,13 @@ export async function POST(req: NextRequest) {
           "• 1ª pessoa, voz da FMC, tom narrativo",
         ].join("\n");
 
+  const formatHeader =
+    scopeKind === "smart-locate"
+      ? "Devolva APENAS o XML <correcoes>...</correcoes> — nada mais. Regras:"
+      : "Devolva o ESCOPO RECEBIDO modificado, mantendo:";
+
   sections.push(
-    `━━━ FORMATO DE SAÍDA ━━━\n\nDevolva o ESCOPO RECEBIDO modificado, mantendo:\n${formatRules}\n\nAplique TODAS as ${suggestions.length} sugestões acima, dentro do escopo recebido. Sem comentários, sem prefixos. Comece direto pelo conteúdo modificado.`,
+    `━━━ FORMATO DE SAÍDA ━━━\n\n${formatHeader}\n${formatRules}\n\nAplique TODAS as ${suggestions.length} sugestões acima, dentro do escopo recebido. Sem comentários, sem prefixos. Comece direto pelo conteúdo modificado.`,
   );
 
   const userMessage = sections.join("\n\n");

@@ -75,9 +75,18 @@ export function CopyPartButton({
             ) ??
             detectMaleLeadFromFullRoteiro(escritaContent)
           : null;
+      // Chapters filtrados pela parte — passa pro export como source-of-truth
+      // do `chapter.part`, garantindo que o walker mantenha `inParte2` certo
+      // mesmo se o texto bruto tiver perdido o header `# PARTE 2` (ele já é
+      // removido pelo `splitRoteiroByParts`, mas chapters fortalecem o fallback).
+      const partLabel = part === 1 ? "Parte 1" : "Parte 2";
+      const partChapters = roteiro.outputs.escrita?.metadata?.chapters?.filter(
+        (c) => c.part === partLabel,
+      );
       const bodyHtml = escritaContentToHtml(partContent, {
         maleLeadName,
         forceParte2: part === 2,
+        chapters: partChapters,
       });
       const html = buildEscritaHtmlDocument("", bodyHtml);
       const text = partContent;

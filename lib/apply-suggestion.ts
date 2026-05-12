@@ -23,8 +23,35 @@ import {
   concatenateChapters,
   parseEscritaChaptersDirect,
 } from "./parse-escrita-output";
+import { findTrechoInText } from "./parse-revisor-output";
 import { findTrechoWindow } from "./trecho-window";
 import { validateRewrite } from "./validate-rewrite";
+
+/**
+ * Parser dos pares <correcao><original/><corrigido/></correcao> emitidos
+ * pelo Opus no modo smart-locate. Tolerante a whitespace e a wrappers
+ * inesperados (<correcoes>, headers de prefácio). Devolve só os pares
+ * bem-formados; pares com tags faltando são descartados silenciosamente.
+ */
+function parseSmartLocatePairs(
+  xml: string,
+): Array<{ original: string; corrigido: string }> {
+  const result: Array<{ original: string; corrigido: string }> = [];
+  // Match não-guloso pra capturar bloco a bloco.
+  const blockRe = /<correcao>([\s\S]*?)<\/correcao>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = blockRe.exec(xml)) !== null) {
+    const body = m[1] ?? "";
+    const origMatch = body.match(/<original>([\s\S]*?)<\/original>/i);
+    const fixMatch = body.match(/<corrigido>([\s\S]*?)<\/corrigido>/i);
+    if (!origMatch || !fixMatch) continue;
+    const original = origMatch[1]!.trim();
+    const corrigido = fixMatch[1]!.trim();
+    if (!original) continue;
+    result.push({ original, corrigido });
+  }
+  return result;
+}
 
 /**
  * Normaliza texto pra comparação de "mudou de verdade?": colapsa whitespace,
@@ -48,8 +75,38 @@ function isNoOpRewrite(original: string, rewritten: string): boolean {
   );
 }
 
-export type ScopeKind = "window" | "chapter" | "part" | "full" | "blocked";
+/**
+ * Tipos de escopo pra aplicação automática:
+ *  - "window": janela cirúrgica achada via partial-match. Caminho mais rápido
+ *    (~10s). Splice no offset conhecido.
+ *  - "smart-locate": trecho_original não casa ou erro é informativo (sem
+ *    âncora literal). Opus recebe o cap inteiro como contexto MAS devolve
+ *    apenas pares find+replace XML — código aplica deterministicamente. O
+ *    cap NUNCA é reescrito inteiro: só os pedaços que o Opus aponta mudam.
+ *  - "chapter" / "part" / "full": LEGADO, não chamado mais por
+ *    `computeApplyScope`. Mantido como código defensivo.
+ *  - "blocked": casos em que nem smart-locate é seguro (duplicatas, sem
+ *    cap identificado). UI mostra mensagem de edição manual.
+ */
+export type ScopeKind =
+  | "window"
+  | "smart-locate"
+  | "chapter"
+  | "part"
+  | "full"
+  | "blocked";
 
+/**
+ * Razões pra UI bloquear "Aplicar via IA":
+ *  - duplicate-chapter: cap aparece N×, rodar dedup primeiro.
+ *  - no-chapter-anchor: erro sem parte+capítulo identificáveis — sem âncora
+ *    pra escopo cirúrgico nem pra smart-locate (sem cap pra entregar de
+ *    contexto).
+ *
+ * Erros sem janela (no-window-match) ou descritivos (informativo) NÃO são
+ * mais bloqueados — caem em "smart-locate" e o Opus localiza o ponto a
+ * corrigir e devolve pares find+replace XML.
+ */
 export type BlockedReason = "duplicate-chapter" | "no-chapter-anchor";
 
 export interface ApplyScope {
@@ -66,7 +123,7 @@ export interface ApplyScope {
    */
   windowStart?: number;
   windowEnd?: number;
-  /** Window-only: capítulo pai do qual a janela foi recortada. */
+  /** Window/smart-locate: capítulo pai (referência pra splice depois). */
   parentChapter?: EscritaChapter;
   /**
    * Chapter-only: UI deve pedir confirmação antes de mandar pro Opus —
@@ -97,19 +154,18 @@ export interface SuggestionApplyResult {
 
 /**
  * Calcula o escopo cirúrgico pra aplicar a sugestão. Cascata:
- *   1. trechoOriginal + parte + capítulo identificados + 1 cap match
- *      → tenta findTrechoWindow no cap → kind="window".
- *      → não acha janela → kind="chapter" (requiresConfirmation).
- *   2. erro informativo (sem trechoOriginal) + 1 cap match
- *      → kind="chapter" (requiresConfirmation).
- *   3. capítulo duplicado detectado → kind="blocked"
- *      (UI pede pra rodar dedup primeiro).
- *   4. sem parte+capitulo → kind="blocked" (sem âncora).
+ *   1. capítulo duplicado detectado → kind="blocked" (rodar dedup primeiro).
+ *   2. parte + capítulo identificados + cap encontrado:
+ *      a. trechoOriginal casa via findTrechoWindow → kind="window" (rápido).
+ *      b. caso contrário (trecho desordenado OU sem trecho) → kind="smart-locate":
+ *         Opus recebe o cap inteiro como contexto e devolve pares find+replace
+ *         XML. Código aplica deterministicamente — cap nunca é reescrito
+ *         inteiro.
+ *   3. sem parte+capitulo → kind="blocked" (sem cap pra entregar de contexto).
  *
- * NUNCA mais escalonamos pra Parte inteira ou roteiro inteiro
- * automaticamente — a usuária reclamou que parecia "reescrita da história
- * inteira". Casos transversais reais (adicionar epílogo etc) caem em
- * "chapter" com requiresConfirmation.
+ * O caminho "reescrever capítulo/Parte/roteiro inteiro via IA" foi REMOVIDO.
+ * Mesmo o smart-locate só DEVOLVE pares de trechos pra trocar — Opus não
+ * reescreve o cap, só localiza onde mexer.
  */
 export function computeApplyScope(
   err: RevisorError,
@@ -142,7 +198,7 @@ export function computeApplyScope(
       const cap = matchingCaps[0]!;
       const trecho = err.trechoOriginal?.trim();
 
-      // Tenta janela cirúrgica primeiro (caminho rápido pra erros com âncora).
+      // Caminho rápido: janela cirúrgica achada por partial-match.
       if (trecho) {
         const window = findTrechoWindow(cap.content, trecho);
         if (window.found) {
@@ -158,18 +214,21 @@ export function computeApplyScope(
         }
       }
 
-      // Sem âncora ou janela não computável → cap inteiro com confirmação.
+      // Fallback: smart-locate. Opus recebe o cap inteiro de contexto e
+      // devolve pares find+replace XML. Não reescreve nada — só identifica
+      // onde mexer e propõe o texto novo do(s) trecho(s) afetado(s).
       return {
-        kind: "chapter",
+        kind: "smart-locate",
         chapters: [cap],
         content: cap.content,
         label: `Cap. ${err.capitulo} da ${partLabel}`,
-        requiresConfirmation: true,
+        parentChapter: cap,
       };
     }
   }
 
-  // Sem âncora suficiente pra escopo cirúrgico — bloqueia em vez de escalar.
+  // Sem parte+capítulo identificáveis — não dá pra entregar contexto pro
+  // smart-locate. Edição manual.
   return {
     kind: "blocked",
     chapters: [],
@@ -302,7 +361,94 @@ export async function applySuggestionsToScope(params: {
   let newFullContent: string;
   let newChapters: EscritaChapter[];
 
-  if (scope.kind === "window") {
+  if (scope.kind === "smart-locate") {
+    if (!scope.parentChapter) {
+      console.warn(`[apply-suggestion] smart-locate sem parentChapter`);
+      return { applied: false };
+    }
+    const parent = scope.parentChapter;
+    // Parse os pares <correcao><original/><corrigido/></correcao>.
+    const pairs = parseSmartLocatePairs(newScopeContent);
+    if (pairs.length === 0) {
+      return {
+        applied: false,
+        validationFailed: true,
+        validationMessage:
+          "A IA não devolveu nenhum par de correção estruturado. Tente novamente ou edite manualmente no Step 4.",
+      };
+    }
+    // Aplica cada par com find+replace literal/fuzzy no conteúdo do cap.
+    // Trata Opus que erra a âncora: pares cujo <original> não casa são
+    // ignorados — desde que pelo menos UM par tenha aplicado, segue em frente.
+    let updatedContent = parent.content;
+    let appliedCount = 0;
+    const failedPairs: number[] = [];
+    for (let i = 0; i < pairs.length; i++) {
+      const { original, corrigido } = pairs[i]!;
+      if (!original || corrigido === undefined) continue;
+      if (original === corrigido) continue; // no-op silencioso
+      // Find+replace de TODAS as ocorrências (mesmo padrão do applyCorrections).
+      const before = updatedContent;
+      let cursor = updatedContent;
+      let replacedAny = false;
+      while (true) {
+        const range = findTrechoInText(cursor, original);
+        if (!range) break;
+        cursor =
+          cursor.slice(0, range.start) +
+          corrigido +
+          cursor.slice(range.end);
+        replacedAny = true;
+        if (corrigido.includes(original)) break;
+      }
+      updatedContent = cursor;
+      if (replacedAny && updatedContent !== before) {
+        appliedCount++;
+      } else {
+        failedPairs.push(i + 1);
+      }
+    }
+    if (appliedCount === 0) {
+      return {
+        applied: false,
+        validationFailed: true,
+        validationMessage:
+          "A IA devolveu correções, mas nenhum dos trechos âncora casou com o capítulo. Tente regenerar a revisão ou edite manualmente no Step 4.",
+      };
+    }
+    // Valida tamanho: o cap modificado precisa ficar dentro de 50-200% do
+    // original (mesmo limite do validateRewrite).
+    const sizeValidation = validateRewrite({
+      newContent: updatedContent,
+      originalContent: parent.content,
+      triggerText,
+    });
+    if (!sizeValidation.ok) {
+      return {
+        applied: false,
+        validationFailed: true,
+        validationMessage:
+          sizeValidation.message ??
+          "A reescrita ficou fora dos limites de tamanho.",
+      };
+    }
+    const idx = fullChapters.findIndex(
+      (c) => c.part === parent.part && c.number === parent.number,
+    );
+    if (idx === -1) {
+      console.warn(`[apply-suggestion] smart-locate: cap pai não achado`);
+      return { applied: false };
+    }
+    const updated = [...fullChapters];
+    updated[idx] = {
+      ...parent,
+      content: updatedContent,
+      edited: true,
+      editedAt: now,
+    };
+    newChapters = updated;
+    newFullContent = concatenateChapters(updated);
+  } else if (scope.kind === "window") {
     if (
       !scope.parentChapter ||
       typeof scope.windowStart !== "number" ||

@@ -47,6 +47,36 @@ function getInner(block: string, tagName: string): string | undefined {
 }
 
 /**
+ * Remove tags do schema <erros_detalhados> que tenham sido capturadas DENTRO
+ * de um campo (trecho_original / trecho_corrigido / por_que_alterado).
+ *
+ * Cenário do bug que motivou isso: o LLM ocasionalmente emite um <erro> em
+ * que o `<trecho_corrigido>` contém, como texto, literalmente as tags do
+ * próximo erro (ou tags de fechamento aninhadas). O parser greedy/lazy capta
+ * essa string como o conteúdo do campo e, ao chamar `applyCorrections`, o
+ * find+replace literal INSERE essas tags no roteiro final da Escrita — fica
+ * cravado "...</trecho_original> <trecho_corrigido>..." no meio da narrativa.
+ *
+ * Sanitização defensiva: qualquer tag do schema dentro de um campo é cruft
+ * do modelo, NÃO conteúdo legítimo do roteiro (o roteiro nunca contém XML).
+ * Removemos sem mercê. Colapsamos whitespace duplicado deixado pela remoção.
+ */
+const XML_CRUFT_RE =
+  /<\/?(?:erros_detalhados|erro|trecho_original|trecho_corrigido|por_que_alterado)\b[^>]*>/gi;
+
+export function sanitizeXmlCruft(text: string): string {
+  if (!text) return text;
+  if (!XML_CRUFT_RE.test(text)) return text;
+  // Reset lastIndex porque o test() acima moveu o cursor da regex global.
+  XML_CRUFT_RE.lastIndex = 0;
+  return text
+    .replace(XML_CRUFT_RE, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/**
  * Remove o bloco <erros_detalhados>...</erros_detalhados> do conteúdo bruto,
  * devolvendo o texto principal "limpo" (markdown da revisão sem o XML).
  */
@@ -100,9 +130,24 @@ export function parseRevisorErrors(
         "interfere")
       : "interfere";
 
-    const trechoOriginal = getInner(inner, "trecho_original");
-    const trechoCorrigido = getInner(inner, "trecho_corrigido");
-    const porqueAlterado = getInner(inner, "por_que_alterado");
+    const trechoOriginalRaw = getInner(inner, "trecho_original");
+    const trechoCorrigidoRaw = getInner(inner, "trecho_corrigido");
+    const porqueAlteradoRaw = getInner(inner, "por_que_alterado");
+
+    // Defesa crítica: o LLM às vezes emite um trecho com tags do schema
+    // capturadas como conteúdo (ex.: trecho_corrigido contendo a string
+    // literal "</trecho_original> <trecho_corrigido>..."). Sem essa
+    // sanitização, applyCorrections grava o XML cru dentro do roteiro
+    // final da Escrita e a roteirista vê tags cravadas na narrativa.
+    const trechoOriginal = trechoOriginalRaw
+      ? sanitizeXmlCruft(trechoOriginalRaw)
+      : undefined;
+    const trechoCorrigido = trechoCorrigidoRaw
+      ? sanitizeXmlCruft(trechoCorrigidoRaw)
+      : undefined;
+    const porqueAlterado = porqueAlteradoRaw
+      ? sanitizeXmlCruft(porqueAlteradoRaw)
+      : undefined;
 
     // Aceita erro mesmo sem trecho_original/trecho_corrigido — vira card
     // INFORMATIVO (sem botão "Aplicar"). Útil pra erros transversais como
@@ -444,7 +489,13 @@ export function applyCorrections(
   const failedIds: string[] = [];
 
   for (const err of errors) {
-    const original = err.trechoOriginal;
+    // Defesa em profundidade contra XML cruft: mesmo que um erro antigo
+    // tenha sido salvo no localStorage com tags do schema capturadas como
+    // conteúdo (pré-fix do parseRevisorErrors), re-sanitiza antes do splice
+    // pra GARANTIR que tags XML nunca entrem na narrativa final da Escrita.
+    const original = sanitizeXmlCruft(err.trechoOriginal ?? "");
+    const corrigido = sanitizeXmlCruft(err.trechoCorrigido ?? "");
+
     if (!original) {
       failedIds.push(err.id);
       continue;
@@ -452,7 +503,7 @@ export function applyCorrections(
     // Guard contra Revisor emitir trecho_original === trecho_corrigido —
     // ia marcar applied=true sem mudar nada (caminho mais comum pro bug
     // "APLICADO mas texto idêntico").
-    if (original === err.trechoCorrigido) {
+    if (original === corrigido) {
       failedIds.push(err.id);
       continue;
     }
@@ -464,16 +515,13 @@ export function applyCorrections(
     while (true) {
       const range = findTrechoInText(text, original);
       if (!range) break;
-      text =
-        text.slice(0, range.start) +
-        err.trechoCorrigido +
-        text.slice(range.end);
+      text = text.slice(0, range.start) + corrigido + text.slice(range.end);
       replacedAny = true;
       // Se trecho_corrigido contém o trecho_original (caso de inserção
       // aditiva, ex: "X" → "X Y"), o while geraria loop infinito.
       // Detecta isso comparando o conteúdo resultante: se o ponto de
       // inserção avançou pelo menos um caractere, ok; senão, sai.
-      if (err.trechoCorrigido.includes(original)) break;
+      if (corrigido.includes(original)) break;
     }
     if (replacedAny) {
       appliedIds.push(err.id);

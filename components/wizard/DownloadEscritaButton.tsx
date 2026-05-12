@@ -52,7 +52,15 @@ export function DownloadEscritaButton({
         extractMaleLeadNameFromEstrutura(roteiro.outputs.estrutura1?.content) ??
         extractMaleLeadNameFromEstrutura(roteiro.outputs.estrutura2?.content) ??
         detectMaleLeadFromFullRoteiro(escritaContent);
-      const bodyHtml = escritaContentToHtml(escritaContent, { maleLeadName });
+      // `chapters` vai pro export como source-of-truth da Parte (cada cap
+      // sabe se é "Parte 1" ou "Parte 2"). Garante que a coloração verde
+      // do MMC na Parte 2 sobreviva mesmo se o header `# PARTE 2` for
+      // apagado por uma reescrita ou edição manual.
+      const chapters = roteiro.outputs.escrita?.metadata?.chapters;
+      const bodyHtml = escritaContentToHtml(escritaContent, {
+        maleLeadName,
+        chapters,
+      });
       const html = buildEscritaHtmlDocument(title, bodyHtml);
       const safeName =
         (title || "roteiro").replace(/[^\w\s-]/g, "").trim() || "roteiro";

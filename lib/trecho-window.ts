@@ -27,6 +27,14 @@ const PARAGRAPHS_AFTER = 3;
 /** Tamanho mínimo do partial-anchor pra evitar match em substrings comuns. */
 const MIN_PARTIAL_ANCHOR_CHARS = 20;
 
+/**
+ * Marcadores que precisam ser incluídos na janela quando estão imediatamente
+ * antes do primeiro parágrafo. Sem isso o Opus reescreve a janela "limpa" e
+ * o splice perde o header — quebra a coloração verde do MMC na Parte 2.
+ * Aceita ✦/♦/◆ (mesmo conjunto de POV_SYMBOL_CLASS em export-html.ts).
+ */
+const PRESERVE_MARKER_RE = /^(?:###\s+[✦♦◆][^\n]*|#\s+PARTE\s+[12]\b[^\n]*)$/;
+
 export type FindTrechoWindowResult =
   | { found: true; start: number; end: number; content: string; matchKind: "exact" | "partial" }
   | { found: false };
@@ -193,11 +201,41 @@ export function findTrechoWindow(
     anchor.end,
   );
 
+  // Se a janela começa logo após um marcador POV (`### ✦ Nome`) ou de Parte
+  // (`# PARTE N`), inclui essa linha. Caso contrário o Opus reescreve a
+  // janela sem o marcador e o splice perde a atribuição de POV — quebra a
+  // coloração verde do MMC na Parte 2 no PDF final.
+  const expandedStart = expandStartToIncludeMarker(chapterContent, start);
+
   return {
     found: true,
-    start,
+    start: expandedStart,
     end,
-    content: chapterContent.slice(start, end),
+    content: chapterContent.slice(expandedStart, end),
     matchKind,
   };
+}
+
+/**
+ * Se o caractere imediatamente antes de `start` é um marcador POV/Parte numa
+ * linha standalone (separada por `\n\n` do bloco da janela), inclui essa
+ * linha + a quebra que a segue na janela. Caso contrário retorna `start`
+ * intacto.
+ */
+function expandStartToIncludeMarker(text: string, start: number): number {
+  if (start <= 0) return start;
+  // Volta até achar o início da linha imediatamente antes da janela.
+  // A janela começa logo após `\n\n` — então `text[start-2]` é o `\n` final
+  // do parágrafo anterior, e a linha desse parágrafo vai de `prevLineStart`
+  // até `start - 2`.
+  const beforeWindow = text.slice(0, start);
+  // Procura o último bloco-fim antes da janela: `\n\n` ou início da string.
+  const prevBlockEnd = beforeWindow.lastIndexOf("\n\n", start - 3);
+  const prevLineStart = prevBlockEnd === -1 ? 0 : prevBlockEnd + 2;
+  // Tira só whitespace de borda; o conteúdo entre prevLineStart e start-2
+  // deve ser uma única linha de marcador pra casar.
+  const prevLine = text.slice(prevLineStart, Math.max(prevLineStart, start - 2)).trim();
+  if (!prevLine) return start;
+  if (!PRESERVE_MARKER_RE.test(prevLine)) return start;
+  return prevLineStart;
 }

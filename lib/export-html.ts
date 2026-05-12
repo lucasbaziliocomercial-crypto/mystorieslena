@@ -1,3 +1,4 @@
+import type { EscritaChapter } from "@/types/roteiro";
 import { countWords } from "./word-count.ts";
 
 /**
@@ -383,6 +384,15 @@ export function escritaContentToHtml(
      * trechos da Parte 1 (ex.: cliffhanger MMC da máfia) não sejam pintados.
      */
     forceParte2?: boolean;
+    /**
+     * Capítulos estruturados do roteiro (de `outputs.escrita.metadata.chapters`),
+     * em ORDEM. Quando fornecido, o walker usa `chapter.part === "Parte 2"`
+     * como fonte da verdade pra alternar `inParte2` ao entrar em cada `## Capítulo`,
+     * em vez de depender só do header `# PARTE 2` no texto cru. Garante que
+     * a coloração verde do MMC na Parte 2 sobreviva mesmo se o header de
+     * Parte for apagado por uma reescrita ou edição.
+     */
+    chapters?: EscritaChapter[];
   },
 ): string {
   const out: string[] = [];
@@ -396,6 +406,17 @@ export function escritaContentToHtml(
       ? detectMaleLeadFromFullRoteiro(raw)
       : options.maleLeadName;
   const maleLeadCanonical = maleLeadName ? nomeCanonico(maleLeadName) : null;
+  // Primeiro token do nome do MMC pra match tolerante a "Saverio" vs
+  // "Saverio Aldobrandini" — cobre o caso onde a Estrutura usa nome
+  // completo e a Escrita usa só primeiro nome (ou vice-versa) no `### ✦`.
+  const maleLeadFirstToken = maleLeadCanonical?.split(/\s+/)[0] ?? null;
+
+  const chapters = options?.chapters;
+  // Cursor que avança a cada `## Capítulo N — Título` encontrado no texto.
+  // Aponta pro próximo chapter esperado em `chapters[]`. Quando o cap atual
+  // está em "Parte 2", o walker liga `inParte2 = true` independente do
+  // header `# PARTE 2` estar presente ou não.
+  let chapterCursor = 0;
 
   const preprocessed = preprocessRoteiro(raw);
 
@@ -404,10 +425,15 @@ export function escritaContentToHtml(
     const text = paraBuffer.join(" ").trim();
     if (text) {
       const inner = inlineFormat(text);
+      const povFirstToken = currentPov?.split(/\s+/)[0] ?? null;
       const isMmcPov =
         inParte2 &&
         maleLeadCanonical !== null &&
-        currentPov === maleLeadCanonical;
+        currentPov !== null &&
+        (currentPov === maleLeadCanonical ||
+          (povFirstToken !== null &&
+            maleLeadFirstToken !== null &&
+            povFirstToken === maleLeadFirstToken));
       const content = isMmcPov
         ? `<span style="${STYLE_HIGHLIGHT_MMC}">${inner}</span>`
         : inner;
@@ -464,6 +490,15 @@ export function escritaContentToHtml(
       // embaixo da PARTE (h1) na árvore de Guias / Estrutura do documento.
       flushPara();
       currentPov = null;
+      // Quando `chapters[]` é fornecido, usa o `chapter.part` desse cap como
+      // fonte da verdade pra `inParte2`. Sobrevive a roteiros que perderam
+      // o header `# PARTE 2` por uma reescrita/edição.
+      if (chapters && chapterCursor < chapters.length) {
+        const cap = chapters[chapterCursor]!;
+        if (cap.part === "Parte 2") inParte2 = true;
+        else if (cap.part === "Parte 1") inParte2 = false;
+        chapterCursor++;
+      }
       out.push(`<h2 style="${STYLE_H_CHAPTER}">${escapeHtml(h2[1])}</h2>`);
       continue;
     }
