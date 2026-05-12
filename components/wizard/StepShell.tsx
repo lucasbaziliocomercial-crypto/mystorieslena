@@ -979,14 +979,16 @@ export function StepShell({ step }: Props) {
     //   - Premissa, Estrutura 1/2 (regenerate ou refine)
     //   - Escrita em modo REFINE (correção pontual: 1 chamada com refineMode,
     //     pula o loop 2-em-2)
-    //   - Revisor em modo REFINE (correção pontual: 1 chamada com refineMode,
-    //     pula a pré-fase de extensão/balance)
-    // Pro Revisor refine, o agente precisa enxergar o XML <erros_detalhados>
-    // pra poder mexer nele via patches. O `output.content` corrente foi
-    // stripado do XML quando salvamos no store — reconstituímos a partir
-    // de `metadata.errors` antes de enviar.
+    //   - Revisor / Overview em modo REFINE (correção pontual: 1 chamada com
+    //     refineMode; Overview também usa <erros_detalhados>, mesmo padrão).
+    // Pro Revisor/Overview refine, o agente precisa enxergar o XML
+    // <erros_detalhados> pra poder mexer nele via patches. O `output.content`
+    // corrente foi stripado do XML quando salvamos no store — reconstituímos
+    // a partir de `metadata.errors` antes de enviar.
     const currentOutputForAgent =
-      isRefine && isRevisorStep(step) && output?.metadata?.errors
+      isRefine &&
+      (isRevisorStep(step) || step === "overview") &&
+      output?.metadata?.errors
         ? `${baseContent}\n\n${serializeRevisorErrors(output.metadata.errors)}`
         : baseContent;
 
@@ -1151,15 +1153,17 @@ export function StepShell({ step }: Props) {
         isRefine &&
         (step === "estrutura1" ||
           step === "estrutura2" ||
-          isRevisorStep(step)) &&
+          isRevisorStep(step) ||
+          step === "overview") &&
         acc.trim()
       ) {
-        // Correção pontual em Estrutura 1, Estrutura 2 ou Revisor: o agente
-        // devolve apenas pares <alteracao>/<original>/<corrigido>. Aplicamos
-        // via find+replace literal no output corrente — trechos não tocados
-        // permanecem byte-a-byte. Pra Revisor, o XML <erros_detalhados> faz
-        // parte da base do patch (foi reconstituído via serializeRevisorErrors
-        // antes da chamada) e os erros são reparseados ao final.
+        // Correção pontual em Estrutura 1, Estrutura 2, Revisor ou Overview:
+        // o agente devolve apenas pares <alteracao>/<original>/<corrigido>.
+        // Aplicamos via find+replace literal no output corrente — trechos
+        // não tocados permanecem byte-a-byte. Pra Revisor/Overview, o XML
+        // <erros_detalhados> faz parte da base do patch (foi reconstituído
+        // via serializeRevisorErrors antes da chamada) e os erros são
+        // reparseados ao final.
         const trimmed = acc.trim();
 
         if (/\[NENHUMA_ALTERACAO_NECESSARIA\]/i.test(trimmed)) {
@@ -1198,6 +1202,30 @@ export function StepShell({ step }: Props) {
               // pra continuar consistente com a geração do zero.
               const refinePart = partOfRevisorStep(step);
               const newErrors = parseRevisorErrors(result.text, refinePart);
+              const cleanContent = stripErrosDetalhados(result.text);
+              const escritaContent =
+                roteiro.outputs.escrita?.content?.trim() ?? "";
+              const escritaSnapshotHash = escritaContent
+                ? hashEscritaContent(escritaContent)
+                : output?.metadata?.escritaSnapshotHash;
+              setOutput(step, {
+                content: cleanContent,
+                metadata: {
+                  errors: newErrors,
+                  ...(escritaSnapshotHash ? { escritaSnapshotHash } : {}),
+                },
+                generatedAt: startedAt,
+              });
+              setDraft(cleanContent);
+            } else if (step === "overview") {
+              // Overview refine: mesmo fluxo do Revisor — patches aplicados
+              // sobre base reconstituída, depois reparseamos os erros com
+              // prefixo `ov-` (linha 1357) pra não colidir com IDs `p1-/p2-`
+              // do Revisor caso ambos coexistam na UI.
+              const newErrors = parseRevisorErrors(result.text).map((e) => ({
+                ...e,
+                id: `ov-${e.id}`,
+              }));
               const cleanContent = stripErrosDetalhados(result.text);
               const escritaContent =
                 roteiro.outputs.escrita?.content?.trim() ?? "";
@@ -2242,10 +2270,19 @@ function PremissaWizard() {
   const [streamingPhase, setStreamingPhase] = useState<
     null | "resumo" | "estrutura"
   >(null);
+  // True quando o stream em curso é uma correção CIRÚRGICA (refineMode) — o
+  // header muda pra "Aplicando correção pontual…" em vez de "Gerando resumo…",
+  // deixando claro pra roteirista que o restante do output será preservado.
+  const [isStreamingRefine, setIsStreamingRefine] = useState(false);
   // Erro inline mostrado próximo aos botões. Sem isso, falhas (stream vazio,
   // HTTP 500, fetch error) ficavam só em console.error — invisível pra revisora,
   // que via o botão "não fazer nada" e clicava de novo no vácuo.
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Mensagem informativa (não-erro) — usada quando a IA recusa aplicar uma
+  // correção cirúrgica porque a instrução é ampla demais. Renderizada em
+  // amarelo (vs vermelho do errorMessage) pra deixar claro que NÃO é falha
+  // técnica — é a IA pedindo pra roteirista reformular ou clicar em "Regenerar".
+  const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
   const [isEditingResumo, setIsEditingResumo] = useState(false);
   const [isEditingContent, setIsEditingContent] = useState(false);
   const [isEditingManual, setIsEditingManual] = useState(false);
@@ -2318,6 +2355,7 @@ function PremissaWizard() {
     setIsGenerating(true);
     setLiveStream("");
     setStreamingPhase("resumo");
+    setIsStreamingRefine(false);
     setErrorMessage(null);
 
     const startedAt = new Date().toISOString();
@@ -2383,6 +2421,7 @@ function PremissaWizard() {
     } finally {
       setIsGenerating(false);
       setStreamingPhase(null);
+      setIsStreamingRefine(false);
       setLiveStream("");
     }
   }, [
@@ -2445,6 +2484,7 @@ function PremissaWizard() {
     setIsGenerating(true);
     setLiveStream("");
     setStreamingPhase("estrutura");
+    setIsStreamingRefine(false);
     setErrorMessage(null);
 
     try {
@@ -2497,6 +2537,7 @@ function PremissaWizard() {
     } finally {
       setIsGenerating(false);
       setStreamingPhase(null);
+      setIsStreamingRefine(false);
       setLiveStream("");
     }
   }, [
@@ -2521,16 +2562,194 @@ function PremissaWizard() {
     abortRef.current?.abort();
     setIsGenerating(false);
     setStreamingPhase(null);
+    setIsStreamingRefine(false);
     setLiveStream("");
     setErrorMessage(null);
   }, [setIsGenerating]);
 
+  // ─── Aplicar instrução adicional CIRÚRGICO (refineMode) ─────────────
+  // Diferente do `generateResumo`/`approveAndGenerateEstrutura` que regeram
+  // o conteúdo inteiro do zero, este caminho pede ao agente patches XML
+  // `<alteracao>` e aplica via find+replace literal (fallback fuzzy) — só
+  // os trechos que a instrução pediu mudam. Reclamação da roteirista
+  // (2026-05-12): "essa caixa tava mexendo no step inteiro" — antes,
+  // qualquer instrução pontual regerava tudo. Agora "Aplicar correção"
+  // sempre é cirúrgico; regeneração total exige clicar nos botões
+  // dedicados "Regenerar resumo" / "Regenerar estrutura".
+  //
+  // Se o agente devolver 0 patches (instrução ampla demais ou âncora não
+  // encontrada), NADA é alterado em outputs.premissa — só mostra aviso
+  // sugerindo regenerar do zero.
+  const applyInstructionCirurgico = useCallback(
+    async (instruction: string) => {
+      const trimmed = instruction.trim();
+      if (!trimmed || isGenerating) return;
+      if (phase !== "approving" && phase !== "done") return;
+
+      // Base do patch:
+      // • approving → resumo (Bloco 0) que está em meta.premissaResumo
+      //   (content fica vazio até a estrutura ser aprovada).
+      // • done → output.content completo (RESUMO + ESTRUTURA COMPLETA).
+      const currentOutput = (
+        phase === "approving" ? resumoDraftStored || resumo : content
+      ).trim();
+      if (!currentOutput) {
+        setNoticeMessage(
+          "Nada pra corrigir ainda — gere o resumo primeiro pra poder pedir ajustes pontuais.",
+        );
+        return;
+      }
+
+      abortRef.current?.abort();
+      const ctrl = new AbortController();
+      abortRef.current = ctrl;
+      setIsGenerating(true);
+      setLiveStream("");
+      setStreamingPhase(phase === "approving" ? "resumo" : "estrutura");
+      setIsStreamingRefine(true);
+      setErrorMessage(null);
+      setNoticeMessage(null);
+
+      try {
+        const res = await fetch("/api/agent/premissa", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            category,
+            userInput: trimmed,
+            refineMode: true,
+            currentOutput,
+            referenceImage: roteiro?.referenceImage,
+            premissaPhase: phase === "approving" ? "resumo" : "estrutura",
+          }),
+          signal: ctrl.signal,
+        });
+        if (!res.ok || !res.body) {
+          const errText = await res.text().catch(() => "");
+          throw new Error(
+            `HTTP ${res.status}: ${errText.slice(0, 200) || res.statusText}`,
+          );
+        }
+
+        const acc = (await readStreamFully(res, ctrl.signal)).trim();
+        if (ctrl.signal.aborted) return;
+
+        // Sentinela: agente julgou que nada precisa mudar.
+        if (/\[NENHUMA_ALTERACAO_NECESSARIA\]/i.test(acc)) {
+          setNoticeMessage(
+            "O agente avaliou que essa correção não exige alteração. Reformule a instrução ou edite o resumo direto pelo botão Editar resumo.",
+          );
+          return;
+        }
+
+        const patches = parseCorrectionPatches(acc);
+        if (patches.length === 0) {
+          // Instrução ampla demais ou âncoras não encontradas — não toca
+          // em outputs.premissa. Roteirista decide regenerar do zero.
+          setNoticeMessage(
+            phase === "approving"
+              ? 'A IA não conseguiu aplicar essa correção pontualmente — a instrução pode ser ampla demais. Tente uma instrução mais específica (cite um trecho ou nome exato), ou clique em "Regenerar resumo" pra refazer o resumo do zero.'
+              : 'A IA não conseguiu aplicar essa correção pontualmente — a instrução pode ser ampla demais. Tente uma instrução mais específica (cite Etapa/Bloco/nome), ou clique em "Regenerar estrutura" pra refazer os Blocos 1-7 do zero.',
+          );
+          return;
+        }
+
+        const result = applyCorrectionPatches(currentOutput, patches);
+        console.info(
+          `[premissa refine ${phase}] aplicados ${result.appliedIndices.length}/${patches.length} patches (${result.failedIndices.length} falharam)`,
+        );
+
+        // Snapshot histórico antes de mutar — roteirista pode reverter via
+        // HistoryPanel se a correção sair pior que o esperado.
+        pushOutputToHistory("premissa", "Antes de aplicar correção cirúrgica");
+
+        const now = new Date().toISOString();
+        if (phase === "approving") {
+          setOutput("premissa", {
+            content: "",
+            generatedAt: now,
+            metadata: {
+              ...meta,
+              premissaResumo: result.text,
+              premissaResumoApproved: false,
+              premissaManualPaste: false,
+            },
+          });
+          clearDraft("premissa", "resumo");
+          clearDraft("premissa", "instruction");
+          resumoRef.current?.setValue(result.text);
+          setIsEditingResumo(false);
+        } else {
+          // Fase done: content tem `# RESUMO\n\n...\n\n# ESTRUTURA COMPLETA\n\n...`.
+          // Re-extrai o resumo do novo content pra manter meta.premissaResumo
+          // consistente — patches podem ter tocado o trecho do resumo.
+          const resumoMatch = result.text.match(
+            /#\s*RESUMO\s*\n+([\s\S]*?)\n+#\s*ESTRUTURA\s+COMPLETA/i,
+          );
+          const updatedResumo =
+            resumoMatch?.[1]?.trim() || meta.premissaResumo || "";
+          setOutput("premissa", {
+            content: result.text,
+            generatedAt: now,
+            metadata: {
+              ...meta,
+              premissaResumo: updatedResumo,
+              premissaResumoApproved: true,
+              premissaManualPaste: false,
+            },
+          });
+          clearDraft("premissa", "content");
+          clearDraft("premissa", "instruction");
+          contentRef.current?.setValue(result.text);
+          setIsEditingContent(false);
+        }
+        setUserInput("premissa", trimmed);
+
+        if (result.failedIndices.length > 0) {
+          // Patches parciais aplicaram OK — só loga os que não casaram.
+          console.warn(
+            `[premissa refine ${phase}] ${result.failedIndices.length} patches não casaram (pulados)`,
+          );
+        }
+      } catch (e) {
+        if (!(e instanceof Error && e.name === "AbortError")) {
+          console.error("[premissa] erro refineMode:", e);
+          setErrorMessage(e instanceof Error ? e.message : String(e));
+        }
+      } finally {
+        setIsGenerating(false);
+        setStreamingPhase(null);
+        setIsStreamingRefine(false);
+        setLiveStream("");
+      }
+    },
+    [
+      category,
+      clearDraft,
+      content,
+      isGenerating,
+      meta,
+      phase,
+      pushOutputToHistory,
+      resumo,
+      resumoDraftStored,
+      roteiro?.referenceImage,
+      setIsGenerating,
+      setOutput,
+      setUserInput,
+    ],
+  );
+
   // ─── Aplicar instrução adicional (caixa de "chat") ─────────────────
   // Comportamento por fase:
   //   • briefing  → só salva (usado quando clicar em "Gerar resumo")
-  //   • approving → regenera o resumo já injetando a instrução
-  //   • done      → regenera a estrutura mantendo o resumo, com a
-  //                 instrução baked no prompt
+  //   • approving → CIRÚRGICO: pede patches via refineMode e aplica
+  //                 find+replace no resumo (Bloco 0)
+  //   • done      → CIRÚRGICO: pede patches via refineMode e aplica
+  //                 find+replace no content (resumo + Blocos 1-7)
+  // Regeneração total ainda existe — botões "Regenerar resumo" e
+  // "Regenerar estrutura" continuam chamando generateResumo /
+  // approveAndGenerateEstrutura diretamente.
   const applyInstruction = useCallback(async () => {
     instructionRef.current?.flush();
     const pendingInstruction =
@@ -2541,10 +2760,8 @@ function PremissaWizard() {
     // Instrução virou oficial em userInputs.premissa — apaga draft pra
     // evitar reidratar o textarea com o mesmo texto na próxima visita.
     clearDraft("premissa", "instruction");
-    if (phase === "approving") {
-      await generateResumo(trimmed);
-    } else if (phase === "done") {
-      await approveAndGenerateEstrutura(trimmed);
+    if (phase === "approving" || phase === "done") {
+      await applyInstructionCirurgico(trimmed);
     }
     // briefing phase: instrução fica salva; será aplicada no próximo "Gerar resumo".
   }, [
@@ -2553,8 +2770,7 @@ function PremissaWizard() {
     phase,
     setUserInput,
     clearDraft,
-    generateResumo,
-    approveAndGenerateEstrutura,
+    applyInstructionCirurgico,
   ]);
 
   // ─── Manual paste ───────────────────────────────────────────────────
@@ -2637,9 +2853,13 @@ function PremissaWizard() {
             <div className="flex items-center gap-3">
               <Loader2 className="size-4 animate-spin text-primary" />
               <span className="text-sm font-semibold text-primary">
-                {streamingPhase === "resumo"
-                  ? "Gerando resumo (Bloco 0)…"
-                  : "Construindo estrutura completa da história (Blocos 1-7)…"}
+                {isStreamingRefine
+                  ? streamingPhase === "resumo"
+                    ? "Aplicando correção pontual no resumo…"
+                    : "Aplicando correção pontual na estrutura…"
+                  : streamingPhase === "resumo"
+                    ? "Gerando resumo (Bloco 0)…"
+                    : "Construindo estrutura completa da história (Blocos 1-7)…"}
               </span>
             </div>
             <Button
@@ -2916,8 +3136,8 @@ function PremissaWizard() {
           : phase === "briefing"
             ? "Salva a instrução pra ser aplicada quando você clicar em Gerar resumo"
             : phase === "approving"
-              ? "Regenera o resumo aplicando essa instrução"
-              : "Regenera a estrutura aplicando essa instrução (mantém o resumo aprovado)";
+              ? "Aplica só a correção que você pediu no resumo (sem regerar o resto)"
+              : "Aplica só a correção que você pediu na estrutura (sem regerar os outros Blocos)";
         return (
           <div className="flex flex-col gap-2">
             <div className="flex items-baseline justify-between gap-2 flex-wrap">
@@ -2928,8 +3148,8 @@ function PremissaWizard() {
                 {phase === "briefing"
                   ? "Salvas e aplicadas no próximo Gerar resumo"
                   : phase === "approving"
-                    ? "Aplicar regenera o resumo já com essa instrução"
-                    : "Aplicar regenera a estrutura mantendo o resumo aprovado"}
+                    ? "Aplica só na parte que você pediu — sem mexer no resto"
+                    : "Aplica só na parte que você pediu — sem regerar os outros Blocos"}
               </span>
             </div>
             <PremissaDraftTextarea
@@ -3049,6 +3269,28 @@ function PremissaWizard() {
           <button
             type="button"
             onClick={() => setErrorMessage(null)}
+            aria-label="Fechar aviso"
+            className="text-base leading-none opacity-60 hover:opacity-100 px-1"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* ─── Banner de aviso informativo (não-erro) ─── */}
+      {/* Usado quando a IA não consegue aplicar uma correção cirúrgica (instrução
+          ampla demais ou âncora não encontrada). Amarelo pra deixar claro que o
+          resumo NÃO foi alterado — diferente do banner vermelho de erro técnico. */}
+      {noticeMessage && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 flex items-start gap-2">
+          <AlertTriangle className="size-4 mt-0.5 shrink-0 text-amber-700" />
+          <div className="flex-1">
+            <p className="font-semibold">Correção não aplicada</p>
+            <p className="text-xs opacity-90 mt-0.5">{noticeMessage}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setNoticeMessage(null)}
             aria-label="Fechar aviso"
             className="text-base leading-none opacity-60 hover:opacity-100 px-1"
           >

@@ -13,6 +13,7 @@ import { MODELS } from "@/lib/anthropic";
 import type { Agent } from "../types";
 import { buildCanoneBlock } from "./canone-block";
 import { OVERVIEW_SYSTEM_PROMPT } from "./overview-prompt";
+import { buildRefinePatchPrompt } from "./refine-patch-prompt";
 
 export function buildOverviewAgent(): Agent {
   return {
@@ -28,6 +29,40 @@ export function buildOverviewAgent(): Agent {
     buildUserMessage: (ctx) => {
       const escrita = ctx.previousOutputs.escrita?.content?.trim() ?? "";
       const canoneBlock = buildCanoneBlock(ctx.canone);
+
+      // Modo correção pontual: roteirista quer mexer no relatório atual sem
+      // refazer a varredura inteira (ex.: remover um erro, ajustar a redação
+      // de uma sugestão, atualizar um trecho_corrigido). Devolve patches XML.
+      if (ctx.refineMode && ctx.currentOutput?.trim() && ctx.userInput?.trim()) {
+        const extraRules: string[] = [
+          "Preserve as seções obrigatórias: `📋 ERROS ESTRUTURAIS ENCONTRADOS` (bullets) e `🔧 CORREÇÕES APLICÁVEIS (XML)` (bloco <erros_detalhados>). Não as remova.",
+          "Se mexer em um <erro> do bloco <erros_detalhados>, lembre que o <original> precisa incluir o <erro>...</erro> INTEIRO pra remover, ou apenas o campo (ex.: <trecho_corrigido>) pra editar.",
+          "Se um erro foi listado nos bullets E no XML, atualize OS DOIS — emita um <alteracao> por lado.",
+        ];
+        if (canoneBlock) {
+          extraRules.push(
+            "Cânone de entidades disponível — use pra checar nomes/idades/lugares/datas se a correção pedir.",
+          );
+        }
+        const refine: string[] = [];
+        refine.push(
+          buildRefinePatchPrompt({
+            currentLabel: "OVERVIEW ATUAL (relatório que você já entregou)",
+            currentOutput: ctx.currentOutput,
+            userInstruction: ctx.userInput,
+            extraRules,
+          }),
+        );
+        if (canoneBlock) {
+          refine.push(canoneBlock);
+        }
+        if (escrita) {
+          refine.push(
+            `━━━ ROTEIRO COMPLETO (Parte 1 + Parte 2 — referência, consulte se a correção pedir releitura) ━━━\n\n${escrita}`,
+          );
+        }
+        return refine.join("\n\n");
+      }
 
       const sections: string[] = [];
 

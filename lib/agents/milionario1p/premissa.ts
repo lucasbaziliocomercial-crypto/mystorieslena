@@ -1,5 +1,6 @@
 import { MODELS } from "@/lib/anthropic";
 import type { Agent } from "../types";
+import { buildRefinePatchPrompt } from "../_shared/refine-patch-prompt";
 import { PREMISSA_SYSTEM_PROMPT } from "./premissa-prompt";
 
 /**
@@ -33,6 +34,34 @@ export const premissaAgent: Agent = {
   acceptsReferenceImage: true,
   buildUserMessage: (ctx) => {
     const phase = ctx.premissaPhase ?? "resumo";
+
+    // Modo correção pontual: roteirista quer mexer em um detalhe sem regerar
+    // o resumo/estrutura inteiro. Devolve patches XML find+replace.
+    if (ctx.refineMode && ctx.currentOutput?.trim() && ctx.userInput?.trim()) {
+      const currentLabel =
+        phase === "estrutura"
+          ? "PREMISSA ATUAL (resumo + Blocos 1-7)"
+          : "RESUMO ATUAL (Bloco 0)";
+      const extraRules =
+        phase === "estrutura"
+          ? [
+              "Preserve a estrutura dos Blocos 1-7: cabeçalhos `BLOCO 1`, `BLOCO 2`, … precisam permanecer intactos no <corrigido> se aparecerem dentro do <original>.",
+              "Preserve numeração e títulos de etapas — só mude o conteúdo do trecho citado.",
+              "Coerência: se mexer em um nome/cidade/segredo central, emita um <alteracao> por ocorrência (no resumo E nos Blocos onde aparecer).",
+            ]
+          : [
+              "Preserve a estrutura de parágrafos do resumo (8 parágrafos na Parte 1, 9 na Parte 2 — definida na PARTE G do prompt mestre).",
+              "Preserve os cabeçalhos `# RESUMO DA PARTE 1` e `# RESUMO DA PARTE 2`.",
+              "Romance em 1ª pessoa, voz da FMC — não mude pra 3ª pessoa nem introduza POV masculino.",
+            ];
+      return buildRefinePatchPrompt({
+        currentLabel,
+        currentOutput: ctx.currentOutput,
+        userInstruction: ctx.userInput,
+        extraRules,
+      });
+    }
+
     const briefing = ctx.userInput?.trim() || "";
     const briefingBlock = briefing
       ? `IDEIA BASE DO USUÁRIO:\n\n${briefing}`

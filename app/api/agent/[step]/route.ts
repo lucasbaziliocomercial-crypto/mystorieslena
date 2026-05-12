@@ -94,6 +94,7 @@ export async function POST(
   if (
     step === "premissa" &&
     body.premissaPhase === "estrutura" &&
+    !body.refineMode &&
     !body.approvedResumo?.trim()
   ) {
     return new Response(

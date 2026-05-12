@@ -1,5 +1,6 @@
 import { MODELS } from "@/lib/anthropic";
 import type { Agent } from "../types";
+import { buildRefinePatchPrompt } from "../_shared/refine-patch-prompt";
 import { PREMISSA_SYSTEM_PROMPT } from "./premissa-prompt";
 
 /**
@@ -27,6 +28,34 @@ export const premissaAgent: Agent = {
   acceptsReferenceImage: true,
   buildUserMessage: (ctx) => {
     const phase = ctx.premissaPhase ?? "resumo";
+
+    // Modo correção pontual: roteirista quer mexer em um detalhe sem regerar
+    // o resumo/sinopse-esqueleto inteiro. Devolve patches XML find+replace.
+    if (ctx.refineMode && ctx.currentOutput?.trim() && ctx.userInput?.trim()) {
+      const currentLabel =
+        phase === "estrutura"
+          ? "PREMISSA ATUAL (resumo + sinopse-esqueleto)"
+          : "RESUMO ATUAL (Fase 1 — TÍTULO + PREMISSA CENTRAL + dois resumos curtos)";
+      const extraRules =
+        phase === "estrutura"
+          ? [
+              "Preserve a estrutura da sinopse-esqueleto: cabeçalhos `PARTE 1 — ACONTECIMENTOS EM ORDEM CRONOLÓGICA`, `FINAL DA PARTE 1`, `ELEMENTOS PLANTADOS NA PARTE 1`, `INÍCIO DA PARTE 2 — A BOMBA`, `PARTE 2 — ACONTECIMENTOS EM ORDEM CRONOLÓGICA`, `FINAL DEFINITIVO`. Não mude títulos nem numeração de capítulos/acontecimentos.",
+              "Plantio e pagamento: se mexer em um elemento plantado na P1, garanta que a bomba/pagamento na P2 continue coerente — emita um <alteracao> em cada lado se preciso.",
+              "P1 termina sem casamento/filhos/bomba; P2 começa com bomba que nasce de elemento plantado. Não viole.",
+            ]
+          : [
+              "Preserve os cabeçalhos `TÍTULO PROVISÓRIO:`, `PREMISSA CENTRAL:`, `RESUMO DA PARTE 1` e `RESUMO DA PARTE 2`.",
+              "Limite rigoroso: cada resumo (P1 e P2) tem no máximo 500 palavras — não estoure.",
+              "Romance em primeiro plano, mundo mafioso em segundo, conflito externo em terceiro. P1 termina sem bomba; P2 começa com bomba; final feliz com casamento/filhos.",
+            ];
+      return buildRefinePatchPrompt({
+        currentLabel,
+        currentOutput: ctx.currentOutput,
+        userInstruction: ctx.userInput,
+        extraRules,
+      });
+    }
+
     const briefing = ctx.userInput?.trim() || "";
     const briefingBlock = briefing
       ? `IDEIA BASE DO USUÁRIO:\n\n${briefing}`

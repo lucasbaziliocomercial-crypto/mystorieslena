@@ -1,5 +1,6 @@
 import { MODELS } from "@/lib/anthropic";
 import type { Agent } from "../types";
+import { buildRefinePatchPrompt } from "../_shared/refine-patch-prompt";
 import { PREMISSA_SYSTEM_PROMPT } from "./premissa-prompt";
 
 /**
@@ -29,6 +30,34 @@ export const premissaAgent: Agent = {
   acceptsReferenceImage: true,
   buildUserMessage: (ctx) => {
     const phase = ctx.premissaPhase ?? "resumo";
+
+    // Modo correção pontual: roteirista quer mexer em um detalhe sem regerar
+    // o resumo/obrigações inteiras. Devolve patches XML find+replace.
+    if (ctx.refineMode && ctx.currentOutput?.trim() && ctx.userInput?.trim()) {
+      const currentLabel =
+        phase === "estrutura"
+          ? "PREMISSA ATUAL (resumo + obrigações de estrutura)"
+          : "RESUMO ATUAL (Fase 1 — TÍTULO + PREMISSA CENTRAL + dois resumos curtos)";
+      const extraRules =
+        phase === "estrutura"
+          ? [
+              "Preserve os cabeçalhos numerados (1. MAPA DE PLANTIO E PAGAMENTO, 2. PLAUSIBILIDADE DE PARENTESCO, … 10. VALIDAÇÃO DE PERSONAGENS SECUNDÁRIOS) — só mude o conteúdo do trecho citado.",
+              "Voz narrativa imutável: terceira pessoa centrada na FMC — não introduza POV masculino nem primeira pessoa.",
+              "Coerência: se mexer em um nome/cidade/segredo, emita um <alteracao> por ocorrência (no resumo E nas obrigações onde aparecer).",
+            ]
+          : [
+              "Preserve os cabeçalhos `TÍTULO PROVISÓRIO:`, `PREMISSA CENTRAL:`, `RESUMO DA PARTE 1` e `RESUMO DA PARTE 2`.",
+              "Voz narrativa imutável: TERCEIRA PESSOA centrada na FMC, sem POV masculino — MMC descrito por gestos/falas/ações observáveis.",
+              "Limite rigoroso: cada resumo (P1 e P2) tem no máximo 500 palavras — não estoure.",
+            ];
+      return buildRefinePatchPrompt({
+        currentLabel,
+        currentOutput: ctx.currentOutput,
+        userInstruction: ctx.userInput,
+        extraRules,
+      });
+    }
+
     const briefing = ctx.userInput?.trim() || "";
     const briefingBlock = briefing
       ? `IDEIA BASE DO USUÁRIO:\n\n${briefing}`
