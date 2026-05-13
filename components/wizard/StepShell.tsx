@@ -250,6 +250,14 @@ export function StepShell({ step }: Props) {
   // Tempo decorrido desde o início da geração corrente, em segundos. Zera
   // quando isGenerating cai pra false. Atualiza a cada 1s via useEffect.
   const [elapsedSec, setElapsedSec] = useState(0);
+  // Índice (em metadata.chapters) do capítulo sendo regerado individualmente
+  // via botão "Regerar" no card. null quando nada está em curso. Usado pra
+  // mostrar spinner no card certo e desabilitar os outros botões durante a
+  // regeração — sem isso, dois cliques rápidos disparam regerações concorrentes
+  // sobre o mesmo array de chapters e duplicatam estado.
+  const [regeneratingChapterIdx, setRegeneratingChapterIdx] = useState<
+    number | null
+  >(null);
   // Input/correção salvo desse step específico — input de outro step NÃO
   // vaza pra cá. Roteiros antigos (campo legado `userInput` único, global
   // pro roteiro) começam com input vazio em todos os steps; o legado é
@@ -1628,6 +1636,297 @@ export function StepShell({ step }: Props) {
     setIsGenerating(false);
   }, [setIsGenerating]);
 
+  // Regerar UM capítulo individual no step Escrita. Reusa o pipeline 2-em-2
+  // disparando um batch de 1 capítulo + sinopses dos vizinhos (todas
+  // disponíveis em metadata.synopses) pra preservar continuidade.
+  // dedupChaptersLast substitui o cap antigo pelo novo no merge final.
+  // Calibração automática (±5%) roda igual ao loop principal.
+  const handleRegenerateChapter = useCallback(
+    async (idx: number) => {
+      if (!roteiro || step !== "escrita") return;
+      if (isGenerating || regeneratingChapterIdx !== null) return;
+
+      const escritaOutput = roteiro.outputs.escrita;
+      const allChapters = escritaOutput?.metadata?.chapters;
+      const allSynopses = escritaOutput?.metadata?.synopses ?? [];
+      const target = allChapters?.[idx];
+      if (!escritaOutput || !allChapters || !target) return;
+
+      const part: "Parte 1" | "Parte 2" =
+        target.part === "Parte 2" ? "Parte 2" : "Parte 1";
+
+      // Confirmação — texto extra quando o capítulo está marcado como
+      // editado manualmente (a edição da roteirista será sobrescrita; o
+      // histórico preserva, mas merece aviso explícito).
+      const editedNote = target.edited
+        ? `\n\n⚠️ Este capítulo foi editado manualmente${target.editedAt ? ` em ${new Date(target.editedAt).toLocaleString("pt-BR")}` : ""}. A regeração vai sobrescrever sua edição.`
+        : "";
+      const ok = window.confirm(
+        `Regerar o Capítulo ${target.number} da ${part}?\n\nA versão atual será salva no histórico e pode ser restaurada.${editedNote}`,
+      );
+      if (!ok) return;
+
+      // Recupera o alvo de palavras da estrutura — mesma lógica de fallback
+      // do loop principal (linhas ~612-623). Se a estrutura não declarar
+      // alvo por cap, usa total da categoria dividido pelo total de caps.
+      const estrutura1 = roteiro.outputs.estrutura1?.content;
+      const estrutura2 = roteiro.outputs.estrutura2?.content;
+      const totalInPart =
+        part === "Parte 1"
+          ? countChaptersInEstrutura(estrutura1)
+          : countChaptersInEstrutura(estrutura2);
+      if (totalInPart === 0) {
+        alert(
+          `Não consegui detectar capítulos na estrutura da ${part}. Verifique o Step ${part === "Parte 1" ? 2 : 3}.`,
+        );
+        return;
+      }
+      const targetsRaw = extractChapterTargets(
+        part === "Parte 1" ? estrutura1 : estrutura2,
+      );
+      const fallbackTotal =
+        CATEGORIES[category].wordCount[part === "Parte 1" ? "parte1" : "parte2"]
+          .target;
+      const targetWords =
+        targetsRaw.find((t) => t.number === target.number)?.target ??
+        Math.round(fallbackTotal / totalInPart);
+
+      // Snapshot ANTES de qualquer mutação. Mesmo se o fetch falhar, a
+      // roteirista consegue restaurar pelo HistoryPanel.
+      pushOutputToHistory(
+        "escrita",
+        `Antes regeração Cap ${target.number} da ${part}`,
+      );
+
+      abortRef.current?.abort();
+      const ctrl = new AbortController();
+      abortRef.current = ctrl;
+
+      setIsGenerating(true);
+      setRegeneratingChapterIdx(idx);
+      setLiveStream("");
+      // NÃO setBatchProgress — o BatchProgressPanel é só pra geração global.
+      // O feedback visual fica no próprio botão do card (spinner inline).
+      generationStartRef.current = Date.now();
+      setElapsedSec(0);
+      const startedAt = new Date().toISOString();
+
+      // Usa input persistido do step (sem o draft, porque o draft do textarea
+      // de instruções pode estar sendo digitado num contexto que não se
+      // aplica a este capítulo específico). Roteirista pode commitar via
+      // setUserInput antes se quiser passar instrução pontual.
+      const committedInput = (roteiro.userInputs?.escrita ?? "").trim();
+      const effectiveUserInput = committedInput;
+
+      // Contexto da história inteira pro modelo regerar com continuidade:
+      // mandamos TODAS as sinopses (caps anteriores E POSTERIORES — para que
+      // o cap regerado prepare o que vem depois, pague cliffhangers
+      // anteriores, mantenha tom/personagens), EXCETO a do próprio cap.
+      // Se mandássemos a do próprio cap, o modelo veria "Cap N: aconteceu X,
+      // cliffhanger Y" como fato consolidado e tenderia a reproduzir o
+      // mesmo conteúdo. O prompt da Escrita rotula essa lista como
+      // "SINOPSES DOS CAPÍTULOS JÁ ESCRITOS" — pra continuidade plena,
+      // todos os OUTROS caps contam como "já escritos".
+      const contextSynopses = allSynopses.filter(
+        (s) => !(s.number === target.number && s.part === part),
+      );
+
+      try {
+        const res = await fetch(`/api/agent/escrita`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            category,
+            previousOutputs: roteiro.outputs,
+            userInput: effectiveUserInput,
+            referenceImage: roteiro.referenceImage,
+            ...(roteiro.canone?.trim() ? { canone: roteiro.canone } : {}),
+            batch: {
+              part,
+              chapters: [target.number],
+              totalInPart,
+              batchIndex: 1,
+              totalBatches: 1,
+              chapterTargets: [targetWords],
+            },
+            previousSynopses: contextSynopses,
+          }),
+          signal: ctrl.signal,
+        });
+        if (!res.ok || !res.body) {
+          throw new Error((await res.text()) || res.statusText || "Falha");
+        }
+
+        const acc = await readStreamThrottled(res, setLiveStream, ctrl.signal);
+        if (ctrl.signal.aborted) return;
+
+        const parsed = parseEscritaBatch(acc, part);
+        const newCap = parsed.chapters.find(
+          (c) => c.number === target.number && c.content?.trim(),
+        );
+        if (!newCap) {
+          throw new Error(
+            `O modelo não devolveu o Capítulo ${target.number} no formato esperado.`,
+          );
+        }
+        const newSyn = parsed.synopses.find((s) => s.number === target.number);
+
+        // Merge: append + dedupChaptersLast mantém o cap recém-gerado.
+        // Sinopses: substitui o entry do cap regerado (filter + push).
+        // Aqui leio direto do store pra evitar usar valores stale da closure.
+        const freshOutput =
+          useWizard.getState().roteiro?.outputs.escrita ?? escritaOutput;
+        const freshChapters = freshOutput.metadata?.chapters ?? [];
+        const freshSynopses = freshOutput.metadata?.synopses ?? [];
+        const mergedChapters = dedupChaptersLast([
+          ...freshChapters,
+          { ...newCap, part },
+        ]).chapters;
+        const mergedSynopses = newSyn
+          ? [
+              ...freshSynopses.filter(
+                (s) => !(s.number === target.number && s.part === part),
+              ),
+              { ...newSyn, part },
+            ]
+          : freshSynopses;
+
+        setOutput("escrita", {
+          ...freshOutput,
+          content: concatenateChapters(mergedChapters),
+          metadata: {
+            ...(freshOutput.metadata ?? {}),
+            chapters: mergedChapters,
+            synopses: mergedSynopses,
+          },
+          generatedAt: new Date().toISOString(),
+          edited: false,
+          editedAt: undefined,
+        });
+        setLiveStream("");
+
+        // ─── Calibração automática (mesmo gatilho do loop principal) ───
+        const realCount = countWords(newCap.content);
+        const ratio = Math.abs(realCount - targetWords) / targetWords;
+        if (ratio > 0.05 && !ctrl.signal.aborted) {
+          setBatchProgress({
+            kind: "calibrating",
+            part,
+            chapter: target.number,
+            currentWords: realCount,
+            targetWords,
+            currentIndex: 1,
+            totalToCalibrate: 1,
+          });
+          const neighborSynopses = mergedSynopses
+            .filter(
+              (s) =>
+                s.part === part && Math.abs(s.number - target.number) <= 1,
+            )
+            .map((s) => ({
+              number: s.number,
+              part: s.part,
+              synopsis: s.synopsis,
+            }));
+          try {
+            const fixRes = await fetch("/api/escrita-fix-wordcount", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                category,
+                chapter: {
+                  number: newCap.number,
+                  title: newCap.title,
+                  part,
+                  content: newCap.content,
+                },
+                currentWords: realCount,
+                targetWords,
+                premissa: roteiro.outputs.premissa?.content,
+                neighborSynopses,
+              }),
+              signal: ctrl.signal,
+            });
+            if (fixRes.ok && fixRes.body) {
+              const fixAcc = await readStreamThrottled(
+                fixRes,
+                setLiveStream,
+                ctrl.signal,
+              );
+              if (!ctrl.signal.aborted) {
+                const parsedFix = parseEscritaChaptersDirect(fixAcc);
+                const calibrated = parsedFix.find(
+                  (p) => p.number === target.number,
+                );
+                if (calibrated?.content) {
+                  const freshOutput2 =
+                    useWizard.getState().roteiro?.outputs.escrita ?? freshOutput;
+                  const freshChapters2 =
+                    freshOutput2.metadata?.chapters ?? mergedChapters;
+                  const mergedChapters2 = dedupChaptersLast([
+                    ...freshChapters2,
+                    {
+                      ...newCap,
+                      part,
+                      content: calibrated.content,
+                      title: calibrated.title ?? newCap.title,
+                      generatedAt: new Date().toISOString(),
+                    },
+                  ]).chapters;
+                  setOutput("escrita", {
+                    ...freshOutput2,
+                    content: concatenateChapters(mergedChapters2),
+                    metadata: {
+                      ...(freshOutput2.metadata ?? {}),
+                      chapters: mergedChapters2,
+                      synopses: mergedSynopses,
+                    },
+                    generatedAt: new Date().toISOString(),
+                    edited: false,
+                    editedAt: undefined,
+                  });
+                }
+              }
+            } else {
+              console.warn(
+                `[regerar cap ${target.number}] calibração: HTTP ${fixRes.status} — mantendo original`,
+              );
+            }
+          } catch (e) {
+            if ((e as Error).name !== "AbortError") {
+              console.warn(
+                `[regerar cap ${target.number}] calibração falhou:`,
+                e,
+              );
+            }
+          }
+        }
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          console.error(err);
+          alert(
+            `Não foi possível regerar o Capítulo ${target.number}: ${err instanceof Error ? err.message : String(err)}\n\nA versão anterior está preservada no histórico.`,
+          );
+        }
+      } finally {
+        setLiveStream("");
+        setBatchProgress(null);
+        setIsGenerating(false);
+        setRegeneratingChapterIdx(null);
+      }
+    },
+    [
+      roteiro,
+      step,
+      category,
+      isGenerating,
+      regeneratingChapterIdx,
+      setOutput,
+      setIsGenerating,
+      pushOutputToHistory,
+    ],
+  );
+
   const saveEdit = useCallback(() => {
     if (
       step === "escrita" &&
@@ -1925,6 +2224,9 @@ export function StepShell({ step }: Props) {
               <EscritaOutputView
                 output={output!}
                 chapterTargets={chapterTargets}
+                onRegenerate={handleRegenerateChapter}
+                regeneratingChapterIdx={regeneratingChapterIdx}
+                regenerateDisabled={isGenerating}
               />
             )}
             {chapters.length === 0 && hasContent && !isGenerating && (
@@ -3632,9 +3934,15 @@ function BatchWarningsBanner({
 function EscritaOutputView({
   output,
   chapterTargets,
+  onRegenerate,
+  regeneratingChapterIdx,
+  regenerateDisabled,
 }: {
   output: StepOutput;
   chapterTargets?: Map<string, number>;
+  onRegenerate?: (idx: number) => void;
+  regeneratingChapterIdx?: number | null;
+  regenerateDisabled?: boolean;
 }) {
   const setOutput = useWizard((s) => s.setOutput);
   const pushOutputToHistory = useWizard((s) => s.pushOutputToHistory);
@@ -3734,6 +4042,9 @@ function EscritaOutputView({
               defaultOpen={isLast}
               targetWordCount={target}
               onSave={saveChapter}
+              onRegenerate={onRegenerate}
+              isRegenerating={regeneratingChapterIdx === i}
+              regenerateDisabled={regenerateDisabled}
             />
           );
         })}
@@ -3790,12 +4101,18 @@ const ChapterCard = memo(function ChapterCard({
   defaultOpen,
   targetWordCount,
   onSave,
+  onRegenerate,
+  isRegenerating,
+  regenerateDisabled,
 }: {
   chapter: EscritaChapter;
   chapterIndex: number;
   defaultOpen: boolean;
   targetWordCount?: number;
   onSave?: (idx: number, newContent: string) => void;
+  onRegenerate?: (idx: number) => void;
+  isRegenerating?: boolean;
+  regenerateDisabled?: boolean;
 }) {
   const titleLabel = chapter.title
     ? `Capítulo ${chapter.number} — ${chapter.title}`
@@ -3905,13 +4222,42 @@ const ChapterCard = memo(function ChapterCard({
 
       <div className="flex flex-col divide-y divide-border/60">
         <div className="px-4 sm:px-6 py-5">
-          {onSave && (
+          {(onSave || onRegenerate) && (
             <div className="flex items-center justify-end gap-2 mb-3">
               {!isEditing ? (
-                <Button variant="ghost" size="sm" onClick={startEdit}>
-                  <Pencil className="size-3.5" />
-                  Editar
-                </Button>
+                <>
+                  {onRegenerate && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={regenerateDisabled || isRegenerating}
+                      onClick={() => onRegenerate(chapterIndex)}
+                    >
+                      {isRegenerating ? (
+                        <>
+                          <Loader2 className="size-3.5 animate-spin" />
+                          Regenerando…
+                        </>
+                      ) : (
+                        <>
+                          <RotateCcw className="size-3.5" />
+                          Regerar
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  {onSave && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={startEdit}
+                      disabled={isRegenerating}
+                    >
+                      <Pencil className="size-3.5" />
+                      Editar
+                    </Button>
+                  )}
+                </>
               ) : (
                 <>
                   <Button variant="ghost" size="sm" onClick={cancelEdit}>
