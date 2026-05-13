@@ -99,3 +99,37 @@ export function dedupChapters(chapters: EscritaChapter[]): {
   const filtered = chapters.filter((_, i) => !removeSet.has(i));
   return { chapters: filtered, removed: groups };
 }
+
+/**
+ * Canonização de `part`: trata `undefined`, `null`, `""`, " parte 1 ",
+ * "PARTE 1" como equivalentes. Fallback default "parte 1" alinha com o
+ * comportamento de `partAtIndex` em parse-escrita-output.ts.
+ */
+export function canonPart(p: string | undefined | null): string {
+  return (p ?? "").trim().toLowerCase() || "parte 1";
+}
+
+/**
+ * Variante de dedup com estratégia "last": ao detectar duplicatas por
+ * (canonPart, number), mantém o ÚLTIMO entry — semântica de "a regeneração
+ * mais recente é a intencional". Usar no loop de batches da Escrita, onde
+ * o cap re-emitido pelo agente substitui o anterior. (O dedup canônico por
+ * `longest` está em `dedupChapters` e é usado em load/undo.)
+ *
+ * Diferente de `dedupChapters`, NÃO usa `title` na chave — title pode mudar
+ * entre regenerações sem que isso constitua duas versões distintas.
+ */
+export function dedupChaptersLast(chapters: EscritaChapter[]): {
+  chapters: EscritaChapter[];
+  removed: number;
+} {
+  const seenLast = new Map<string, number>(); // key -> último índice
+  chapters.forEach((c, i) => {
+    const k = `${canonPart(c.part)}|${c.number}`;
+    seenLast.set(k, i);
+  });
+  const keep = new Set(seenLast.values());
+  if (keep.size === chapters.length) return { chapters, removed: 0 };
+  const filtered = chapters.filter((_, i) => keep.has(i));
+  return { chapters: filtered, removed: chapters.length - filtered.length };
+}

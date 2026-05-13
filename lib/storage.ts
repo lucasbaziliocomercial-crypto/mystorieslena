@@ -9,6 +9,7 @@ import type {
 } from "@/types/roteiro";
 import { DEFAULT_CATEGORY } from "@/types/roteiro";
 import { hasXmlCruft, stripXmlCruft } from "@/lib/parse-revisor-output";
+import { normalizeEscritaOutput } from "@/lib/normalize-escrita";
 
 const KEY = "veludo:roteiros";
 
@@ -169,6 +170,22 @@ function sanitizeRoteiroXmlCruft(r: Roteiro): Roteiro {
     changed = true;
   }
 
+  // Auto-heal de duplicatas: roteiros corrompidos por versões anteriores
+  // (antes da invariante de dedup no setOutput) viram limpos automaticamente
+  // no load. Estratégia "longest" porque snapshots/output salvos são versões
+  // estáveis — em load não há contexto de "regeneração recente".
+  const escritaOutput = outputs?.escrita;
+  if (escritaOutput) {
+    const normalized = normalizeEscritaOutput(escritaOutput, {
+      strategy: "longest",
+      source: "storage:load",
+    });
+    if (normalized.changed) {
+      outputs = { ...(outputs ?? {}), escrita: normalized.output };
+      changed = true;
+    }
+  }
+
   let history = r.history;
   const escritaHistory = r.history?.escrita;
   if (escritaHistory && escritaHistory.length > 0) {
@@ -181,24 +198,54 @@ function sanitizeRoteiroXmlCruft(r: Roteiro): Roteiro {
         const snapChapters = snap.metadata?.chapters;
         const chaptersHasCruft =
           !!snapChapters && snapChapters.some((c) => hasXmlCruft(c.content));
-        if (cleanContent === snap.content && !chaptersHasCruft) return snap;
+        let next = snap;
+        let snapChanged = false;
+        if (cleanContent !== snap.content || chaptersHasCruft) {
+          next = {
+            ...snap,
+            content: cleanContent,
+            ...(chaptersHasCruft && snapChapters
+              ? {
+                  metadata: {
+                    ...(snap.metadata ?? {}),
+                    chapters: snapChapters.map((c) =>
+                      hasXmlCruft(c.content)
+                        ? { ...c, content: stripXmlCruft(c.content) }
+                        : c,
+                    ),
+                  },
+                }
+              : {}),
+          };
+          snapChanged = true;
+        }
+        // Dedup também os snapshots do histórico. O bug do client não foi
+        // escolha intencional da roteirista — restaurar um snapshot duplicado
+        // só re-introduz o problema. Estratégia "longest" preserva a versão
+        // mais completa que existia no momento do snapshot.
+        if (next.metadata?.chapters) {
+          const normalizedSnap = normalizeEscritaOutput(
+            {
+              content: next.content,
+              metadata: next.metadata,
+              generatedAt: next.generatedAt,
+              editedAt: next.editedAt,
+              edited: next.edited,
+            },
+            { strategy: "longest", source: "storage:history" },
+          );
+          if (normalizedSnap.changed) {
+            next = {
+              ...next,
+              content: normalizedSnap.output.content,
+              metadata: normalizedSnap.output.metadata,
+            };
+            snapChanged = true;
+          }
+        }
+        if (!snapChanged) return snap;
         snapshotsChanged = true;
-        return {
-          ...snap,
-          content: cleanContent,
-          ...(chaptersHasCruft && snapChapters
-            ? {
-                metadata: {
-                  ...(snap.metadata ?? {}),
-                  chapters: snapChapters.map((c) =>
-                    hasXmlCruft(c.content)
-                      ? { ...c, content: stripXmlCruft(c.content) }
-                      : c,
-                  ),
-                },
-              }
-            : {}),
-        };
+        return next;
       },
     );
     if (snapshotsChanged) {

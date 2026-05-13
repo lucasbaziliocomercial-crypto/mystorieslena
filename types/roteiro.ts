@@ -118,6 +118,13 @@ export interface BatchMissingChapters {
   part: "Parte 1" | "Parte 2";
   expected: number[];
   missing: number[];
+  /**
+   * Quantos capítulos duplicados (por canonPart+number) foram silenciosamente
+   * removidos neste batch pelo `dedupChaptersLast`. Ocorre quando o agente
+   * Escrita re-emite um cap que já existia em batches anteriores. Renderizado
+   * no banner amarelo com o mesmo peso de `missing` — visibilidade > silêncio.
+   */
+  duplicatesRemoved?: number;
 }
 
 export interface StepOutputMetadata {

@@ -72,6 +72,7 @@ import {
   planBatches,
 } from "@/lib/parse-estrutura-chapters";
 import { parseEscritaBatch } from "@/lib/parse-escrita-batch";
+import { canonPart, dedupChaptersLast } from "@/lib/dedup-chapters";
 import {
   extractChapterTargets,
   isWithinTarget,
@@ -167,6 +168,19 @@ type WizardProgress =
   | {
       kind: "revising";
       chaptersCount: number;
+    }
+  | {
+      // Calibração automática de word count — só dispara pra caps que saem
+      // >15% fora do alvo declarado na Estrutura. Idempotente: caps já dentro
+      // da faixa são pulados; rodar de novo após nova geração é seguro.
+      kind: "calibrating";
+      part: "Parte 1" | "Parte 2";
+      chapter: number;
+      currentWords: number;
+      targetWords: number;
+      /** Posição no loop pra UI mostrar "calibrando 2 de 5". */
+      currentIndex: number;
+      totalToCalibrate: number;
     };
 
 const PART_BANNER = (part: string) =>
@@ -651,92 +665,269 @@ export function StepShell({ step }: Props) {
 
       try {
         // ═══ Loop 2-em-2: gera batches e acumula ════════════════════════
+        // Retry automático: se um batch deixar de emitir alguns dos caps
+        // esperados, o sistema pede de novo os faltantes (até 2 retries).
+        // Validado pela roteirista — sem isso, a Parte 2 com cap 1+2 e 3+4
+        // ausentes (caso real reportado) exigiria clicar "Gerar novamente"
+        // e re-rodar a Parte 1 inteira, gastando minutos de Opus à toa.
+        const MAX_RETRIES_PER_BATCH = 2;
         for (const b of plan) {
           if (ctrl.signal.aborted) break;
-          setBatchProgress({
-            kind: "writing",
-            batchIndex: b.batchIndex,
-            totalBatches: plan.length,
-            part: b.part,
-            chapters: b.chapters,
-          });
-          setLiveStream("");
 
-          const res = await fetch(`/api/agent/${step}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              category,
-              previousOutputs: roteiro.outputs,
-              userInput: effectiveUserInput,
-              referenceImage: roteiro.referenceImage,
-              ...(roteiro.canone?.trim() ? { canone: roteiro.canone } : {}),
-              batch: {
-                part: b.part,
-                chapters: b.chapters,
-                totalInPart: b.totalInPart,
-                batchIndex: b.batchIndex,
-                totalBatches: plan.length,
-              },
-              previousSynopses: accSynopses,
-            }),
-            signal: ctrl.signal,
-          });
+          let chaptersToRequest = [...b.chapters];
+          let targetsToRequest = [...b.targets];
+          let attempt = 0;
+          let finalMissing: number[] = chaptersToRequest;
+          let batchFatalError: string | null = null;
 
-          if (!res.ok || !res.body) {
-            await failBatch(
-              (await res.text()) || res.statusText,
-              b.batchIndex,
+          while (
+            chaptersToRequest.length > 0 &&
+            attempt <= MAX_RETRIES_PER_BATCH
+          ) {
+            if (ctrl.signal.aborted) break;
+            attempt += 1;
+            setBatchProgress({
+              kind: "writing",
+              batchIndex: b.batchIndex,
+              totalBatches: plan.length,
+              part: b.part,
+              chapters: chaptersToRequest,
+            });
+            setLiveStream("");
+
+            const res = await fetch(`/api/agent/${step}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                category,
+                previousOutputs: roteiro.outputs,
+                userInput: effectiveUserInput,
+                referenceImage: roteiro.referenceImage,
+                ...(roteiro.canone?.trim() ? { canone: roteiro.canone } : {}),
+                batch: {
+                  part: b.part,
+                  chapters: chaptersToRequest,
+                  totalInPart: b.totalInPart,
+                  batchIndex: b.batchIndex,
+                  totalBatches: plan.length,
+                  chapterTargets: targetsToRequest,
+                },
+                previousSynopses: accSynopses,
+              }),
+              signal: ctrl.signal,
+            });
+
+            if (!res.ok || !res.body) {
+              batchFatalError = (await res.text()) || res.statusText;
+              break;
+            }
+
+            const acc = await readStreamFully(res);
+            if (ctrl.signal.aborted) break;
+
+            const parsed = parseEscritaBatch(acc, b.part);
+
+            // Fallback do parser (cap número 0): modelo não devolveu nenhum
+            // cabeçalho `## Capítulo N`. Tenta de novo se ainda há retries;
+            // senão, falha o batch.
+            const fallbackOnly = parsed.chapters.every((c) => c.number === 0);
+            if (fallbackOnly && parsed.chapters.length > 0) {
+              if (attempt <= MAX_RETRIES_PER_BATCH) {
+                console.warn(
+                  `[escrita batch ${b.batchIndex}] tentativa ${attempt}: output sem cabeçalhos — retentando`,
+                );
+                continue;
+              } else {
+                batchFatalError = `O modelo não seguiu o formato esperado (sem cabeçalhos "## Capítulo N — Título"). Tente regenerar o batch.`;
+                break;
+              }
+            }
+
+            if (ctrl.signal.aborted) break;
+
+            // Acumula o que veio (mesmo que parcial). O dedupChaptersLast
+            // mais abaixo descarta duplicatas se uma tentativa anterior já
+            // tinha entregado o mesmo cap (mantém o mais recente).
+            accChapters.push(...parsed.chapters);
+            accSynopses.push(...parsed.synopses);
+
+            const gotNumbers = new Set(
+              parsed.chapters.map((c) => c.number).filter((n) => n > 0),
             );
+            const stillMissing = chaptersToRequest.filter(
+              (n) => !gotNumbers.has(n),
+            );
+
+            if (stillMissing.length === 0) {
+              finalMissing = [];
+              break;
+            }
+
+            // Setup pro próximo retry: pede só os faltantes com targets
+            // correspondentes. Mantém numeração e contexto original.
+            const stillMissingTargets = stillMissing.map((n) => {
+              const idx = b.chapters.indexOf(n);
+              return idx >= 0 ? b.targets[idx]! : 0;
+            });
+            console.warn(
+              `[escrita batch ${b.batchIndex}] tentativa ${attempt}: faltam caps ${stillMissing.join(", ")} — ${attempt <= MAX_RETRIES_PER_BATCH ? "retentando" : "desistindo"}`,
+            );
+            chaptersToRequest = stillMissing;
+            targetsToRequest = stillMissingTargets;
+            finalMissing = stillMissing;
+          }
+
+          if (batchFatalError) {
+            await failBatch(batchFatalError, b.batchIndex);
             setIsGenerating(false);
             setBatchProgress(null);
             return;
           }
 
-          const acc = await readStreamFully(res);
-          if (ctrl.signal.aborted) break;
-
-          const parsed = parseEscritaBatch(acc, b.part);
-
-          // Sanity check: se o parser caiu no fallback (cap número 0)
-          // significa que o modelo não devolveu cabeçalho `## Capítulo N`.
-          // Não tem sentido tentar fix-wordcount em cima disso. Para o
-          // loop com erro claro pra a roteirista regenerar.
-          const fallbackOnly = parsed.chapters.every((c) => c.number === 0);
-          if (fallbackOnly && parsed.chapters.length > 0) {
-            await failBatch(
-              `O modelo não seguiu o formato esperado (sem cabeçalhos "## Capítulo N — Título"). Tente regenerar o batch.`,
-              b.batchIndex,
-            );
-            setIsGenerating(false);
-            setBatchProgress(null);
-            return;
-          }
-
-          if (ctrl.signal.aborted) break;
-
-          // Detecta caps que o batch deveria ter mas o agente não emitiu.
-          // Compara b.chapters esperados vs numbers parseados (ignora 0 do
-          // fallback). Se faltar algum, registra warning visível pro usuário.
-          const expectedNumbers = b.chapters;
-          const gotNumbers = new Set(
-            parsed.chapters.map((c) => c.number).filter((n) => n > 0),
-          );
-          const missingNumbers = expectedNumbers.filter(
-            (n) => !gotNumbers.has(n),
-          );
-          if (missingNumbers.length > 0) {
+          // Se sobraram caps faltando depois de todas as tentativas, registra
+          // warning pro usuário ver e regenerar manualmente.
+          if (finalMissing.length > 0) {
             accBatchWarnings.push({
               batchIndex: b.batchIndex,
               part: b.part,
-              expected: expectedNumbers,
-              missing: missingNumbers,
+              expected: b.chapters,
+              missing: finalMissing,
             });
           }
 
-          accChapters.push(...parsed.chapters);
-          accSynopses.push(...parsed.synopses);
+          // Dedup por (canonPart, number) com estratégia "last": se o batch
+          // atual emitiu cap que já existia em accChapters (overlap, retry,
+          // regeneração no meio), o mais recente vence — semântica de "a
+          // última regeneração é a intencional". A barreira final do store
+          // (setOutput) também dedupa, mas aqui usamos "last" especificamente
+          // pra preservar o cap recém-gerado em vez do antigo mais longo.
+          const dedupResult = dedupChaptersLast(accChapters);
+          if (dedupResult.removed > 0) {
+            accChapters.length = 0;
+            accChapters.push(...dedupResult.chapters);
+            accBatchWarnings.push({
+              batchIndex: b.batchIndex,
+              part: b.part,
+              expected: [],
+              missing: [],
+              duplicatesRemoved: dedupResult.removed,
+            });
+            console.warn(
+              `[escrita batch] removidas ${dedupResult.removed} duplicata(s) no batch ${b.batchIndex}`,
+            );
+          }
+
           persist();
+
+          // ─── Calibração automática de word count ─────────────────────
+          // Threshold alinhado com a regra do prompt (±3%, com folga de ±5%
+          // pra evitar disparar por arredondamento). Captura praticamente
+          // todos os caps fora da faixa — o reforço de prompt (REGRA #1) é a
+          // primeira linha de defesa, mas o Opus desobedece word count com
+          // frequência mesmo com regra rígida. A roteirista validou ±5%.
+          const CALIBRATION_THRESHOLD = 0.05;
+          const calibrationCandidates: Array<{
+            arrIndex: number;
+            chapter: EscritaChapter;
+            target: number;
+            current: number;
+          }> = [];
+          for (let i = 0; i < accChapters.length; i++) {
+            const ch = accChapters[i]!;
+            if (ch.part !== b.part) continue;
+            const chIdx = b.chapters.indexOf(ch.number);
+            if (chIdx < 0) continue; // não é cap deste batch
+            const target = b.targets[chIdx];
+            if (!target) continue;
+            const current = countWords(ch.content);
+            const ratio = Math.abs(current - target) / target;
+            if (ratio > CALIBRATION_THRESHOLD) {
+              calibrationCandidates.push({ arrIndex: i, chapter: ch, target, current });
+            }
+          }
+
+          for (let k = 0; k < calibrationCandidates.length; k++) {
+            if (ctrl.signal.aborted) break;
+            const cand = calibrationCandidates[k]!;
+            setBatchProgress({
+              kind: "calibrating",
+              part: b.part,
+              chapter: cand.chapter.number,
+              currentWords: cand.current,
+              targetWords: cand.target,
+              currentIndex: k + 1,
+              totalToCalibrate: calibrationCandidates.length,
+            });
+            setLiveStream("");
+
+            // Sinopses dos caps vizinhos (Parte igual, número ±1) pra não
+            // contradizer continuidade ao reescrever.
+            const neighborSynopses = accSynopses
+              .filter(
+                (s) =>
+                  s.part === cand.chapter.part &&
+                  Math.abs(s.number - cand.chapter.number) <= 1,
+              )
+              .map((s) => ({
+                number: s.number,
+                part: s.part,
+                synopsis: s.synopsis,
+              }));
+
+            try {
+              const fixRes = await fetch("/api/escrita-fix-wordcount", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  category,
+                  chapter: {
+                    number: cand.chapter.number,
+                    title: cand.chapter.title,
+                    part: cand.chapter.part as "Parte 1" | "Parte 2",
+                    content: cand.chapter.content,
+                  },
+                  currentWords: cand.current,
+                  targetWords: cand.target,
+                  premissa: roteiro.outputs.premissa?.content,
+                  neighborSynopses,
+                }),
+                signal: ctrl.signal,
+              });
+              if (!fixRes.ok || !fixRes.body) {
+                console.warn(
+                  `[calibração] cap ${cand.chapter.number} (${cand.chapter.part}): HTTP ${fixRes.status} — mantendo original`,
+                );
+                continue;
+              }
+              const fixAcc = await readStreamFully(fixRes);
+              if (ctrl.signal.aborted) break;
+
+              const parsedFix = parseEscritaChaptersDirect(fixAcc);
+              const newCh = parsedFix.find(
+                (p) => p.number === cand.chapter.number,
+              );
+              if (newCh?.content) {
+                accChapters[cand.arrIndex] = {
+                  ...cand.chapter,
+                  content: newCh.content,
+                  title: newCh.title ?? cand.chapter.title,
+                  generatedAt: new Date().toISOString(),
+                };
+                persist();
+              } else {
+                console.warn(
+                  `[calibração] cap ${cand.chapter.number} (${cand.chapter.part}): parser não achou cap no output — mantendo original`,
+                );
+              }
+            } catch (e) {
+              if ((e as Error).name === "AbortError") throw e;
+              console.warn(
+                `[calibração] cap ${cand.chapter.number} (${cand.chapter.part}):`,
+                e,
+              );
+            }
+          }
+          setLiveStream("");
         }
 
         if (ctrl.signal.aborted) {
@@ -1307,11 +1498,16 @@ export function StepShell({ step }: Props) {
             // Merge: substitui capítulos existentes com mesmo (number, part);
             // se vier um cap novo (não existia antes), adiciona no final da
             // sua Parte. Os caps intactos permanecem inalterados.
+            //
+            // canonPart normaliza undefined/null/""/"Parte 1"/"parte 1" para
+            // a mesma chave — sem isso, um cap incoming sem `part` definida
+            // não casava com o existing `part: "Parte 1"` e era classificado
+            // como newOne, gerando duplicata (regressão do commit 54f8d01).
             const merged: EscritaChapter[] = previousChapters.map((existing) => {
               const replacement = incoming.find(
                 (i) =>
                   i.number === existing.number &&
-                  (i.part ?? "") === (existing.part ?? ""),
+                  canonPart(i.part) === canonPart(existing.part),
               );
               return replacement
                 ? {
@@ -1329,7 +1525,7 @@ export function StepShell({ step }: Props) {
                 !previousChapters.some(
                   (e) =>
                     e.number === i.number &&
-                    (e.part ?? "") === (i.part ?? ""),
+                    canonPart(e.part) === canonPart(i.part),
                 ),
             );
             merged.push(...newOnes);
@@ -3364,35 +3560,70 @@ function BatchWarningsBanner({
   warnings: BatchMissingChapters[];
 }) {
   const totalMissing = warnings.reduce((sum, w) => sum + w.missing.length, 0);
+  const totalDuplicates = warnings.reduce(
+    (sum, w) => sum + (w.duplicatesRemoved ?? 0),
+    0,
+  );
+  const missingWarnings = warnings.filter((w) => w.missing.length > 0);
+  const duplicateWarnings = warnings.filter(
+    (w) => (w.duplicatesRemoved ?? 0) > 0,
+  );
   return (
     <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 flex gap-3">
       <AlertTriangle className="size-5 flex-none text-amber-700 mt-0.5" />
       <div className="flex flex-col gap-2 text-sm">
-        <p className="font-medium text-amber-900">
-          {totalMissing === 1
-            ? "1 capítulo não foi gerado"
-            : `${totalMissing} capítulos não foram gerados`}
-        </p>
-        <ul className="text-amber-900/90 list-disc pl-5 space-y-0.5">
-          {warnings.map((w, i) => (
-            <li key={`${w.batchIndex}-${i}`}>
-              <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-amber-200/60 mr-1">
-                {w.part} · Par {w.batchIndex}
-              </span>
-              esperado capítulo
-              {w.expected.length === 1 ? " " : "s "}
-              {w.expected.join(", ")} — não detectado
-              {w.missing.length === 1 ? ": " : "s: "}
-              <strong>{w.missing.join(", ")}</strong>
-            </li>
-          ))}
-        </ul>
-        <p className="text-amber-800/80 text-xs">
-          O agente Opus emitiu menos cabeçalhos{" "}
-          <code className="text-[11px]">## Capítulo N</code> do que o esperado
-          neste par. Clique em <strong>Gerar roteiro novamente</strong> pra
-          refazer.
-        </p>
+        {totalMissing > 0 && (
+          <>
+            <p className="font-medium text-amber-900">
+              {totalMissing === 1
+                ? "1 capítulo não foi gerado"
+                : `${totalMissing} capítulos não foram gerados`}
+            </p>
+            <ul className="text-amber-900/90 list-disc pl-5 space-y-0.5">
+              {missingWarnings.map((w, i) => (
+                <li key={`miss-${w.batchIndex}-${i}`}>
+                  <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-amber-200/60 mr-1">
+                    {w.part} · Par {w.batchIndex}
+                  </span>
+                  esperado capítulo
+                  {w.expected.length === 1 ? " " : "s "}
+                  {w.expected.join(", ")} — não detectado
+                  {w.missing.length === 1 ? ": " : "s: "}
+                  <strong>{w.missing.join(", ")}</strong>
+                </li>
+              ))}
+            </ul>
+            <p className="text-amber-800/80 text-xs">
+              O agente Opus emitiu menos cabeçalhos{" "}
+              <code className="text-[11px]">## Capítulo N</code> do que o
+              esperado neste par. Clique em{" "}
+              <strong>Gerar roteiro novamente</strong> pra refazer.
+            </p>
+          </>
+        )}
+        {totalDuplicates > 0 && (
+          <>
+            <p className="font-medium text-amber-900">
+              {totalDuplicates === 1
+                ? "1 capítulo duplicado foi removido automaticamente"
+                : `${totalDuplicates} capítulos duplicados foram removidos automaticamente`}
+            </p>
+            <ul className="text-amber-900/90 list-disc pl-5 space-y-0.5">
+              {duplicateWarnings.map((w, i) => (
+                <li key={`dup-${w.batchIndex}-${i}`}>
+                  <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-amber-200/60 mr-1">
+                    {w.part} · Par {w.batchIndex}
+                  </span>
+                  removidos: <strong>{w.duplicatesRemoved}</strong>
+                </li>
+              ))}
+            </ul>
+            <p className="text-amber-800/80 text-xs">
+              O agente re-emitiu capítulos que já existiam — a versão mais
+              recente foi mantida e as anteriores descartadas.
+            </p>
+          </>
+        )}
       </div>
     </div>
   );
@@ -3845,6 +4076,14 @@ function BatchProgressPanel({
     title = `Par ${progress.batchIndex} de ${progress.totalBatches}`;
     subtitle = `· ${chapsLabel} da ${progress.part}`;
     placeholder = "Conectando ao agente…";
+  } else if (progress.kind === "calibrating") {
+    const action =
+      progress.currentWords > progress.targetWords ? "Encurtando" : "Expandindo";
+    title = `${action} cap ${progress.chapter}`;
+    subtitle = `· ${progress.part} · ${progress.currentWords.toLocaleString("pt-BR")} → alvo ${progress.targetWords.toLocaleString("pt-BR")} palavras`;
+    phaseBanner = `Calibração ${progress.currentIndex} de ${progress.totalToCalibrate} — ajustando capítulo pra ficar dentro do alvo da Estrutura`;
+    placeholder =
+      "Reescrevendo o capítulo respeitando cenas, falas-chave e cliffhanger — só ajustando densidade pra atingir o alvo de palavras.";
   } else {
     // revising
     title = "Revisão final";

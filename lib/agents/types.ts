@@ -19,6 +19,14 @@ export interface AgentBatchContext {
   batchIndex: number;
   /** Total de batches que serão disparados nessa rodada (Parte 1 + Parte 2). */
   totalBatches: number;
+  /**
+   * Alvo de palavras de cada capítulo deste batch, lido da Estrutura aprovada.
+   * Sem esse número explícito no prompt o Opus tende a extrapolar (cada cap
+   * com +20-70% sobre o alvo). Quando presente, o user message instrui o
+   * agente a obedecer o número EXATO com margem ±3%. Pareado 1:1 com
+   * `chapters` (mesma ordem).
+   */
+  chapterTargets?: number[];
 }
 
 export interface AgentContext {

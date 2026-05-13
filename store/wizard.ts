@@ -14,6 +14,7 @@ import { scheduleSave, flushPendingSave } from "@/lib/storage";
 import { applyCorrections, stripXmlCruft } from "@/lib/parse-revisor-output";
 import { dedupChapters } from "@/lib/dedup-chapters";
 import { concatenateChapters } from "@/lib/parse-escrita-output";
+import { normalizeEscritaOutput } from "@/lib/normalize-escrita";
 
 /**
  * Steps cujo `metadata.errors[]` alimenta os cards de correção 1-clique.
@@ -192,10 +193,23 @@ export const useWizard = create<WizardState>((set, get) => ({
   setOutput: (step, output) =>
     set((s) => {
       if (!s.roteiro) return s;
+      // Barreira final da invariante "outputs.escrita sem duplicatas por
+      // (canonPart, number); content = f(chapters) exceto se edited=true".
+      // Qualquer caller que esqueça de dedupar é silenciosamente corrigido —
+      // protege contra regressões futuras. Estratégia "longest" (segura por
+      // default); callers do batch loop chamam normalize com "last" ANTES
+      // de chegar aqui, e a passagem por aqui é idempotente.
+      const finalOutput =
+        step === "escrita"
+          ? normalizeEscritaOutput(output, {
+              strategy: "longest",
+              source: "store:setOutput",
+            }).output
+          : output;
       return {
         roteiro: persist({
           ...s.roteiro,
-          outputs: { ...s.roteiro.outputs, [step]: output },
+          outputs: { ...s.roteiro.outputs, [step]: finalOutput },
         }),
       };
     }),
