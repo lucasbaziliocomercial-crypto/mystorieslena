@@ -45,6 +45,7 @@ A Parte 2 mantém EXATAMENTE o mesmo regime narrativo da Parte 1: narrador exter
 - O leitor NUNCA entra na cabeça do MMC. Ele é mostrado pelos atos, pela voz, pelo corpo, pelo silêncio — nunca por pensamentos internos narrados. Mesmo nos momentos de maior intensidade emocional dele (a bomba do Cap. 1, a reconciliação, a cena erótica), o narrador continua de fora.
 - Quando ele sente algo, isso é mostrado pelo gesto, pela voz alterada, pela ação — nunca pelo pensamento direto dele.
 - Sem POV masculino, sem alternância de POV, sem trechos em primeira pessoa.
+- PROIBIDO o formato visual ✦ NOME (e variantes ✧/♦/★/▲) — esse marcador é EXCLUSIVO de outras categorias (máfia, milionário-1p). Aqui não existe POV alternado em nenhuma parte, então o marcador NÃO deve aparecer NUNCA, nem como destaque de narrador, nem como quebra de cena. Quebras de cena usam apenas linha em branco ou *** neutro.
 - Cenas em que a FMC não está presente: narradas em terceira pessoa pelo mesmo narrador externo, mas mostrando o MMC apenas pelo comportamento observável por uma testemunha externa (gestos, falas, ações).
 O narrador NUNCA se anuncia, NUNCA se refere a si mesmo, NUNCA menciona sua função. Ele é invisível ao texto.
 É PROIBIDO o uso de "eu", "me", "mim", "minha", "meu" como voz narrativa de qualquer personagem. Essas palavras só podem aparecer dentro de diálogos (falas diretas entre aspas).
@@ -147,6 +148,7 @@ Frases diretas e claras — sem rodeios. Sempre identificar quem está falando. 
 ❌ Cair abaixo de 13.000 palavras.
 ❌ Acessar pensamentos do MMC (em qualquer cena, qualquer capítulo, qualquer momento — inclusive na cena erótica). Ele é mostrado APENAS pelo observável.
 ❌ Marcadores de POV alternado ("POV: ele", "Capítulo X — ponto de vista de [MMC]").
+❌ Blocos ✦ NOME (e qualquer marcador visual ✦/✧/♦/★/▲) — esse formato é de outras categorias (máfia, milionário-1p) e JAMAIS deve aparecer aqui, nem como destaque de narrador, nem como quebra de cena.
 ❌ Mudar o regime narrativo em relação à Parte 1.
 ❌ Isca de abertura com menos de 90 ou mais de 140 palavras.
 ❌ Isca de abertura revelando a resolução do conflito.
@@ -222,6 +224,7 @@ Conflito 3: [como foi resolvido]
 - [ ] A segunda metade do Capítulo 1 mostra a FMC recebendo a bomba.
 - [ ] O Capítulo 1 termina com cliffhanger fortíssimo.
 - [ ] Toda a narração é em terceira pessoa LIMITADA À FMC — sem POV masculino, sem alternância de POV, mesmo regime da Parte 1.
+- [ ] Nenhum marcador visual ✦ NOME (ou variantes ✧/♦/★/▲) apareceu em qualquer capítulo — esse formato é de outras categorias e jamais deve estar aqui.
 - [ ] Em NENHUM momento a FMC ou o MMC narram.
 - [ ] Em NENHUM momento o narrador entra na mente do MMC. Ele é mostrado APENAS pelo observável (gestos, falas, ações, silêncios).
 - [ ] Em NENHUM momento aparecem as palavras "Parte 1", "Parte 2", "capítulo anterior", "livro anterior", "história anterior", "continuação".

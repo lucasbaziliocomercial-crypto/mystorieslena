@@ -125,6 +125,14 @@ export interface BatchMissingChapters {
    * no banner amarelo com o mesmo peso de `missing` — visibilidade > silêncio.
    */
   duplicatesRemoved?: number;
+  /**
+   * Erro fatal do batch (HTTP/rede/parser sem cabeçalhos depois de todos os
+   * retries). Quando presente, o loop NÃO aborta — registra esse aviso e
+   * segue pro próximo batch (P2 não pode ser pulada por falha em P1, nem
+   * vice-versa). Banner renderiza em vermelho com o motivo pra a roteirista
+   * regerar só os batches faltantes via "Gerar capítulo X novamente".
+   */
+  fatalError?: string;
 }
 
 export interface StepOutputMetadata {

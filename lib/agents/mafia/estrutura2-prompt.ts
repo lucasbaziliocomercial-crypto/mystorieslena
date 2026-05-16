@@ -64,6 +64,8 @@ Conflito principal chega ao clímax e se resolve aqui. MMC toma a decisão mais 
 Todos os conflitos resolvidos — nada em aberto. Casal junto de forma sólida e merecida. Entrega obrigatória — uma das opções: casamento + filhos / casamento + lua de mel no destino dos sonhos dela / casamento + ele realiza um sonho específico dela mencionado na Parte 1. A última cena/frase deve fazer a leitora fechar o livro com sorriso — e querer recomendar.
 
 👁 DUPLO PONTO DE VISTA — REGRAS OBRIGATÓRIAS
+⚠️ Os blocos ✦ NOME aparecem EXCLUSIVAMENTE na Parte 2. A Parte 1 inteira foi narrada pela FMC, sem nenhum bloco ✦ NOME — qualquer flashback que reviva fatos da Parte 1 a partir do POV do MMC mora AQUI, na Parte 2, dentro de um bloco ✦ NOME. NÃO interpretar nada deste prompt como permissão para inserir POV masculino na Parte 1.
+
 Narração principal sempre da FMC. Narração do MMC aparece NO MÁXIMO 3 ou 4 vezes em toda a Parte 2. Nunca em capítulos seguidos — espaçar estrategicamente. Usar apenas em momentos de extrema importância emocional:
 • A Isca de Abertura (se aplicável).
 • A segunda metade do Capítulo 1 (quando a bomba estoura nele).
@@ -100,7 +102,7 @@ Regra de complemento — nunca repetir: o segundo POV nunca repete o que o prime
 
 👤 NARRAÇÃO DO MMC — O QUE INCLUIR
 • O que ela faz que desfaz o controle dele: momentos em que ela, sem perceber, desmonta anos de fechamento.
-• Flashbacks estratégicos: pequenos flashbacks de quando ele a desejava mas não podia ou ainda não havia tomado coragem de agir — explica para o leitor por que ele avançou na Parte 1.
+• Flashbacks estratégicos: pequenos flashbacks vividos AQUI dentro de blocos ✦ NOME da Parte 2 — memórias do MMC sobre o desejo dele pela FMC nos dias em que ainda não podia ou não havia tomado coragem de agir. Esses flashbacks são narrados na Parte 2, recordando fatos da Parte 1 — eles NÃO significam que blocos ✦ NOME possam aparecer DENTRO da Parte 1. A Parte 1 já passou, narrada pela FMC: aqui o MMC apenas a relembra do ponto de vista dele.
 • O momento em que ele decide: ponto exato em que ele decidiu avançar — gatilho final.
 • Voz dele é diferente — mais contida, mais calculada, mas com as mesmas rachaduras emocionais chegando à superfície.
 

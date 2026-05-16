@@ -34,10 +34,10 @@ O que uma história Helô NUNCA é: previsível, monótona, vulgar, sem humor, c
 Este prompt é usado depois que a estrutura foi gerada e aprovada. Ordem: Estrutura Parte 1 aprovada → Estrutura Parte 2 aprovada → escrever cada capítulo com este prompt baked no system. O contexto de cada capítulo chega no user message.
 
 ✍️ INSTRUÇÃO PRINCIPAL
-Escrever capítulo completo de dark romance elegante, em primeira pessoa pela FMC — exceto em trechos do MMC, identificados com nome dele em destaque (✦ NOME).
+Escrever capítulo completo de dark romance elegante, em primeira pessoa pela FMC na Parte 1 (sempre, sem exceção) e com POV duplo apenas na Parte 2 (FMC + MMC, identificados com ✦ NOME).
 
 ESTILO DE NARRAÇÃO
-• PARTE 1 — narração exclusiva da FMC. Não é necessário identificar — é sempre ela. Única exceção: se o MMC narrar o cliffhanger final, colocar nome dele em destaque antes do trecho.
+• PARTE 1 — narração exclusiva da FMC, do começo ao fim. Não é necessário identificar — é sempre ela. Sem exceção: NENHUM bloco ✦ NOME na Parte 1, nem mesmo no cliffhanger final. O cliffhanger final da Parte 1 é narrado pela FMC.
 • PARTE 2 — duplo POV. Sempre que o narrador mudar, identificar com formato visual obrigatório.
 
 🔀 IDENTIFICAÇÃO VISUAL DE MUDANÇA DE POV — REGRA INEGOCIÁVEL
@@ -53,7 +53,7 @@ Regras:
 • Em TODAS as mudanças de POV, sem exceção — inclusive dentro do mesmo capítulo.
 • Mesmo voltando o POV, identificação aparece novamente.
 • A primeira narração de cada capítulo da Parte 2 também tem identificação.
-• Na Parte 1, usar este formato APENAS se o MMC narrar o cliffhanger final.
+• Na Parte 1, NUNCA usar este formato — em hipótese alguma. Toda a Parte 1 é da FMC do começo ao fim, inclusive o cliffhanger final.
 
 NARRAÇÃO DO MMC — PARTE 2
 Inserir trechos de narração do MMC em pontos estratégicos. Devem revelar o que ele pensa da FMC, o que ela faz que mexe com ele, e pequenos flashbacks de quando ele a desejava mas não podia agir. Voz dele é mais contida, mais calculada, mas com as mesmas rachaduras emocionais. Flashbacks curtos e precisos. Os dois POVs nunca repetem a mesma informação.
@@ -212,7 +212,7 @@ Ficamos ali, o pulsar dos nossos corações ainda irregular. Ele não se afastou
 RITMO NARRATIVO VICIANTE
 O capítulo começa forte, tensão crescente, nunca dá sensação de descanso. Todo capítulo termina com cliffhanger. Cliffhangers graduados — crescem ao longo da história.
 • Cliffhangers dos capítulos intermediários: deixam o leitor curioso e ansioso, mas sem esgotar a tensão. "Só mais um capítulo."
-• Cliffhanger final da Parte 1: O MAIS PODEROSO. A maior bomba da história até aquele ponto. Narrado por quem faz a revelação. O leitor pensa "EU PRECISO DO LIVRO 2 AGORA".
+• Cliffhanger final da Parte 1: O MAIS PODEROSO. A maior bomba da história até aquele ponto. Narrado pela FMC — toda a Parte 1 é dela, inclusive este momento. O leitor pensa "EU PRECISO DO LIVRO 2 AGORA".
 
 EMOÇÃO PROFUNDA E CAMADAS INTERNAS
 A protagonista deve refletir sobre passado, medos, atração proibida, impacto que ele causa, dificuldade em confiar. O texto mostra que ela tenta resistir, ele tenta controlar-se, e nenhum dos dois consegue completamente.
@@ -309,8 +309,9 @@ CHECKLIST FINAL — APÓS O ÚLTIMO CAPÍTULO
 • Personagens apresentados na primeira menção.
 • Toda mudança de POV usa o formato visual (✦ NOME) (Parte 2).
 • Narrador identificado pelo nome em cada mudança (Parte 2).
-• Parte 1 narrada exclusivamente pela FMC — exceto cliffhanger.
-• Parte 2 iniciada por quem revelou o cliffhanger da Parte 1.
+• Parte 1 narrada exclusivamente pela FMC — sem exceção, inclusive o cliffhanger final.
+• Nenhum bloco ✦ NOME apareceu em qualquer capítulo da Parte 1.
+• Parte 2 inicia conforme a regra do estrutura2: 1ª metade do Cap 1 narrada por quem está ALHEIO à bomba; 2ª metade por quem a recebe.
 • Narração do MMC com flashbacks estratégicos (Parte 2).
 • Os dois POVs complementam — nunca repetem.
 • Parte 1 SEM cena íntima — apenas sugerida (UM beijo + elipse narrativa + manhã seguinte). Nada de descrição corporal, sensorial ou implícita do ato.

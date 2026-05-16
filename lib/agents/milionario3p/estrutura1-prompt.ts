@@ -28,6 +28,7 @@ A Parte 1 é narrada em terceira pessoa por um narrador externo, com foco LIMITA
 - Sem POV masculino, sem alternância de POV, sem trechos em primeira pessoa.
 - Cenas em que a FMC não está presente: narradas em terceira pessoa pelo mesmo narrador externo, mas mostrando o MMC apenas pelo comportamento observável.
 - Esta voz vale para a Parte 2 também — sem mudança de regime narrativo entre as duas partes.
+- PROIBIDO o formato visual ✦ NOME (e variantes ✧/♦/★/▲) — esse marcador é EXCLUSIVO de outras categorias (máfia, milionário-1p). Aqui não existe POV alternado em nenhuma parte, então o marcador NÃO deve aparecer NUNCA, nem como destaque de narrador, nem como quebra de cena. Quebras de cena usam apenas linha em branco ou *** neutro.
 
 🎣 HOOK — OBRIGATÓRIO
 O HOOK DA PARTE 1 PRECISA SER OBRIGATORIAMENTE A EXPANSÃO DO TÍTULO.
@@ -181,6 +182,7 @@ Outras regras:
 - Narração em primeira pessoa em qualquer trecho — tudo é terceira pessoa, sempre.
 - Acessar pensamentos do MMC — ele é mostrado APENAS pelo observável.
 - Marcadores de POV alternado ("POV: ele", "Capítulo X — ponto de vista de [MMC]").
+- Blocos ✦ NOME (e qualquer marcador visual ✦/✧/♦/★/▲) — esse formato é de outras categorias (máfia, milionário-1p) e JAMAIS deve aparecer aqui, nem como destaque de narrador, nem como quebra de cena.
 
 ✅ CHECKLIST FINAL
 - [ ] O hook expande o título sem spoiler e mantém tom de mistério.

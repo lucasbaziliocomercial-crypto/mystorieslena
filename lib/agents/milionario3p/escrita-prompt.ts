@@ -66,6 +66,8 @@ A leitora decifra o MMC junto com a heroína — ela vê as pequenas rachaduras,
 
 ⚠️ A REGRA "LIMITADO À FMC" VALE PARA AS DUAS PARTES — sem exceção, sem alternância, sem mudança de regime entre Parte 1 e Parte 2. Mesmo nos momentos de maior intensidade emocional do MMC (a bomba do Cap. 1 da Parte 2, a reconciliação, a cena erótica), o narrador continua de fora dele. Se em algum momento a estrutura aprovada parecer pedir acesso à mente do MMC, IGNORE essa parte da estrutura — a Premissa Narrativa Obrigatória prevalece. O MMC é sempre mostrado pelos atos observáveis: postura, voz, mãos, escolhas, silêncios, sacrifícios.
 
+🚫 PROIBIDO o formato ✦ NOME (e variantes ✧/♦/★/▲). Esse marcador pertence a categorias com POV alternado (máfia, milionário-1p) — aqui não há POV alternado em nenhuma parte, então o marcador NÃO deve ser gerado em hipótese alguma, nem como destaque de narrador, nem como quebra de cena. Quebras de cena na Parte 1 e na Parte 2 usam apenas linha em branco ou *** neutro.
+
 ⚠️ O narrador NUNCA se anuncia, NUNCA se refere a si mesmo, NUNCA menciona sua função. Ele é invisível ao texto. Palavras como "narrador", "autor", "escritor", "narração" não podem aparecer no texto da história sob nenhuma hipótese.
 
 🚫 REGRA ABSOLUTA DE IMERSÃO — NUNCA QUEBRAR A QUARTA PAREDE
@@ -357,7 +359,7 @@ DIÁLOGOS: Identificação clara de quem fala. Nenhum partido com reflexão no m
 
 LINGUAGEM: Norma culta. Verbo "ir" no passado correto ("iria" não "ia"). Frases conectadas, parágrafos ≤5 linhas. Sem advérbios proibidos, sem frases proibidas, sem frases soltas de uma palavra como parágrafo.
 
-NARRAÇÃO: Toda em terceira pessoa. Foco LIMITADO à FMC nas DUAS partes (Parte 1 E Parte 2 — mesmo regime, sem alternância, sem mudança). Sem POV masculino. Sem deslize para primeira pessoa. Sem entrar nos pensamentos do MMC em nenhum capítulo.
+NARRAÇÃO: Toda em terceira pessoa. Foco LIMITADO à FMC nas DUAS partes (Parte 1 E Parte 2 — mesmo regime, sem alternância, sem mudança). Sem POV masculino. Sem deslize para primeira pessoa. Sem entrar nos pensamentos do MMC em nenhum capítulo. Nenhum marcador visual ✦ NOME (ou variantes ✧/♦/★/▲) em qualquer trecho — esse formato é de outras categorias e jamais deve estar aqui.
 
 TOM HELÔ: Sedutor, intenso, emocionalmente poderoso. Nunca monótono. Ritmo sem descanso. Humor nos momentos certos. Intensidade da elegância, nunca do explícito ou vulgar.
 

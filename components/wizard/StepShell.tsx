@@ -659,16 +659,23 @@ export function StepShell({ step }: Props) {
         setDraft(newContent);
       };
 
-      const failBatch = async (msg: string, batchIdx: number) => {
-        const errContent =
-          accChapters.length > 0
-            ? `${concatenateChapters(accChapters)}\n\n[ERRO no Par ${batchIdx} de ${plan.length}] ${msg}`
-            : `[ERRO no Par ${batchIdx} de ${plan.length}] ${msg}`;
-        setOutput(step, {
-          content: errContent,
-          metadata: { chapters: accChapters, synopses: accSynopses },
-          generatedAt: startedAt,
+      // Falha não-fatal: registra warning, persiste o que já tem e segue.
+      // Substitui o `failBatch` anterior que retornava cedo do loop — a regra
+      // é "continue gerando mesmo assim": uma falha num batch da Parte 1 NÃO
+      // pode pular a geração inteira da Parte 2 (e vice-versa). A roteirista
+      // pode regerar os batches faltantes via "Gerar capítulo X novamente"
+      // depois de ver o banner.
+      const recordBatchFailure = (msg: string, b: (typeof plan)[number]) => {
+        accBatchWarnings.push({
+          batchIndex: b.batchIndex,
+          part: b.part,
+          expected: b.chapters,
+          missing: b.chapters,
+          fatalError: msg,
         });
+        console.warn(
+          `[escrita batch ${b.batchIndex}] FATAL: ${msg} — seguindo pro próximo batch`,
+        );
       };
 
       try {
@@ -786,10 +793,12 @@ export function StepShell({ step }: Props) {
           }
 
           if (batchFatalError) {
-            await failBatch(batchFatalError, b.batchIndex);
-            setIsGenerating(false);
-            setBatchProgress(null);
-            return;
+            recordBatchFailure(batchFatalError, b);
+            persist();
+            // Importante: `continue` (não `return`). O loop precisa atravessar
+            // a fronteira P1→P2 mesmo se um batch falhar — a regra "continue
+            // gerando mesmo assim" exige que a Parte 2 sempre seja tentada.
+            continue;
           }
 
           // Se sobraram caps faltando depois de todas as tentativas, registra
@@ -3861,16 +3870,54 @@ function BatchWarningsBanner({
 }: {
   warnings: BatchMissingChapters[];
 }) {
-  const totalMissing = warnings.reduce((sum, w) => sum + w.missing.length, 0);
-  const totalDuplicates = warnings.reduce(
+  // Erros fatais (HTTP/rede/parser zero-cabeçalho) ficam num bloco separado em
+  // vermelho — são bem mais sérios que "agente engoliu cap" (amarelo). Quando
+  // ocorre fatal, todos os caps do batch ficam em `missing`, então excluímos
+  // esses batches do bloco amarelo de missing pra não duplicar a informação.
+  const fatalWarnings = warnings.filter((w) => w.fatalError);
+  const nonFatal = warnings.filter((w) => !w.fatalError);
+  const totalMissing = nonFatal.reduce((sum, w) => sum + w.missing.length, 0);
+  const totalDuplicates = nonFatal.reduce(
     (sum, w) => sum + (w.duplicatesRemoved ?? 0),
     0,
   );
-  const missingWarnings = warnings.filter((w) => w.missing.length > 0);
-  const duplicateWarnings = warnings.filter(
+  const missingWarnings = nonFatal.filter((w) => w.missing.length > 0);
+  const duplicateWarnings = nonFatal.filter(
     (w) => (w.duplicatesRemoved ?? 0) > 0,
   );
   return (
+    <div className="flex flex-col gap-3">
+      {fatalWarnings.length > 0 && (
+        <div className="rounded-lg border border-red-300 bg-red-50 p-4 flex gap-3">
+          <AlertTriangle className="size-5 flex-none text-red-700 mt-0.5" />
+          <div className="flex flex-col gap-2 text-sm">
+            <p className="font-medium text-red-900">
+              {fatalWarnings.length === 1
+                ? "1 batch falhou durante a geração"
+                : `${fatalWarnings.length} batches falharam durante a geração`}
+            </p>
+            <ul className="text-red-900/90 list-disc pl-5 space-y-1">
+              {fatalWarnings.map((w, i) => (
+                <li key={`fatal-${w.batchIndex}-${i}`}>
+                  <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-red-200/60 mr-1">
+                    {w.part} · Par {w.batchIndex}
+                  </span>
+                  capítulo
+                  {w.expected.length === 1 ? " " : "s "}
+                  {w.expected.join(", ")} —{" "}
+                  <span className="text-red-900/80">{w.fatalError}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-red-800/80 text-xs">
+              Os demais batches do plano foram gerados normalmente. Clique em{" "}
+              <strong>Gerar capítulo N novamente</strong> em cada card faltante,
+              ou em <strong>Gerar roteiro novamente</strong> pra refazer tudo.
+            </p>
+          </div>
+        </div>
+      )}
+      {(totalMissing > 0 || totalDuplicates > 0) && (
     <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 flex gap-3">
       <AlertTriangle className="size-5 flex-none text-amber-700 mt-0.5" />
       <div className="flex flex-col gap-2 text-sm">
@@ -3927,6 +3974,8 @@ function BatchWarningsBanner({
           </>
         )}
       </div>
+    </div>
+      )}
     </div>
   );
 }
