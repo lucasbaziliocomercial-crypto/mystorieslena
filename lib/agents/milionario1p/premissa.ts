@@ -51,7 +51,7 @@ export const premissaAgent: Agent = {
             ]
           : [
               "Preserve a estrutura de parágrafos do resumo (8 parágrafos na Parte 1, 9 na Parte 2 — definida na PARTE G do prompt mestre).",
-              "Preserve os cabeçalhos `# RESUMO DA PARTE 1` e `# RESUMO DA PARTE 2`.",
+              "Preserve os cabeçalhos `TÍTULO PROVISÓRIO:`, `PREMISSA CENTRAL:`, `# RESUMO DA PARTE 1` e `# RESUMO DA PARTE 2`.",
               "Romance em 1ª pessoa, voz da FMC — não mude pra 3ª pessoa nem introduza POV masculino.",
             ];
       return buildRefinePatchPrompt({
@@ -106,7 +106,11 @@ NÃO entregue Blocos 1-7 neste turno. NÃO escreva frases de espera ou pedidos d
 
 Use linguagem clara e didática conforme a PARTE G (apresente cada personagem pelo nome completo, idade, profissão e situação; explique termos técnicos como CEO, herdeiro, conglomerado em palavras simples; conte cronologicamente; detalhe a aproximação dos dois). Aplique TODAS as regras das Partes A-N (cidade da lista permitida, nomes fora da lista proibida, FMC ativa, romance em primeiro plano, fechamento da Parte 1 sem cliffhanger, abertura da Parte 2 com bomba, reconciliação não apressada, final feliz obrigatório).
 
-FORMATO DE SAÍDA esperado neste turno:
+FORMATO DE SAÍDA esperado neste turno (comece EXATAMENTE por estas duas linhas, nesta ordem):
+
+TÍTULO PROVISÓRIO: [criar título comercial e sedutor, se o usuário não fornecer]
+
+PREMISSA CENTRAL: [resumir a ideia principal em 1-3 linhas: trope base + universo de poder/riqueza + gancho emocional]
 
 # RESUMO DA PARTE 1
 

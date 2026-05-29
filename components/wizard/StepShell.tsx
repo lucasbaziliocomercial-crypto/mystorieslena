@@ -192,6 +192,19 @@ const PART_BANNER = (part: string) =>
 // Toda divergência entre o contador do backend e o da UI vira bug de
 // fix-wordcount/balance pedindo expansão errada.
 
+/**
+ * Saídas-sentinela: strings curtas que um agente devolve em vez de conteúdo
+ * real (ex.: bloqueio por falta de título, "nenhuma alteração necessária").
+ * Avançar a automação com uma dessas contamina os steps seguintes — então a
+ * "Avançar auto" precisa parar nelas e deixar a saída visível pra roteirista.
+ */
+function isSentinelOutput(text: string): boolean {
+  const t = (text ?? "").trim();
+  if (!t) return true;
+  if (/^\[[^\]]*\]$/.test(t)) return true; // saída inteira é um único marcador [..]
+  return /^\[(TÍTULO AUSENTE|NENHUMA_ALTERACAO_NECESSARIA)/i.test(t);
+}
+
 function concatenateChapters(chapters: EscritaChapter[]): string {
   const blocks: string[] = [];
   let currentPart: string | undefined;
@@ -1169,7 +1182,12 @@ export function StepShell({ step }: Props) {
         setBatchProgress(null);
         setIsGenerating(false);
 
-        if (autoAdvance && next && !ctrl.signal.aborted) {
+        if (
+          autoAdvance &&
+          next &&
+          !ctrl.signal.aborted &&
+          !isSentinelOutput(cleanContent)
+        ) {
           setCurrentStep(next);
         }
       } catch (err) {
@@ -1619,7 +1637,7 @@ export function StepShell({ step }: Props) {
 
       setIsGenerating(false);
 
-      if (autoAdvance && next) {
+      if (autoAdvance && next && !isSentinelOutput(acc)) {
         setCurrentStep(next);
       }
     } catch (err) {

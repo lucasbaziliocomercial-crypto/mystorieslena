@@ -92,14 +92,6 @@ export const estrutura1Agent: Agent = {
       return refine.join("\n\n");
     }
 
-    if (premissa && !titulo) {
-      return [
-        "Não consegui localizar o `TÍTULO PROVISÓRIO:` na premissa fornecida. O hook da Parte 1 é OBRIGATORIAMENTE a expansão do título — sem ele, não há como gerar a estrutura.",
-        "Devolva APENAS a string a seguir e nada mais (sem explicação, sem alternativa, sem hook):",
-        "[TÍTULO AUSENTE — PREENCHA A PREMISSA COM 'TÍTULO PROVISÓRIO: <nome>' E REGENERE]",
-      ].join("\n\n");
-    }
-
     const sections: string[] = [];
 
     sections.push(
@@ -128,6 +120,20 @@ export const estrutura1Agent: Agent = {
           `• A primeira frase de cada hook precisa ecoar/traduzir o título — não citar de forma decorativa, não trocar por sinônimos, não suavizar.`,
           `• É proibido inventar outro título, sugerir alternativas ou ignorar este.`,
           `• Antes de fechar o hook, releia: a expansão do título está clara nas 4 versões? Se não, refaça.`,
+        ].join("\n"),
+      );
+    } else if (premissa) {
+      sections.push(
+        [
+          `━━━ TÍTULO AUSENTE NA PREMISSA — CRIE UM (NÃO BLOQUEIE) ━━━`,
+          ``,
+          `A premissa não trouxe uma linha "TÍTULO PROVISÓRIO:". CRIE você mesmo um título provisório comercial, curto e sedutor a partir da premissa, e trate-o como o TÍTULO OFICIAL desta história.`,
+          ``,
+          `⚠️ REGRA INEGOCIÁVEL:`,
+          `• Defina o título logo no início da saída, no bloco "📖 TÍTULO DA HISTÓRIA".`,
+          `• O hook principal E as 3 versões alternativas DEVEM expandir esse título literal.`,
+          `• A primeira frase de cada hook precisa ecoar o título.`,
+          `• NÃO bloqueie, NÃO peça o título à roteirista, NÃO devolva mensagem de erro — gere a ESTRUTURA COMPLETA normalmente.`,
         ].join("\n"),
       );
     }

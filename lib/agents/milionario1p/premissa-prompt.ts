@@ -377,7 +377,7 @@ ENTREGUE EXATAMENTE NESTA ORDEM, SEM PULAR NENHUM BLOCO:
 
 ━━━ BLOCO 0: RESUMO INICIAL DAS DUAS PARTES (OBRIGATÓRIO ANTES DE QUALQUER OUTRO BLOCO) ━━━
 
-ANTES de qualquer outro bloco da estrutura, entregue DOIS resumos — um para a Parte 1 e outro para a Parte 2. **CADA RESUMO DEVE TER NO MÁXIMO 500 PALAVRAS.** Não é um resumo telegráfico, mas é enxuto e direto. Conte do início ao fim os pontos essenciais de cada parte, sem encher de detalhes secundários, mantendo linguagem clara e acessível.
+ANTES de qualquer outro bloco da estrutura, comece OBRIGATORIAMENTE com a linha "TÍTULO PROVISÓRIO: <nome>" (crie um título comercial e sedutor se o usuário não fornecer) e, em seguida, a linha "PREMISSA CENTRAL: <1-3 linhas>". Só então entregue DOIS resumos — um para a Parte 1 e outro para a Parte 2. **CADA RESUMO DEVE TER NO MÁXIMO 500 PALAVRAS.** Não é um resumo telegráfico, mas é enxuto e direto. Conte do início ao fim os pontos essenciais de cada parte, sem encher de detalhes secundários, mantendo linguagem clara e acessível.
 
 REGRA DE LINGUAGEM — ESTE PONTO É CRÍTICO:
 O resumo precisa ser MUITO BEM EXPLICADO, com linguagem clara, simples e didática — quase como se você estivesse explicando a história para alguém que NÃO conhece nada de literatura, nem do gênero, nem dos personagens. Imagine que está contando a história para uma criança ou para uma pessoa que nunca leu um romance. Cada personagem precisa ser apresentado pelo nome completo, com profissão, idade aproximada e situação de vida. Cada relação precisa ser explicada (quem é amigo de quem, quem é parente de quem, quem trabalha onde). Cada termo técnico (CEO, herdeiro, conglomerado, fusão) precisa vir acompanhado de explicação simples se aparecer.

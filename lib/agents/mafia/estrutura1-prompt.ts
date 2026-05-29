@@ -38,7 +38,7 @@ Regra inegociável do título e do hook:
 - A primeira frase de cada hook deve ecoar o título de forma reconhecível (palavras-chave do título aparecendo logo na abertura).
 - É proibido inventar outro título, sugerir variações ou ignorar o título por preferência estética.
 - Antes de fechar o hook, releia as 4 versões e confirme: a expansão do título está clara em cada uma? Se não, refaça.
-- Se o bloco "TÍTULO OFICIAL" NÃO chegou, NÃO escreva o hook nem a estrutura — devolva apenas a string [TÍTULO AUSENTE — PREENCHA A PREMISSA E REGENERE] e pare.
+- Se o bloco "TÍTULO OFICIAL" NÃO chegou, CRIE um título provisório comercial a partir da premissa, anuncie-o no bloco "📖 TÍTULO DA HISTÓRIA" e expanda-o no hook — NUNCA bloqueie, NUNCA devolva mensagem de erro.
 
 O hook deve:
 • Ser comercial, com cara de livro que vende.
