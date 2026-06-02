@@ -10,6 +10,11 @@ import type {
 import { DEFAULT_CATEGORY } from "@/types/roteiro";
 import { hasXmlCruft, stripXmlCruft } from "@/lib/parse-revisor-output";
 import { normalizeEscritaOutput } from "@/lib/normalize-escrita";
+import {
+  hasChapterTitleAnnotation,
+  stripChapterHeaderAnnotations,
+  stripChapterTitleAnnotation,
+} from "@/lib/strip-chapter-annotations";
 
 const KEY = "veludo:roteiros";
 
@@ -161,12 +166,74 @@ function cleanEscritaXmlCruft(output: StepOutput | undefined):
   };
 }
 
+/**
+ * Limpa a anotação de planejamento (`(~X.XXX palavras — ritmo Y)`) que o
+ * modelo da Escrita às vezes copia do cabeçalho da Estrutura pro título do
+ * capítulo no roteiro final. Sanitiza tanto o texto monolítico
+ * (`outputs.escrita.content`) quanto os títulos em `metadata.chapters[i].title`.
+ *
+ * Idempotente — early-return quando não há anotação. Roda no listRoteiros,
+ * então o próximo save persiste a versão limpa. Cura roteiros já gerados
+ * (alpha-king, máfia, milionário) sem precisar regerar.
+ */
+function cleanEscritaChapterAnnotations(output: StepOutput | undefined):
+  | { output: StepOutput; changed: boolean }
+  | { output: StepOutput | undefined; changed: false } {
+  if (!output) return { output, changed: false };
+  let changed = false;
+
+  let nextContent = output.content;
+  if (hasChapterTitleAnnotation(nextContent)) {
+    nextContent = stripChapterHeaderAnnotations(nextContent);
+    changed = true;
+  }
+
+  let nextChapters: EscritaChapter[] | undefined = output.metadata?.chapters;
+  const titleNeedsClean = (c: EscritaChapter) =>
+    !!c.title && c.title !== stripChapterTitleAnnotation(c.title);
+  if (nextChapters && nextChapters.some(titleNeedsClean)) {
+    nextChapters = nextChapters.map((c) =>
+      titleNeedsClean(c)
+        ? { ...c, title: stripChapterTitleAnnotation(c.title!) }
+        : c,
+    );
+    changed = true;
+  }
+
+  if (!changed) return { output, changed: false };
+  return {
+    output: {
+      ...output,
+      content: nextContent,
+      ...(nextChapters
+        ? {
+            metadata: {
+              ...(output.metadata ?? {}),
+              chapters: nextChapters,
+            },
+          }
+        : {}),
+    },
+    changed: true,
+  };
+}
+
 function sanitizeRoteiroXmlCruft(r: Roteiro): Roteiro {
   let changed = false;
   let outputs = r.outputs;
   const cleaned = cleanEscritaXmlCruft(r.outputs?.escrita);
   if (cleaned.changed && cleaned.output) {
     outputs = { ...r.outputs, escrita: cleaned.output };
+    changed = true;
+  }
+
+  // Remove a anotação `(~X palavras — ritmo Y)` que vazou do cabeçalho da
+  // Estrutura pro título dos capítulos. Roda antes do normalize: pra roteiros
+  // não-editados o normalize reconstrói o content a partir dos títulos já
+  // limpos; pra editados o content limpo aqui é preservado.
+  const cleanedAnno = cleanEscritaChapterAnnotations(outputs?.escrita);
+  if (cleanedAnno.changed && cleanedAnno.output) {
+    outputs = { ...(outputs ?? {}), escrita: cleanedAnno.output };
     changed = true;
   }
 
@@ -192,27 +259,41 @@ function sanitizeRoteiroXmlCruft(r: Roteiro): Roteiro {
     let snapshotsChanged = false;
     const nextSnapshots: StepGenerationSnapshot[] = escritaHistory.map(
       (snap) => {
-        const cleanContent = hasXmlCruft(snap.content)
+        let cleanContent = hasXmlCruft(snap.content)
           ? stripXmlCruft(snap.content)
           : snap.content;
+        if (hasChapterTitleAnnotation(cleanContent)) {
+          cleanContent = stripChapterHeaderAnnotations(cleanContent);
+        }
         const snapChapters = snap.metadata?.chapters;
-        const chaptersHasCruft =
-          !!snapChapters && snapChapters.some((c) => hasXmlCruft(c.content));
+        const titleNeedsClean = (c: EscritaChapter) =>
+          !!c.title && c.title !== stripChapterTitleAnnotation(c.title);
+        const chaptersNeedClean =
+          !!snapChapters &&
+          snapChapters.some((c) => hasXmlCruft(c.content) || titleNeedsClean(c));
         let next = snap;
         let snapChanged = false;
-        if (cleanContent !== snap.content || chaptersHasCruft) {
+        if (cleanContent !== snap.content || chaptersNeedClean) {
           next = {
             ...snap,
             content: cleanContent,
-            ...(chaptersHasCruft && snapChapters
+            ...(chaptersNeedClean && snapChapters
               ? {
                   metadata: {
                     ...(snap.metadata ?? {}),
-                    chapters: snapChapters.map((c) =>
-                      hasXmlCruft(c.content)
-                        ? { ...c, content: stripXmlCruft(c.content) }
-                        : c,
-                    ),
+                    chapters: snapChapters.map((c) => {
+                      let nc = c;
+                      if (hasXmlCruft(nc.content)) {
+                        nc = { ...nc, content: stripXmlCruft(nc.content) };
+                      }
+                      if (titleNeedsClean(nc)) {
+                        nc = {
+                          ...nc,
+                          title: stripChapterTitleAnnotation(nc.title!),
+                        };
+                      }
+                      return nc;
+                    }),
                   },
                 }
               : {}),

@@ -19,6 +19,7 @@
  */
 
 import type { EscritaChapter, EscritaSynopsis } from "@/types/roteiro";
+import { stripChapterTitleAnnotation } from "./strip-chapter-annotations";
 
 export interface ParsedBatch {
   chapters: EscritaChapter[];
@@ -64,7 +65,7 @@ export function parseEscritaBatch(
   while ((m = titledRe.exec(chaptersBody)) !== null) {
     hits.push({
       number: parseInt(m[1]!, 10),
-      title: m[2]!.trim(),
+      title: stripChapterTitleAnnotation(m[2]!.trim()),
       index: m.index,
       headerEnd: m.index + m[0].length,
     });

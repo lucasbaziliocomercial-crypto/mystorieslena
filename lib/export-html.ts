@@ -1,5 +1,6 @@
 import type { EscritaChapter } from "@/types/roteiro";
 import { countWords } from "./word-count.ts";
+import { stripChapterTitleAnnotation } from "./strip-chapter-annotations";
 
 /**
  * Helpers de exportação HTML do roteiro.
@@ -499,7 +500,11 @@ export function escritaContentToHtml(
         else if (cap.part === "Parte 1") inParte2 = false;
         chapterCursor++;
       }
-      out.push(`<h2 style="${STYLE_H_CHAPTER}">${escapeHtml(h2[1])}</h2>`);
+      // Safety net: remove a anotação `(~X palavras — ritmo Y)` que possa ter
+      // sobrado no cabeçalho (ex.: roteiro editado à mão cujo content não
+      // passou pelo heal de storage).
+      const chapterTitle = stripChapterTitleAnnotation(h2[1]);
+      out.push(`<h2 style="${STYLE_H_CHAPTER}">${escapeHtml(chapterTitle)}</h2>`);
       continue;
     }
     if (h1) {

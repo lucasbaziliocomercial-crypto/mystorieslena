@@ -48,6 +48,7 @@
  */
 
 import type { EscritaChapter } from "@/types/roteiro";
+import { stripChapterTitleAnnotation } from "./strip-chapter-annotations";
 
 export interface ParsedEscritaOutput {
   /** Texto do roteiro completo — pronto pra leitura/edição. */
@@ -292,7 +293,7 @@ function parseChaptersFromRoteiro(
   while ((cm = chapterRegex.exec(roteiroText)) !== null) {
     hits.push({
       number: parseInt(cm[1]!, 10),
-      title: cm[2]!.trim(),
+      title: stripChapterTitleAnnotation(cm[2]!.trim()),
       index: cm.index,
       headerEnd: cm.index + cm[0].length,
     });
