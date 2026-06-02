@@ -12,14 +12,14 @@ import { ESTRUTURA2_PROMPT } from "./estrutura2-prompt";
  * 13.500 palavras (faixa 13.300-13.700, alvo 13.500), 5-6 capítulos,
  * abertura com BOMBA (separação iminente), narração 1ª pessoa alternando
  * FMC + ATÉ 4 trechos do MMC com identificação visual obrigatória (✦ NOME),
- * cena erótica completa no penúltimo capítulo, final feliz no último cap
- * (casamento + filhos / lua de mel / sonho realizado).
+ * cena erótica completa em posição flexível (definida pela curva de química),
+ * final feliz no último cap (casamento + filhos / lua de mel / sonho realizado).
  */
 export const estrutura2Agent: Agent = {
   id: "estrutura2",
   label: "Estrutura — Parte 2",
   description:
-    "Monta a estrutura completa da Parte 2 de Máfia (13.500 palavras, 5-6 capítulos) — bomba inicial, mapa com narrador, distribuição de POVs masculinos, cena erótica no penúltimo, final feliz com casamento/filhos/sonho",
+    "Monta a estrutura completa da Parte 2 de Máfia (13.500 palavras, 5-6 capítulos) — bomba inicial, mapa com narrador, distribuição de POVs masculinos, cena erótica em posição flexível, final feliz com casamento/filhos/sonho",
   model: MODELS.opus,
   thinking: "adaptive",
   effort: "high",
@@ -101,7 +101,7 @@ export const estrutura2Agent: Agent = {
 
     if (ctx.referenceImage) {
       sections.push(
-        "━━━ IMAGEM DE REFERÊNCIA ANEXADA ━━━\n\nA imagem foi usada na Parte 1 — mantenha COERÊNCIA com mood, paleta e aparência dos personagens. Use a imagem pra sustentar continuidade visual da Parte 2 (especialmente na cena íntima do penúltimo capítulo e no epílogo). Em conflito, o TEXTO prevalece.",
+        "━━━ IMAGEM DE REFERÊNCIA ANEXADA ━━━\n\nA imagem foi usada na Parte 1 — mantenha COERÊNCIA com mood, paleta e aparência dos personagens. Use a imagem pra sustentar continuidade visual da Parte 2 (especialmente na cena íntima e no epílogo). Em conflito, o TEXTO prevalece.",
       );
     }
 

@@ -6,11 +6,12 @@
  * /api/escrita-fix-wordcount) e o par de extração estruturada do Revisor
  * (fallback /api/revisor-extract-errors).
  *
- * NARRAÇÃO: Terceira pessoa LIMITADA À FMC nas DUAS partes (sem exceção).
- * Sem POV masculino, sem alternância, sem mudança de regime entre Parte 1
- * e Parte 2. O MMC é mostrado apenas pelos atos, falas e gestos observáveis
- * — o leitor nunca entra na cabeça dele, nem na cena erótica do penúltimo
- * capítulo da Parte 2. Conforme a Premissa Narrativa Obrigatória do guia.
+ * NARRAÇÃO (recorte por parte): PARTE 1 em terceira pessoa LIMITADA À FMC
+ * (o MMC é mostrado só pelos atos/falas/gestos observáveis, o leitor nunca
+ * entra na cabeça dele); PARTE 2 em terceira pessoa ONISCIENTE (o narrador
+ * acessa a mente da FMC E do MMC). Em ambas: nenhum personagem narra em 1ª
+ * pessoa, sem ✦ NOME. A cena erótica da Parte 2 tem posição flexível (segue
+ * a química, não fixa no penúltimo).
  *
  * Word counts: P1 9.500–10.500 palavras (alvo 10.500), P2 13.000–14.000
  * (alvo 13.500). Símbolos do Revisor: 🟢🟡🔴💀.

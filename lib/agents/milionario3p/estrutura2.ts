@@ -10,9 +10,9 @@ import { ESTRUTURA2_PROMPT } from "./estrutura2-prompt";
  * Etapa 3 — Estrutura da Parte 2 (Romance de Milionário 3ª pessoa, canal Rowan).
  *
  * 13.500 palavras (faixa 13.000-14.000, alvo 13.500), 5-6 capítulos.
- * Abertura com BOMBA, narração em terceira pessoa LIMITADA À FMC (mesmo
- * regime da Parte 1, sem POV masculino, MMC observado de fora pelos atos),
- * cena erótica completa no penúltimo cap, final feliz no último cap
+ * Abertura com BOMBA, narração em terceira pessoa ONISCIENTE (narrador acessa
+ * a mente da FMC E do MMC — só na Parte 2; a Parte 1 segue limitada à FMC),
+ * cena erótica em posição flexível, final feliz no último cap
  * (casamento + filhos / lua de mel / sonho realizado).
  *
  * System prompt = master M3P + estrutura2 M3P.
@@ -21,7 +21,7 @@ export const estrutura2Agent: Agent = {
   id: "estrutura2",
   label: "Estrutura — Parte 2",
   description:
-    "Monta a estrutura completa da Parte 2 de Milionário 3p (13.000-14.000 palavras, alvo 13.500, 5-6 capítulos) — bomba inicial, mapa cena por cena, cena erótica no penúltimo, final feliz com casamento/filhos/sonho. Narração 3ª pessoa limitada à FMC (mesmo regime da Parte 1).",
+    "Monta a estrutura completa da Parte 2 de Milionário 3p (13.000-14.000 palavras, alvo 13.500, 5-6 capítulos) — bomba inicial, mapa cena por cena, cena erótica em posição flexível, final feliz com casamento/filhos/sonho. Narração 3ª pessoa ONISCIENTE (acessa FMC e MMC; só na Parte 2 — a Parte 1 segue limitada à FMC).",
   model: MODELS.opus,
   thinking: "adaptive",
   effort: "high",
@@ -103,7 +103,7 @@ export const estrutura2Agent: Agent = {
 
     if (ctx.referenceImage) {
       sections.push(
-        "━━━ IMAGEM DE REFERÊNCIA ANEXADA ━━━\n\nA imagem foi usada na Parte 1 — mantenha COERÊNCIA com mood, paleta e aparência dos personagens. Use a imagem pra sustentar continuidade visual da Parte 2 (especialmente na cena íntima do penúltimo capítulo e no epílogo). Em conflito, o TEXTO prevalece.",
+        "━━━ IMAGEM DE REFERÊNCIA ANEXADA ━━━\n\nA imagem foi usada na Parte 1 — mantenha COERÊNCIA com mood, paleta e aparência dos personagens. Use a imagem pra sustentar continuidade visual da Parte 2 (especialmente na cena íntima e no epílogo). Em conflito, o TEXTO prevalece.",
       );
     }
 
@@ -138,7 +138,7 @@ export const estrutura2Agent: Agent = {
     }
 
     sections.push(
-      "━━━ AÇÃO ━━━\n\nMonte a ESTRUTURA COMPLETA da Parte 2 seguindo o LAYOUT DE SAÍDA OBRIGATÓRIO definido no system prompt (Hook/Bomba → Ponto de Retomada → Conflitos Herdados → Mapa cena por cena → Capítulos → Cena Erótica → Easter Eggs → Entrega Final → Resolução). Comece direto. NÃO escreva os capítulos em si — apenas a ESTRUTURA/PLANEJAMENTO.\n\n⚠️ ATENÇÃO CRÍTICA — CONTAGEM DE PALAVRAS: a SOMA das contagens declaradas DEVE ficar entre 13.000 e 14.000 palavras (alvo 13.500). ZERO tolerância — nunca abaixo de 13.000 nem acima de 14.000. Capítulos: 5 ou 6 (máx 6). Antes de finalizar, SOME mentalmente e CONFIRME que cabe na faixa. Se abaixo, AUMENTE algum cap; se acima, REDUZA.\n\n⚠️ NARRAÇÃO em TERCEIRA PESSOA LIMITADA À FMC — narrador externo que acompanha PRIORITARIAMENTE a heroína, EXATAMENTE como na Parte 1. SEM POV masculino. SEM entrar nos pensamentos do MMC (ele aparece apenas pelos atos, falas, gestos observáveis). NÃO há mudança de regime narrativo entre Parte 1 e Parte 2.",
+      "━━━ AÇÃO ━━━\n\nMonte a ESTRUTURA COMPLETA da Parte 2 seguindo o LAYOUT DE SAÍDA OBRIGATÓRIO definido no system prompt (Hook/Bomba → Ponto de Retomada → Conflitos Herdados → Mapa cena por cena → Capítulos → Cena Erótica → Easter Eggs → Entrega Final → Resolução). Comece direto. NÃO escreva os capítulos em si — apenas a ESTRUTURA/PLANEJAMENTO.\n\n⚠️ ATENÇÃO CRÍTICA — CONTAGEM DE PALAVRAS: a SOMA das contagens declaradas DEVE ficar entre 13.000 e 14.000 palavras (alvo 13.500). ZERO tolerância — nunca abaixo de 13.000 nem acima de 14.000. Capítulos: 5 ou 6 (máx 6). Antes de finalizar, SOME mentalmente e CONFIRME que cabe na faixa. Se abaixo, AUMENTE algum cap; se acima, REDUZA.\n\n⚠️ NARRAÇÃO em TERCEIRA PESSOA ONISCIENTE — narrador externo invisível que acessa a mente da FMC E do MMC, alternando o foco de forma fluida (nenhum personagem narra; sem 1ª pessoa na narração; sem blocos ✦ NOME). Este regime onisciente vale SÓ para a Parte 2 — a Parte 1 permanece limitada à FMC. A cena erótica tem posição FLEXÍVEL (segue a curva de química, nunca nos primeiros capítulos, nunca no epílogo).",
     );
 
     return sections.join("\n\n");

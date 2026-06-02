@@ -345,7 +345,7 @@ Depois de escrever o roteiro completo (Parte 1 + Parte 2, todos os capítulos), 
 - Passada 3 — CRUZAMENTO ESPAÇO×TEMPO: tudo faz sentido junto?
 - Passada 4 — POV (Parte 2): cada trecho identificado, MMC não repete FMC, cena íntima na FMC, voz distinta, nunca dois MMC em sequência.
 - Passada 5 — 1ª PESSOA: ZERO deslize para 3ª pessoa dentro de um POV. "Eu senti", nunca "ela sentiu" dentro do POV dela.
-- Passada 6 — CENAS ÍNTIMAS POR PARTE: na Parte 1, qualquer descrição corporal/sensorial do ato é erro — só elipse permitida (porta fechando, manhã seguinte); na Parte 2, a cena íntima do penúltimo capítulo está dentro de 1.000–1.200 palavras com preliminares + sexo oral recíproco + penetração + clímax, vocabulário direto e sensual aceito (membro, seio, penetração, gozo), zero palavrões chulos.
+- Passada 6 — CENAS ÍNTIMAS POR PARTE: na Parte 1, qualquer descrição corporal/sensorial do ato é erro — só elipse permitida (porta fechando, manhã seguinte); na Parte 2, a cena íntima (no capítulo definido pela estrutura — posição flexível) está dentro de 1.000–1.200 palavras com preliminares + sexo oral recíproco + penetração + clímax, vocabulário direto e sensual aceito (membro, seio, penetração, gozo), zero palavrões chulos.
 
 9 VALIDAÇÕES BLOQUEANTES — SE QUALQUER UMA PERSISTIR, MARQUE BLOQUEADO:
 1. POV MISTURADO — deslize de 1ª para 3ª pessoa dentro do POV, ou POV do MMC repetindo cena que a FMC já narrou.

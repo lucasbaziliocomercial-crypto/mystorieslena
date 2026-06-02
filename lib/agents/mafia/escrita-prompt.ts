@@ -315,7 +315,7 @@ CHECKLIST FINAL — APÓS O ÚLTIMO CAPÍTULO
 • Narração do MMC com flashbacks estratégicos (Parte 2).
 • Os dois POVs complementam — nunca repetem.
 • Parte 1 SEM cena íntima — apenas sugerida (UM beijo + elipse narrativa + manhã seguinte). Nada de descrição corporal, sensorial ou implícita do ato.
-• Parte 2 com cena íntima de profundidade sensorial total no penúltimo capítulo.
+• Parte 2 com cena íntima de profundidade sensorial total no capítulo definido pela estrutura (posição flexível — segue a curva de química, não fixa no penúltimo).
 • Cenas de preliminares com detalhes sensoriais (apenas Parte 2).
 • Cena íntima sem vocabulário chulo ou +18.
 • Cena íntima ORIGINAL — não reproduz exemplo.

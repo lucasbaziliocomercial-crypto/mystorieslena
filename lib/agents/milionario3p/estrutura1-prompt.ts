@@ -27,7 +27,7 @@ A Parte 1 é narrada em terceira pessoa por um narrador externo, com foco LIMITA
 - O leitor NUNCA entra na cabeça do MMC. Ele é mostrado pelos atos, pela voz, pelo corpo, pelo silêncio — nunca por pensamentos internos narrados.
 - Sem POV masculino, sem alternância de POV, sem trechos em primeira pessoa.
 - Cenas em que a FMC não está presente: narradas em terceira pessoa pelo mesmo narrador externo, mas mostrando o MMC apenas pelo comportamento observável.
-- Esta voz vale para a Parte 2 também — sem mudança de regime narrativo entre as duas partes.
+- ⚠️ Este foco LIMITADO à FMC é a regra da PARTE 1. Na PARTE 2 há mudança de regime — ela passa a usar narrador ONISCIENTE (que acessa também a mente do MMC). Aqui, ao montar a estrutura da Parte 1, mantenha SEMPRE o foco limitado à FMC.
 - PROIBIDO o formato visual ✦ NOME (e variantes ✧/♦/★/▲) — esse marcador é EXCLUSIVO de outras categorias (máfia, milionário-1p). Aqui não existe POV alternado em nenhuma parte, então o marcador NÃO deve aparecer NUNCA, nem como destaque de narrador, nem como quebra de cena. Quebras de cena usam apenas linha em branco ou *** neutro.
 
 🎣 HOOK — OBRIGATÓRIO

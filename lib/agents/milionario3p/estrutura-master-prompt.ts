@@ -31,18 +31,25 @@ Cenários: coberturas, mansões, hotéis cinco estrelas, restaurantes exclusivos
 Mundo: impérios empresariais, corporações bilionárias, famílias de elite com poder e influência.
 Tom geral: sedutor e magnético, engraçado no momento certo, emocionalmente intenso, quimicamente esmagador e totalmente viciante. O foco é a relação dos dois e o choque entre mundos diferentes — conflitos sociais, humilhações, ciúmes, ex ciumenta, família que não aceita, diferença de classes. Investigações, roubos ou tramas policiais não são o foco — se mencionados, apenas de forma superficial.
 
-🎙️ NARRAÇÃO — TERCEIRA PESSOA LIMITADA À FMC (REGRA MESTRA)
-A história inteira — Parte 1 e Parte 2 — é contada por um narrador externo em terceira pessoa, com FOCO LIMITADO À FMC.
-- O narrador acompanha PRIORITARIAMENTE a heroína. Ele acessa pensamentos, sensações e memórias dela.
-- O leitor NUNCA entra na cabeça do MMC. Ele é mostrado pelos atos, pela voz, pelo corpo, pelo silêncio — nunca por pensamentos internos narrados.
-- Sem POV masculino. Sem alternância de POV. Sem trechos em primeira pessoa de qualquer personagem.
-- Não há mudança de regime narrativo entre Parte 1 e Parte 2.
-- Cenas em que a FMC não está presente: narradas em terceira pessoa pelo mesmo narrador externo, mas mostrando o MMC apenas pelo comportamento observável (gestos, falas, reações físicas, decisões), sem nunca acessar pensamentos dele.
-- O narrador NUNCA se anuncia, NUNCA se refere a si mesmo, NUNCA menciona sua função. Ele é invisível ao texto.
-- É PROIBIDO o uso de "eu", "me", "mim", "minha", "meu" como voz narrativa. Essas palavras só podem aparecer dentro de diálogos.
-- É PROIBIDO o uso de "nós", "nosso", "nossa" como voz narrativa.
+🎙️ NARRAÇÃO — TERCEIRA PESSOA (REGRA MESTRA, COM RECORTE POR PARTE)
+A história inteira é contada por um narrador externo em terceira pessoa. Nenhum personagem narra, em nenhuma parte. O narrador NUNCA se anuncia, NUNCA se refere a si mesmo, NUNCA menciona sua função — é invisível ao texto.
+- Sem trechos em primeira pessoa de qualquer personagem (em qualquer parte). É PROIBIDO o uso de "eu", "me", "mim", "minha", "meu" como voz narrativa — essas palavras só podem aparecer dentro de diálogos. É PROIBIDO o uso de "nós", "nosso", "nossa" como voz narrativa.
+- Sem marcadores de POV alternado (✦ NOME ou variantes), em qualquer parte.
 
-POR QUE essa regra existe: a terceira pessoa centrada na FMC mantém o MMC misterioso, desejável e levemente inacessível, o que é parte do vício do gênero. Permitir POV masculino quebra a tensão construída pela leitora não saber, em tempo real, o que ele está pensando.
+O FOCO do narrador muda conforme a parte:
+
+▸ PARTE 1 — TERCEIRA PESSOA LIMITADA À FMC.
+- O narrador acompanha PRIORITARIAMENTE a heroína. Ele acessa pensamentos, sensações e memórias DELA.
+- O leitor NUNCA entra na cabeça do MMC. Ele é mostrado pelos atos, pela voz, pelo corpo, pelo silêncio — nunca por pensamentos internos narrados.
+- Cenas em que a FMC não está presente: narradas em terceira pessoa pelo mesmo narrador externo, mas mostrando o MMC apenas pelo comportamento observável (gestos, falas, reações físicas, decisões), sem nunca acessar pensamentos dele.
+- POR QUE: a terceira pessoa centrada na FMC mantém o MMC misterioso, desejável e levemente inacessível na fase gratuita — parte do vício do gênero.
+
+▸ PARTE 2 — TERCEIRA PESSOA ONISCIENTE.
+- O narrador externo passa a acessar os pensamentos, sentimentos e sensações de AMBOS os protagonistas (FMC e MMC), alternando o foco de forma natural e fluida — mas sempre como observador, nunca como o próprio personagem, e sem blocos de POV rotulados.
+- Continuam valendo as regras gerais acima (sem 1ª pessoa na narração, sem narrador que se anuncia, sem ✦ NOME).
+- POR QUE: na fase paga, entrar também na mente do MMC aprofunda a entrega emocional que o leitor pagou para ver.
+
+⚠️ Há, portanto, UMA mudança de regime entre as partes: Parte 1 limitada à FMC → Parte 2 onisciente. Esse é o único ponto em que o narrador entra na mente do MMC.
 
 👥 REGRAS DE PERSONAGENS
 Valem para as duas partes, sem exceção.
@@ -104,9 +111,8 @@ Valem para as duas partes, sem exceção. Tensão sexual constante e crescente, 
 ❌ Casamento ou filhos na Parte 1.
 ❌ Ultrapassar o limite de palavras de cada parte.
 ❌ Mencionar um personagem sem explicar quem é na primeira vez.
-❌ Narrar pensamentos do MMC. Ele aparece apenas pelo observável.
-❌ Marcadores de POV alternado ("POV: ele", "Capítulo X — ponto de vista de [MMC]").
-❌ Trechos em primeira pessoa de qualquer personagem.
-❌ Mudança de regime narrativo na Parte 2 — mantém o mesmo da Parte 1.
+❌ Narrar pensamentos do MMC na PARTE 1 — lá ele aparece apenas pelo observável. (Na PARTE 2, o narrador onisciente pode acessar a mente dele.)
+❌ Marcadores de POV alternado ("POV: ele", "Capítulo X — ponto de vista de [MMC]") ou blocos ✦ NOME — em qualquer parte.
+❌ Trechos em primeira pessoa de qualquer personagem — em qualquer parte.
 
 `;

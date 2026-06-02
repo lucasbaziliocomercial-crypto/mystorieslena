@@ -7,7 +7,7 @@
  *  • Abertura com BOMBA (não revela tudo, cliffhanger forte)
  *  • Distribuição de POV (FMC + ATÉ 4 narrações masculinas)
  *  • Identificação visual obrigatória de mudança de POV (✦ NOME)
- *  • Cena erótica completa no penúltimo capítulo
+ *  • Cena erótica completa em posição flexível (definida pela curva de química)
  *  • Final feliz no último cap (casamento + filhos / lua de mel / sonho realizado)
  */
 
@@ -22,7 +22,7 @@ A Parte 2 é o livro pelo qual o leitor pagou. Já se apaixonou na Parte 1 — a
 📐 ESTRUTURA GERAL
 • Total de palavras: 13.500 — meta rigorosa.
 • Número de capítulos: entre 5 e 6 (máximo 6).
-• Penúltimo capítulo: cena erótica + reconciliação do casal.
+• Penúltimo capítulo: reconciliação do casal (a cena erótica NÃO é fixada aqui — segue a regra flexível abaixo).
 • Último capítulo: final feliz — casamento + filhos / lua de mel / sonho realizado.
 • Tom geral: mais intenso que a Parte 1 — mais íntimo, mais perigoso, mais resolutivo, mais erótico.
 
@@ -57,11 +57,28 @@ Exemplos: se a FMC recebe a bomba → MMC narra a primeira metade / FMC narra a 
 Capítulos do meio (2 ao penúltimo -1)
 O conflito se desenvolve e pressiona o casal de formas que a Parte 1 não pressionou. A FMC é testada de um jeito novo — já está dentro do mundo dele e o mundo cobra. O MMC precisa escolher entre protegê-la e deixá-la ir — essa escolha custa. Inserir trechos de narração do MMC com flashbacks estratégicos nos pontos de maior tensão. Conflitos herdados da Parte 1 vão sendo resolvidos um a um. Humor aparece nos piores momentos. Semente do casal secundário: melhor amiga da FMC cruza com o braço direito/irmão/amigo do MMC — breve, com tensão ou humor, sem revelar nada definitivo.
 
-Penúltimo capítulo — Reconciliação + Cena Erótica (OBRIGATÓRIO)
-Conflito principal chega ao clímax e se resolve aqui. MMC toma a decisão mais difícil da sua vida por causa dela. FMC faz algo que prova que ela não é mais a mesma de quando a história começou. Reconciliação CONQUISTADA — não dada. Cena erótica acontece como consequência emocional de tudo que veio antes — não como alívio fácil.
+Penúltimo capítulo — Reconciliação (OBRIGATÓRIO)
+Conflito principal chega ao clímax e se resolve aqui. MMC toma a decisão mais difícil da sua vida por causa dela. FMC faz algo que prova que ela não é mais a mesma de quando a história começou. Reconciliação CONQUISTADA — não dada.
+⚠️ A cena erótica NÃO é mais obrigatoriamente colocada neste capítulo. Sua posição é definida pela regra flexível abaixo. Em dark romance é comum que a cena ocorra ANTES da reconciliação — após um ferimento, uma fuga, uma briga intensa ou uma revelação dolorosa — gerando culpa, raiva ou distanciamento posterior. Se a curva emocional do casal exigir que ela aconteça em um momento anterior, ela acontece lá. Se a curva exigir que ela aconteça aqui, como consequência emocional da reconciliação, ela acontece aqui. O penúltimo capítulo continua sendo o ponto de virada emocional e resolução do conflito principal — mas a intimidade física segue a química, não a estrutura.
 
 Último capítulo — Final Feliz (OBRIGATÓRIO)
 Todos os conflitos resolvidos — nada em aberto. Casal junto de forma sólida e merecida. Entrega obrigatória — uma das opções: casamento + filhos / casamento + lua de mel no destino dos sonhos dela / casamento + ele realiza um sonho específico dela mencionado na Parte 1. A última cena/frase deve fazer a leitora fechar o livro com sorriso — e querer recomendar.
+
+🔥 REGRA FLEXÍVEL PARA CENA ÍNTIMA E EVOLUÇÃO DA QUÍMICA
+A cena erótica NÃO possui capítulo fixo. Ela deve acontecer no momento em que a evolução emocional, a confiança, a tensão romântica e a química entre os protagonistas atingirem um nível que torne esse momento inevitável para a história. A posição da cena será determinada pela jornada do casal, e não por uma regra estrutural.
+Diretrizes:
+• A cena nunca deve acontecer nos primeiros capítulos, antes de existir construção emocional suficiente.
+• A cena nunca deve acontecer no epílogo ou após todos os conflitos estarem completamente encerrados.
+• O momento ideal é quando a relação alcança um ponto de transformação: aumento de confiança, vulnerabilidade compartilhada, aproximação emocional intensa, revelação significativa, superação de um obstáculo ou reconhecimento dos sentimentos.
+• Quanto maior a tensão romântica construída antes, mais satisfatória deve ser a cena.
+• Não existe obrigação de reconciliação completa antes da cena. Em dark romance, é comum a intimidade ocorrer após um ferimento, uma fuga, uma briga intensa ou uma revelação dolorosa — gerando culpa, raiva ou distanciamento posterior, e não paz imediata.
+• A cena deve ser consequência natural da evolução da relação, não obrigação estrutural. Se o casal ainda não desenvolveu conexão suficiente, a cena não acontece; se a química já atingiu o ápice, não adiar artificialmente.
+Construção obrigatória de clima e progressão:
+• Antes da cena, é obrigatório existir construção de química prévia — olhares carregados, toques que duram mais do que deveriam, proximidade sem contato, respiração alterada, tensão crescente, quase-acontece, frases em tom baixo, recuos no limite do controle.
+• A cena tem progressão própria — começa com tensão emocional, evolui para tensão física, passa pela hesitação ou ponto de não retorno, e só então entra na cena em si. Nunca aparece do nada.
+• Quando nasce de perigo, ferimento, fuga ou raiva, a progressão pode ser mais rápida e brutal — mas precisa existir. O calor vem do contexto: adrenalina, alívio de continuar vivo(a), culpa, raiva direcionada ao desejo, vulnerabilidade exposta.
+Pergunta obrigatória antes de escrever a cena: "Se eu remover esta cena da história, a evolução emocional do casal perde força?" Se SIM, está no lugar certo. Se NÃO, está cedo ou tarde demais.
+Objetivo: a cena deve parecer inevitável, merecida e emocionalmente satisfatória, surgindo organicamente da química construída — independentemente do capítulo em que aconteça.
 
 👁 DUPLO PONTO DE VISTA — REGRAS OBRIGATÓRIAS
 ⚠️ Os blocos ✦ NOME aparecem EXCLUSIVAMENTE na Parte 2. A Parte 1 inteira foi narrada pela FMC, sem nenhum bloco ✦ NOME — qualquer flashback que reviva fatos da Parte 1 a partir do POV do MMC mora AQUI, na Parte 2, dentro de um bloco ✦ NOME. NÃO interpretar nada deste prompt como permissão para inserir POV masculino na Parte 1.
@@ -109,8 +126,8 @@ Regra de complemento — nunca repetir: o segundo POV nunca repete o que o prime
 🗺 MAPEAMENTO DA HISTÓRIA — fazer ANTES de escrever
 Tabela com: Cap | Dia da semana real | Horário | Locais (na ordem) | Transições | Narrador (com indicação de onde muda POV) | Evento-chave. Linha do tempo CONTÍNUA com a Parte 1. Locais que reaparecem da Parte 1 mantêm as MESMAS características (qualquer contradição é erro 💀).
 
-🔥 CENA ERÓTICA — REGRAS OBRIGATÓRIAS
-1 cena obrigatória, completa — no penúltimo capítulo. Segunda cena permitida se o contexto pedir, mas apenas subentendida/resumida; nunca mais detalhada que a primeira.
+🔥 CENA ERÓTICA — REGRAS DE ESTILO
+1 cena obrigatória, completa — em algum momento da história, definido pela regra flexível acima (nunca nos primeiros capítulos, nunca no epílogo). Segunda cena permitida se o contexto pedir, mas apenas subentendida/resumida; nunca mais detalhada que a primeira.
 
 Regras de estilo:
 • Protagonista narra em primeira pessoa, em tempo real, com pensamentos que interrompem a ação.
@@ -122,7 +139,7 @@ Regras de estilo:
 • Ao menos uma fala de cada personagem que revele algo emocional além do físico.
 • Comece com tensão emocional antes de entrar na cena física.
 • Frases aceleram conforme a intensidade aumenta.
-• Termina com reflexão interna da protagonista.
+• Termina com reflexão interna da protagonista. Quando a cena acontece em meio a um conflito não-resolvido (ferimento, briga, fuga), a reflexão final pode trazer culpa, raiva, confusão ou medo — em vez de paz.
 
 REGRA INEGOCIÁVEL: mesmo nas cenas mais intensas, NUNCA usar palavras +18, palavras obscenas ou vocabulário vulgar. A intensidade vem da descrição sensorial, dos verbos fortes, do detalhe físico e emocional — nunca do palavrão.
 
@@ -142,7 +159,7 @@ Mesmos da Parte 1, com mesmos nomes e perfis. Devem ter EVOLUÍDO — não regri
 Frases diretas e claras. Sem rodeios, sem palavras difíceis. Sempre identificar quem está falando. Transições de cena sinalizadas. Diálogos: reflexão interna antes ou depois da fala — nunca no meio. Acessível para leitoras de todas as idades.
 
 🚫 PROIBIDO
-❌ Contradizer datas, locais ou fatos da Parte 1. ❌ Recapitulações longas. ❌ Conflitos sem resolução. ❌ Antagonista que some sem consequência. ❌ Final apressado. ❌ Cena erótica vulgar ou +18. ❌ Segunda cena erótica mais detalhada que a primeira. ❌ Revelar muito sobre o casal secundário. ❌ Diálogos sem identificação. ❌ Diálogos partidos com reflexão interna no meio. ❌ Dois POVs repetindo a mesma informação. ❌ Personagem novo sem apresentação. ❌ Ultrapassar/cair muito abaixo de 13.500. ❌ Hook fora de 90-120 palavras. ❌ Hook revelando a resolução do conflito. ❌ Começar sem o mapa completo. ❌ Mudar de ambiente sem transição. ❌ Personagens "ouvirem" através de paredes/andares. ❌ Pular dias/horários. ❌ Aparecer em local sem mostrar como chegou. ❌ Objeto sem cenário estabelecido. ❌ Ignorar deslocamento. ❌ Mapa desatualizado. ❌ Mudar POV sem identificação visual obrigatória. ❌ Locais da Parte 1 com características diferentes na Parte 2.
+❌ Contradizer datas, locais ou fatos da Parte 1. ❌ Recapitulações longas. ❌ Conflitos sem resolução. ❌ Antagonista que some sem consequência. ❌ Final apressado. ❌ Cena erótica vulgar ou +18. ❌ Segunda cena erótica mais detalhada que a primeira. ❌ Cena erótica sem construção prévia de química, clima e progressão. ❌ Cena erótica nos primeiros capítulos ou no epílogo. ❌ Revelar muito sobre o casal secundário. ❌ Diálogos sem identificação. ❌ Diálogos partidos com reflexão interna no meio. ❌ Dois POVs repetindo a mesma informação. ❌ Personagem novo sem apresentação. ❌ Ultrapassar/cair muito abaixo de 13.500. ❌ Hook fora de 90-120 palavras. ❌ Hook revelando a resolução do conflito. ❌ Começar sem o mapa completo. ❌ Mudar de ambiente sem transição. ❌ Personagens "ouvirem" através de paredes/andares. ❌ Pular dias/horários. ❌ Aparecer em local sem mostrar como chegou. ❌ Objeto sem cenário estabelecido. ❌ Ignorar deslocamento. ❌ Mapa desatualizado. ❌ Mudar POV sem identificação visual obrigatória. ❌ Locais da Parte 1 com características diferentes na Parte 2.
 
 📄 LAYOUT DE SAÍDA — MODELO OBRIGATÓRIO
 
@@ -185,7 +202,9 @@ Narrador(es): [FMC / MMC / ambos — onde muda]
 Capítulo X: [o que ele narra / qual flashback / o que revela]
 
 🔥 CENA ERÓTICA
-Capítulo onde acontece: [penúltimo]
+Capítulo onde acontece: [definido pela curva emocional — informar qual e justificar com base na regra flexível]
+Justificativa de posicionamento: [responder à pergunta "se eu remover esta cena, a evolução emocional do casal perde força?"]
+Construção de química prévia: [descrever os momentos de tensão, olhares, toques e quase-acontece que antecedem a cena]
 Contexto emocional: [...]
 O que a cena revela emocionalmente: [...]
 

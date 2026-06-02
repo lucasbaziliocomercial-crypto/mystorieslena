@@ -71,7 +71,7 @@ A contagem deve ser feita com rigor. Distribuir as palavras pelos capítulos de 
 | ---------------------------- | ------------------------------------------------------------------------------------------------------ |
 | Total de palavras            | Mínimo 13.000 — Máximo 13.500. Rigoroso.                                                              |
 | Número de capítulos          | **Entre 5 e 6 (máximo 6).** Distribuir palavras por capítulo.                                         |
-| Penúltimo capítulo           | **SEMPRE: cena íntima + reconciliação do casal.**                                                     |
+| Penúltimo capítulo           | **SEMPRE: reconciliação do casal.** A cena íntima NÃO é fixada aqui — segue a regra flexível abaixo. |
 | Último capítulo / Epílogo    | **SEMPRE: final feliz — casamento + filhos / lua de mel / sonho realizado.** Se houver salto temporal, é EPÍLOGO (identificado como tal). |
 | Tom geral                    | Mais intenso que a Parte 1 — mais íntimo, mais perigoso, mais resolutivo, mais erótico.              |
 
@@ -108,7 +108,7 @@ E quando volta para FMC:
 - Tom da voz do MMC distinto da FMC — pensa diferente, observa coisas diferentes, ritmo próprio.
 
 **REGRA 3 — CENA ÍNTIMA: SEMPRE FMC**
-A cena íntima obrigatória (no penúltimo capítulo) é SEMPRE narrada pela FMC em 1ª pessoa. NUNCA pelo MMC.
+A cena íntima obrigatória é SEMPRE narrada pela FMC em 1ª pessoa. NUNCA pelo MMC. (O capítulo em que a cena ocorre é determinado pela regra flexível mais adiante — não há posição fixa.)
 
 **REGRA 4 — DISTRIBUIÇÃO DOS POVs DO MMC:**
 
@@ -194,14 +194,15 @@ Narração: 1ª pessoa, alternando entre FMC (principal) e POVs do MMC conforme 
 - Os conflitos herdados da Parte 1 vão sendo resolvidos um a um
 - O humor aparece nos piores momentos possíveis
 
-**Penúltimo capítulo — Reconciliação + Cena Íntima (OBRIGATÓRIO)**
-Narração: 1ª pessoa — FMC narra a cena íntima (OBRIGATÓRIO). O MMC pode ter um trecho ANTES ou DEPOIS da cena íntima, mas NUNCA durante.
+**Penúltimo capítulo — Reconciliação (OBRIGATÓRIO)**
+Narração: 1ª pessoa — FMC e/ou MMC conforme a distribuição planejada.
 
 - O conflito principal chega ao clímax e se resolve aqui
 - O MMC toma a decisão mais difícil da sua vida por causa dela
 - A FMC faz algo que prova que ela não é mais a mesma de quando a história começou
 - A reconciliação é CONQUISTADA — não dada
-- A cena íntima acontece aqui como consequência emocional de tudo que veio antes — não como alívio fácil
+
+⚠️ A cena íntima NÃO é mais obrigatoriamente colocada neste capítulo. Sua posição é definida pela regra flexível abaixo. Se a curva emocional do casal exigir que ela aconteça antes (em meio ao conflito, após um ferimento, durante uma fuga, depois de uma revelação dolorosa), ela acontece lá. Se a curva exigir que ela aconteça aqui, como consequência emocional da reconciliação, ela acontece aqui. O penúltimo capítulo continua sendo o ponto de virada emocional e resolução do conflito principal — mas a intimidade física segue a química, não a estrutura. Quando a cena íntima ocorrer neste capítulo, o MMC pode ter um trecho ANTES ou DEPOIS da cena, mas NUNCA durante (a cena é sempre narrada pela FMC).
 
 **Último capítulo — Final Feliz / EPÍLOGO (OBRIGATÓRIO)**
 Narração: 1ª pessoa — FMC ou MMC (escolher o que gera mais emoção para o encerramento).
@@ -216,9 +217,34 @@ Narração: 1ª pessoa — FMC ou MMC (escolher o que gera mais emoção para o 
   - Casamento + ele realiza um sonho específico dela mencionado na Parte 1
 - A última cena ou frase deve fazer a leitora fechar o livro com um sorriso — e imediatamente querer recomendar para alguém.
 
-━━━ CENA ÍNTIMA — REGRAS OBRIGATÓRIAS ━━━
+━━━ 🔥 REGRA FLEXÍVEL PARA CENA ÍNTIMA E EVOLUÇÃO DA QUÍMICA ━━━
 
-- 1 cena obrigatória, completa — no PENÚLTIMO capítulo
+A cena íntima NÃO possui capítulo fixo. Ela deve acontecer no momento em que a evolução emocional, a confiança, a tensão romântica e a química entre os protagonistas atingirem um nível que torne esse momento inevitável para a história. A posição da cena será determinada pela jornada do casal, e não por uma regra estrutural.
+
+**Diretrizes:**
+- A cena íntima nunca deve acontecer nos primeiros capítulos da história, antes que exista construção emocional suficiente.
+- A cena íntima também nunca deve acontecer no epílogo ou após todos os conflitos estarem completamente encerrados.
+- O momento ideal ocorre quando o relacionamento alcança um ponto de transformação importante: aumento da confiança, vulnerabilidade compartilhada, aproximação emocional intensa, revelação significativa, superação de um obstáculo ou reconhecimento dos sentimentos.
+- Quanto maior for a tensão romântica construída anteriormente, mais satisfatória deve ser a cena.
+- Histórias com química mais rápida podem ter a cena mais cedo. Histórias com desenvolvimento lento podem ter a cena mais tarde.
+- Não existe obrigação de reconciliação completa antes da cena. Em alguns casos, a intimidade pode acontecer enquanto ainda existem conflitos, dúvidas, segredos ou obstáculos entre o casal — gerando inclusive culpa, raiva ou distanciamento posterior, e não paz imediata.
+- A cena deve funcionar como consequência natural da evolução da relação e não como uma obrigação estrutural.
+- A intensidade da cena deve refletir exatamente o estágio emocional dos personagens naquele momento da história.
+- Se o casal ainda não desenvolveu conexão suficiente, a cena não deve acontecer.
+- Se a química já atingiu o ponto máximo de tensão emocional, a história não deve adiar artificialmente a cena apenas para cumprir uma posição específica na estrutura.
+
+**Construção obrigatória de clima e progressão:**
+- Antes da cena íntima, é obrigatório que exista construção de química prévia — olhares carregados, toques que duram mais do que deveriam, proximidade física sem contato, respiração alterada, tensão crescente, quase-acontece, frases ditas em tom baixo, momentos em que um dos dois recua porque sente que está prestes a perder o controle.
+- A cena íntima precisa ter progressão própria — começa com tensão emocional, evolui para tensão física, passa pela hesitação ou pelo ponto de não retorno, e só então entra na cena em si. Nunca aparece do nada.
+- Quando a cena nasce de um momento de perigo, ferimento, fuga ou raiva, essa progressão pode ser mais rápida e brutal — mas precisa existir. O calor vem do contexto: adrenalina, alívio de continuar vivo(a), culpa, raiva direcionada ao desejo, vulnerabilidade exposta.
+
+**Pergunta obrigatória antes de escrever a cena:** "Se eu remover esta cena da história, a evolução emocional do casal perde força?" Se a resposta for sim, a cena está no lugar correto. Se a resposta for não, a cena está acontecendo cedo demais ou tarde demais.
+
+Objetivo: A cena íntima deve parecer inevitável, merecida e emocionalmente satisfatória, surgindo organicamente da química construída entre os protagonistas, independentemente do capítulo em que aconteça.
+
+━━━ CENA ÍNTIMA — REGRAS DE ESTILO ━━━
+
+- 1 cena obrigatória, completa — em algum momento da história, definido pela regra flexível acima (nunca nos primeiros capítulos, nunca no epílogo)
 - Segunda cena permitida se o contexto pedir — mas APENAS subentendida, resumida
 - A segunda cena NUNCA pode ser mais detalhada que a primeira
 
@@ -234,7 +260,7 @@ Narração: 1ª pessoa — FMC ou MMC (escolher o que gera mais emoção para o 
 - Ao menos uma fala de cada personagem que revele algo emocional além do físico
 - Começa com tensão emocional antes de entrar na cena física
 - Frases aceleram conforme a intensidade aumenta
-- Termina com reflexão emocional da FMC sobre o que acabou de acontecer — e o que mudou entre eles
+- Termina com reflexão emocional da FMC sobre o que acabou de acontecer — e o que mudou entre eles. Quando a cena acontece em meio a um conflito não-resolvido (ferimento, briga, fuga), a reflexão final pode trazer culpa, raiva, confusão ou medo — em vez de paz.
 
 ⚠️ Regra inegociável: mesmo nas cenas mais intensas, NUNCA usar palavras +18, palavras obscenas ou vocabulário vulgar. A intensidade vem da descrição sensorial, dos verbos fortes, do detalhe físico e emocional — NUNCA do palavrão.
 
@@ -289,6 +315,8 @@ A estrutura precisa ser escrita com frases diretas e claras, sem rodeios e sem p
 ❌ Final apressado
 ❌ Cena íntima com vocabulário vulgar ou +18
 ❌ Segunda cena íntima mais detalhada que a primeira
+❌ Cena íntima sem construção prévia de química, clima e progressão
+❌ Cena íntima nos primeiros capítulos (antes da construção emocional) ou no epílogo (depois de todos os conflitos encerrados)
 ❌ Diálogos sem identificação de quem fala
 ❌ Diálogos partidos com reflexão interna no meio
 ❌ Personagem novo sem apresentação na primeira menção
@@ -371,9 +399,11 @@ Continuação de: [Título da Parte 1]
 (Soma total: entre 13.000 e 13.500 palavras — RIGOROSO)
 
 # 💋 CENA ÍNTIMA
-- Capítulo onde acontece: **PENÚLTIMO**
+- Capítulo onde acontece: [definido pela curva emocional — informar qual e justificar com base na regra flexível]
+- Justificativa de posicionamento: [responder à pergunta "se eu remover esta cena, a evolução emocional do casal perde força?" e explicar por que a cena está naquele ponto]
+- Construção de química prévia: [descrever os momentos de tensão, olhares, toques e quase-acontece que antecedem a cena]
 - Narrada por: FMC — primeira pessoa (OBRIGATÓRIO)
-- Contexto emocional: [descrição]
+- Contexto emocional: [descrição — incluir se acontece em paz, em meio a conflito, após ferimento, durante fuga, etc.]
 - O que a cena revela emocionalmente: [descrição]
 - Segunda cena (se houver): Capítulo [número] — resumida, subentendida
 
@@ -414,7 +444,9 @@ Marque ✓ ou explique:
 - [ ] Cada POV do MMC traz informação nova e relevante
 - [ ] Não há dois trechos do MMC consecutivos sem FMC entre eles
 - [ ] A cena íntima é narrada pela FMC — SEMPRE
-- [ ] A cena íntima está no penúltimo capítulo
+- [ ] A cena íntima está posicionada de acordo com a regra flexível (química, clima e progressão construídos antes)
+- [ ] A pergunta "se eu remover esta cena, a evolução emocional do casal perde força?" foi respondida com SIM
+- [ ] A cena íntima tem construção prévia de tensão, olhares, toques e/ou quase-acontece
 - [ ] Nomes e perfis coerentes com a Parte 1
 - [ ] Datas, locais e tempo coerentes com a Parte 1
 - [ ] Todos os conflitos da Parte 1 foram resolvidos

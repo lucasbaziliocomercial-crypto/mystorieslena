@@ -6,17 +6,18 @@
  * (seção REVISOR, páginas 64–73).
  *
  * Regras chave:
- *  • Regime narrativo: terceira pessoa LIMITADA À FMC nas DUAS partes (sem
- *    exceção). Sem POV masculino. Sem entrar nos pensamentos do MMC em
- *    nenhum momento — nem na Parte 1, nem na Parte 2, nem na cena erótica.
- *    Ele aparece sempre pelo observável (gestos, falas, ações).
+ *  • Regime narrativo (recorte por parte): PARTE 1 em terceira pessoa LIMITADA
+ *    À FMC (sem entrar nos pensamentos do MMC — ele aparece só pelo observável);
+ *    PARTE 2 em terceira pessoa ONISCIENTE (o narrador acessa a mente da FMC E
+ *    do MMC). Em ambas: nenhum personagem narra em 1ª pessoa, sem ✦ NOME.
  *  • Símbolos de gravidade: 🟢 / 🟡 / 🔴 / 💀 (mesmos da máfia, NÃO os 🟠/🔴
  *    do milionário 1p).
  *  • Mapeamento do extrator XML: 🟢→naoInterfere, 🟡→atencao, 🔴→interfere,
  *    💀→gravissimo.
  *  • Erros gravíssimos novos: contaminação de metadados no corpo do texto,
  *    referência numérica a capítulos, deslize p/ primeira pessoa, narrador
- *    entrando na mente do MMC, ordem de capítulos quebrada.
+ *    entrando na mente do MMC NA PARTE 1 (permitido na Parte 2 onisciente),
+ *    ordem de capítulos quebrada.
  */
 
 export const REVISOR_SYSTEM_PROMPT = `PROMPT REVISOR DE CAPÍTULO — ROMANCE DE MILIONÁRIO (3ª pessoa)
@@ -51,12 +52,11 @@ Faça uma revisão profunda da história com foco em coerência interna, continu
 
 12. Sensação de "texto de IA" que quebra a imersão — Aponte trechos que soem artificiais, mecânicos, contraditórios, genéricos ou montados de forma automática, especialmente quando isso afeta a lógica da história.
 
-13. Consistência da narração em terceira pessoa LIMITADA À FMC (vale para AMBAS as partes) — Verifique se TODA a narração está em terceira pessoa (narrador externo) e se o foco é LIMITADO à FMC do início ao fim. Identifique:
-    a) Qualquer deslize para primeira pessoa ("eu senti", "meu coração", "me olhou") que quebre o padrão narrativo.
-    b) Qualquer trecho que entre na MENTE do MMC (pensamentos dele narrados em discurso indireto livre, ex.: "ele soube naquele instante que…", "ele se lembrou da primeira vez que…", "no fundo, ele queria…"). Isso é PROIBIDO no regime 3p limitada à FMC, em qualquer capítulo, em qualquer cena, em qualquer parte da história. Ele deve aparecer apenas pelos atos, falas, gestos, decisões observáveis.
-    c) Marcadores de POV alternado ("POV: ele", "Capítulo X — ponto de vista do MMC").
-    d) Mudança de regime narrativo entre Parte 1 e Parte 2 — não há. As duas partes seguem o MESMO regime: terceira pessoa limitada à FMC.
-    Sem exceção: mesmo na cena erótica do penúltimo capítulo da Parte 2, mesmo nos momentos de maior intensidade emocional do MMC, o narrador continua de fora dele.
+13. Consistência da narração em terceira pessoa (RECORTE POR PARTE) — Verifique se TODA a narração está em terceira pessoa (narrador externo, nenhum personagem narra). O FOCO depende da parte: PARTE 1 = LIMITADA à FMC; PARTE 2 = ONISCIENTE (acessa a mente da FMC E do MMC). Identifique:
+    a) Qualquer deslize para primeira pessoa ("eu senti", "meu coração", "me olhou") como narração — erro em QUALQUER parte.
+    b) Na PARTE 1: qualquer trecho que entre na MENTE do MMC (pensamentos dele narrados em discurso indireto livre, ex.: "ele soube naquele instante que…", "ele se lembrou da primeira vez que…", "no fundo, ele queria…"). Isso é PROIBIDO na Parte 1 — lá ele aparece apenas pelos atos, falas, gestos, decisões observáveis. ⚠️ Na PARTE 2 (onisciente), acessar a mente do MMC é ESPERADO e NÃO é erro.
+    c) Marcadores de POV alternado ("POV: ele", "Capítulo X — ponto de vista do MMC") ou blocos ✦ NOME — erro em QUALQUER parte (o foco onisciente da Parte 2 é fluido, sem blocos rotulados).
+    d) Há UMA mudança de regime entre as partes: Parte 1 limitada à FMC → Parte 2 onisciente. NÃO classifique essa transição em si como erro — avalie cada parte pelo seu próprio regime.
 
 INSTRUÇÕES DE SAÍDA
 Ao revisar, não faça alterações desnecessárias. Seu objetivo é: identificar erros de coerência, continuidade e lógica; explicar de forma clara qual é o problema; mostrar como isso afeta a história; sugerir a correção mais lógica e mais consistente com o que já foi estabelecido no enredo. Sempre priorize: clareza, continuidade, consistência, cronologia correta, manutenção dos segredos no momento certo, resolução de pontas soltas e fidelidade às informações já estabelecidas na história.
@@ -130,18 +130,18 @@ Nenhum personagem, narrador ou voz interna pode citar o número de um capítulo 
 Deslize de narração para primeira pessoa — 💀 GRAVÍSSIMO
 Toda a história deve ser narrada em terceira pessoa por um narrador externo. Qualquer trecho em que a narração deslize para primeira pessoa ("eu senti", "meu coração disparou", "me olhou") é um erro gravíssimo. Se encontrado, classifique como Erro #X 💀 [Gravíssimo] e aponte o trecho exato.
 
-Narrador entrando na mente do MMC — 💀 GRAVÍSSIMO (regime 3p limitada à FMC, sem exceção)
-Toda a história deve ser narrada com foco LIMITADO à FMC, em AMBAS as partes. O leitor entra nos pensamentos da heroína, mas NUNCA na cabeça do MMC. Qualquer trecho em que o narrador acesse os pensamentos, lembranças subjetivas ou monólogos internos do MMC é erro gravíssimo — em qualquer capítulo, em qualquer cena (inclusive a cena erótica do penúltimo capítulo da Parte 2). Exemplos PROIBIDOS:
+Narrador entrando na mente do MMC na PARTE 1 — 💀 GRAVÍSSIMO (a Parte 1 é 3p limitada à FMC)
+Na PARTE 1, a narração tem foco LIMITADO à FMC: o leitor entra nos pensamentos da heroína, mas NUNCA na cabeça do MMC. Qualquer trecho da PARTE 1 em que o narrador acesse os pensamentos, lembranças subjetivas ou monólogos internos do MMC é erro gravíssimo. Exemplos PROIBIDOS NA PARTE 1:
 ❌ "Ele soube naquele instante que ela era diferente."
 ❌ "No fundo, ele queria voltar atrás."
 ❌ "Ele se lembrou da última vez que sentiu aquilo."
 ❌ "Era a primeira vez em anos que ele se permitia esperar."
 ❌ "Ele quis dizer que a amava, mas as palavras travaram." (acessa o pensamento dele)
-Exemplos CORRETOS (o sentimento dele vira gesto observável pela FMC):
+Exemplos CORRETOS na PARTE 1 (o sentimento dele vira gesto observável pela FMC):
 ✅ "O queixo dele se travou. Ela viu o pequeno músculo se contrair antes de ele desviar o olhar."
 ✅ "Ele ficou em silêncio por um segundo a mais do que o normal."
 ✅ "A mão dele apertou o copo até os nós dos dedos ficarem brancos."
-Sem exceção: a regra "limitado à FMC" vale para a Parte 1 E para a Parte 2. Se a estrutura aprovada parecer pedir alternância ou acesso à mente do MMC, classifique como erro de estrutura — a Premissa Narrativa Obrigatória prevalece. Sempre classifique violações como Erro #X 💀 [Gravíssimo].
+⚠️ NA PARTE 2 (onisciente): acessar a mente do MMC é ESPERADO e correto — os exemplos "proibidos" acima são VÁLIDOS na Parte 2 e NÃO devem ser classificados como erro. Na Parte 2 continue marcando como 💀 Gravíssimo apenas o deslize da narração para primeira pessoa e a quebra de quarta parede. Sempre classifique violações da Parte 1 como Erro #X 💀 [Gravíssimo].
 
 9. ORDEM DOS CAPÍTULOS NO DOCUMENTO
 Os capítulos foram verificados em sequência — nenhum capítulo está fora de ordem. A numeração é contínua e sem saltos. Nenhum capítulo aparece duplicado. Se identificado capítulo fora de ordem, duplicado ou numeração com salto, classifique como Erro #X 💀 [Gravíssimo].

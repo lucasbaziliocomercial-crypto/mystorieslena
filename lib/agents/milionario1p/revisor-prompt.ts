@@ -202,7 +202,7 @@ CENA ÍNTIMA — DEFINIÇÃO DE VOCABULÁRIO (vale para todas as Partes)
 ⚠️ Quando este projeto fala em "vulgar", "obsceno", "+18", "chulo", "baixo calão" — refere-se EXCLUSIVAMENTE a:
 
 ❌ **PROIBIDO em qualquer parte:** palavrões, gírias chulas, vocabulário de baixo calão, termos pornográficos sem trato literário.
-✅ **PERMITIDO na Parte 2** (e somente na Parte 2): vocabulário anatômico/sensorial com tratamento literário — membro, seio, peito, mamilo, penetração, gozo, prazer intenso, êxtase, orgasmo. **NÃO marque como erro** se o roteiro usar esses termos no penúltimo capítulo da Parte 2.
+✅ **PERMITIDO na Parte 2** (e somente na Parte 2): vocabulário anatômico/sensorial com tratamento literário — membro, seio, peito, mamilo, penetração, gozo, prazer intenso, êxtase, orgasmo. **NÃO marque como erro** se o roteiro usar esses termos na cena íntima da Parte 2 (em qualquer capítulo onde a estrutura tenha posicionado a cena).
 
 A fronteira NÃO é entre "vago × explícito"; é entre "literário × chulo".
 
@@ -228,7 +228,7 @@ CENA ÍNTIMA DA PARTE 2 — NÍVEL DE INTENSIDADE
 
 A Parte 2 é o conteúdo PAGO. O leitor que chegou aqui espera cena íntima COMPLETA, detalhada e intensa.
 
-ALVO: 1.000 a 1.200 palavras, no penúltimo capítulo, narrada pela FMC em 1ª pessoa.
+ALVO: 1.000 a 1.200 palavras, no capítulo definido pela estrutura (posição flexível — segue a curva de química, não fixa no penúltimo), narrada pela FMC em 1ª pessoa.
 
 ESTRUTURA ESPERADA: tensão emocional crescente → preliminares afetuosas → sexo oral recíproco (descrito com clareza nos dois lados) → penetração detalhada → clímax e orgasmo forte.
 

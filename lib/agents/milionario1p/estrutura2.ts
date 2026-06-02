@@ -12,7 +12,7 @@ import { ESTRUTURA2_PROMPT } from "./estrutura2-prompt";
  * Agente especializado que segue NA RISCA o prompt mestre da Parte 2
  * (13.000–13.500 palavras, 5-6 capítulos, narração 1ª pessoa alternando
  * FMC + MMC com 2-4 trechos do MMC, hook de 90-140 palavras, cena íntima
- * obrigatória no penúltimo capítulo, final feliz/epílogo no último).
+ * em posição flexível (definida pela curva de química), final feliz/epílogo no último).
  *
  * System prompt = regras gerais do projeto (master) + regras específicas
  * da Parte 2 (estrutura2-prompt). User message = Premissa do Step 1 +
@@ -23,7 +23,7 @@ export const estrutura2Agent: Agent = {
   id: "estrutura2",
   label: "Estrutura — Parte 2",
   description:
-    "Monta a estrutura completa da Parte 2 (13.000–13.500 palavras, 5-6 capítulos) seguindo o prompt mestre especializado — hook, mapa com narrador, alternância FMC/MMC, cena íntima no penúltimo, epílogo/final feliz",
+    "Monta a estrutura completa da Parte 2 (13.000–13.500 palavras, 5-6 capítulos) seguindo o prompt mestre especializado — hook, mapa com narrador, alternância FMC/MMC, cena íntima em posição flexível, epílogo/final feliz",
   model: MODELS.opus,
   thinking: "adaptive",
   effort: "high",
@@ -111,7 +111,7 @@ export const estrutura2Agent: Agent = {
 
     if (ctx.referenceImage) {
       sections.push(
-        "━━━ IMAGEM DE REFERÊNCIA ANEXADA ━━━\n\nA roteirista anexou uma imagem visual de referência (vai chegar como input multimodal antes desta mensagem). Mantenha COERÊNCIA com a Parte 1 que já usou essa imagem — mesmo mood, mesma paleta, mesma aparência dos personagens. Use a imagem pra sustentar a continuidade visual da Parte 2 (especialmente na cena íntima do penúltimo capítulo e no epílogo). Em conflito entre imagem e texto, o TEXTO prevalece.",
+        "━━━ IMAGEM DE REFERÊNCIA ANEXADA ━━━\n\nA roteirista anexou uma imagem visual de referência (vai chegar como input multimodal antes desta mensagem). Mantenha COERÊNCIA com a Parte 1 que já usou essa imagem — mesmo mood, mesma paleta, mesma aparência dos personagens. Use a imagem pra sustentar a continuidade visual da Parte 2 (especialmente na cena íntima e no epílogo). Em conflito entre imagem e texto, o TEXTO prevalece.",
       );
     }
 
