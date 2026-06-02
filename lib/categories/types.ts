@@ -16,7 +16,8 @@ import type { StepId } from "@/types/roteiro";
 export type RoteiroCategory =
   | "milionario-1p"
   | "milionario-3p"
-  | "mafia";
+  | "mafia"
+  | "alpha-king";
 
 /** Configuração de contagem de palavras por Parte (Parte 1 / Parte 2). */
 export interface PartWordCount {

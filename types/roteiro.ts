@@ -262,7 +262,8 @@ export interface RoteiroReferenceImage {
 export type RoteiroCategory =
   | "milionario-1p"
   | "milionario-3p"
-  | "mafia";
+  | "mafia"
+  | "alpha-king";
 
 /** Default usado pra roteiros legados (sem `category` no localStorage). */
 export const DEFAULT_CATEGORY: RoteiroCategory = "milionario-1p";

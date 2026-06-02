@@ -1,0 +1,45 @@
+/**
+ * Categoria: Romance Alpha King / Werewolf (estilo Helô Stories™).
+ *
+ * Reúne os 5 agentes — premissa, estrutura1, estrutura2, escrita, revisor —
+ * junto com o prompt da Escrita exposto separadamente (consumido por
+ * /api/escrita-fix-wordcount) e o par de extração estruturada do Revisor
+ * (fallback /api/revisor-extract-errors).
+ *
+ * Narração: Parte 1 em 1ª pessoa exclusiva da heroína (futura Luna); Parte 2
+ * em 1ª pessoa alternando heroína (principal) + 2 a 4 trechos do Alpha King
+ * (✦ NOME). Cena íntima / marcação completa sempre narrada pela heroína.
+ * Símbolos do Revisor: 🟢🟡🔴💀.
+ */
+
+import type { StepId } from "@/types/roteiro";
+import type { Agent } from "../types";
+import { premissaAgent } from "./premissa";
+import { estrutura1Agent } from "./estrutura1";
+import { estrutura2Agent } from "./estrutura2";
+import { escritaAgent } from "./escrita";
+import { revisorAgentTemplate } from "./revisor";
+import { buildRevisorAgent } from "../_shared/build-revisor-agent";
+import { buildOverviewAgent } from "../_shared/build-overview-agent";
+import { ESCRITA_SYSTEM_PROMPT } from "./escrita-prompt";
+import {
+  REVISOR_EXTRACT_SYSTEM_PROMPT,
+  buildRevisorExtractUserMessage,
+} from "./revisor-extract-prompt";
+
+export const alphaKingAgents: Record<StepId, Agent> = {
+  premissa: premissaAgent,
+  estrutura1: estrutura1Agent,
+  estrutura2: estrutura2Agent,
+  escrita: escritaAgent,
+  revisor1: buildRevisorAgent({ template: revisorAgentTemplate, part: 1 }),
+  revisor2: buildRevisorAgent({ template: revisorAgentTemplate, part: 2 }),
+  overview: buildOverviewAgent(),
+};
+
+export const alphaKingEscritaSystemPrompt = ESCRITA_SYSTEM_PROMPT;
+
+export const alphaKingRevisorExtract = {
+  systemPrompt: REVISOR_EXTRACT_SYSTEM_PROMPT,
+  buildUserMessage: buildRevisorExtractUserMessage,
+};
