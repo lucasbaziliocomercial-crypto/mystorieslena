@@ -384,8 +384,10 @@ function deserialize(raw: string): Roteiro[] {
     const compressed = raw.slice(COMPRESSED_PREFIX.length);
     const json = decompressFromUTF16(compressed);
     if (!json) {
-      console.error("[storage] falha ao descomprimir localStorage");
-      return [];
+      // NÃO retornar [] aqui: o cache viraria vazio e o próximo save
+      // sobrescreveria a biblioteca inteira. Lança pra `readFromStorage`
+      // tratar (quarentena do blob + bloqueio de escrita).
+      throw new Error("falha ao descomprimir localStorage (blob corrompido)");
     }
     return JSON.parse(json) as Roteiro[];
   }
@@ -408,16 +410,66 @@ function deserialize(raw: string): Roteiro[] {
  */
 let roteirosCache: Roteiro[] | null = null;
 
-function readFromStorage(): Roteiro[] {
+/**
+ * True quando a ÚLTIMA leitura do localStorage falhou (descompressão/parse)
+ * com um blob NÃO-vazio presente. Enquanto for true, `safeSetItem` se recusa
+ * a gravar — senão o cache vazio (resultado de ERRO de leitura, não de
+ * biblioteca vazia) sobrescreveria os dados reais e os perderia pra sempre.
+ * Reavaliado a cada `readFromStorage`.
+ */
+let storageReadBlocked = false;
+
+/**
+ * Permite a UI detectar o estado de leitura-falha mesmo se o evento foi
+ * disparado antes do listener montar (a leitura é lazy — roda no 1º acesso).
+ */
+export function isStorageReadBlocked(): boolean {
+  return storageReadBlocked;
+}
+
+/**
+ * Preserva o blob bruto que não conseguimos ler num backup e avisa a UI.
+ * Best-effort: se o próprio backup falhar (ex.: quota), só loga — o que
+ * importa é NÃO destruir o original, garantido pelo bloqueio de escrita.
+ */
+function quarantineCorruptBlob(raw: string, error: unknown) {
+  console.error(
+    "[storage] leitura falhou — preservando blob e bloqueando escrita:",
+    error,
+  );
   try {
-    const raw = window.localStorage.getItem(KEY);
-    if (!raw) return [];
+    const backupKey = `${KEY}.corrupt`;
+    // Só grava o primeiro backup (não acumula cópias a cada reload).
+    if (window.localStorage.getItem(backupKey) === null) {
+      window.localStorage.setItem(backupKey, raw);
+      console.error(`[storage] blob corrompido salvo em "${backupKey}".`);
+    }
+  } catch (e) {
+    console.error("[storage] não foi possível salvar backup do blob:", e);
+  }
+  window.dispatchEvent(new CustomEvent("veludo:storage-read-failed"));
+}
+
+function readFromStorage(): Roteiro[] {
+  storageReadBlocked = false; // reavalia a cada leitura
+  let raw: string | null = null;
+  try {
+    raw = window.localStorage.getItem(KEY);
+    if (!raw) return []; // genuinamente vazio (usuário novo) — não bloqueia
     const parsed = deserialize(raw);
     return parsed
       .map(migrateLegacy)
       .map(pruneHistory)
       .map(sanitizeRoteiroXmlCruft);
-  } catch {
+  } catch (e) {
+    // raw existia e era não-vazio, mas não parseou. Retornar [] em silêncio
+    // (comportamento antigo) faria o próximo save apagar a biblioteca toda.
+    // Em vez disso: preserva o blob e bloqueia escrita até a próxima leitura
+    // bem-sucedida (ex.: depois de um reload com o blob recuperado).
+    if (raw) {
+      quarantineCorruptBlob(raw, e);
+      storageReadBlocked = true;
+    }
     return [];
   }
 }
@@ -463,6 +515,16 @@ function isQuotaExceededError(e: unknown): boolean {
 }
 
 function safeSetItem(value: string) {
+  // Trava de segurança: se a leitura inicial falhou (blob corrompido), o cache
+  // está vazio por ERRO, não porque a biblioteca está vazia. Gravar agora
+  // sobrescreveria o blob preservado e perderia tudo. Recusa e avisa a UI.
+  if (storageReadBlocked) {
+    console.error(
+      "[storage] escrita bloqueada: leitura inicial falhou e o blob foi preservado; não sobrescrevendo.",
+    );
+    window.dispatchEvent(new CustomEvent("veludo:storage-write-blocked"));
+    return;
+  }
   // Sem o try/catch, se o usuário enche o localStorage (roteiros com imagem
   // inline em data URL passam fácil dos 5MB), o setItem lança e crasha o
   // renderer — Electron mostra tela branca sem nenhum aviso. Aqui capturamos
