@@ -52,3 +52,18 @@ next-env.d.ts
 # tooling local
 .playwright-mcp/
 .claude/
+
+# artefatos de teste/dev e scratch (sanitizacao 2026-06-03) — nao versionar
+/.e2e-*.txt
+/e2e-*.png
+/e2e-*.json
+/PARTE2_ESTRUTURA.txt
+/docx_sections.txt
+/tmp-*.txt
+/tmp-export/
+
+# seed de dev (gerado por scripts/build-seed.mjs; pesado, fica fora do git)
+# obs: ainda fisicamente em public/ p/ o dev-seed.html funcionar via fetch("/dev-roteiros.json").
+# nao-shippar no instalador e build-config separado (ver MAINTENANCE.md P1#3).
+/public/dev-roteiros.json
+/public/dev-seed.html
