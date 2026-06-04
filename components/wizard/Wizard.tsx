@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useWizard } from "@/store/wizard";
+import { useTabs } from "@/store/tabs";
 import { getRoteiro } from "@/lib/storage";
 import { StepIndicator } from "./StepIndicator";
 import { StepShell } from "./StepShell";
+import { ProjectTabs } from "@/components/tabs/ProjectTabs";
 import { UpdateButton } from "./UpdateButton";
 import { STEP_ORDER } from "@/types/roteiro";
 import { CATEGORIES } from "@/lib/categories";
@@ -26,6 +28,7 @@ export function Wizard({ id }: Props) {
   const setCurrentStep = useWizard((s) => s.setCurrentStep);
   const setTitle = useWizard((s) => s.setTitle);
   const reset = useWizard((s) => s.reset);
+  const openTab = useTabs((s) => s.openTab);
 
   const [notFound, setNotFound] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
@@ -40,6 +43,13 @@ export function Wizard({ id }: Props) {
     setRoteiro(r);
     return () => reset();
   }, [id, setRoteiro, reset]);
+
+  // Mantém a guia (aba) deste projeto aberta e o título em sincronia. Persiste
+  // em `veludo:tabs` — ao reabrir o app, as guias dos projetos simultâneos voltam.
+  const roteiroTitle = roteiro?.title;
+  useEffect(() => {
+    if (roteiroTitle) openTab(id, roteiroTitle);
+  }, [id, roteiroTitle, openTab]);
 
   if (notFound) {
     return (
@@ -67,6 +77,8 @@ export function Wizard({ id }: Props) {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12 flex flex-col gap-8">
+      <ProjectTabs activeId={id} />
+
       <header className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <Link href="/">

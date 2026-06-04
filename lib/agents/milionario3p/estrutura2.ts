@@ -24,7 +24,7 @@ export const estrutura2Agent: Agent = {
     "Monta a estrutura completa da Parte 2 de Milionário 3p (13.000-14.000 palavras, alvo 13.500, 5-6 capítulos) — bomba inicial, mapa cena por cena, cena erótica em posição flexível, final feliz com casamento/filhos/sonho. Narração 3ª pessoa ONISCIENTE (acessa FMC e MMC; só na Parte 2 — a Parte 1 segue limitada à FMC).",
   model: MODELS.opus,
   thinking: "adaptive",
-  effort: "high",
+  effort: "medium",
   systemPrompt: ESTRUTURA_MASTER_PROMPT + ESTRUTURA2_PROMPT + CANONE_RULE,
   acceptsReferenceImage: true,
   buildUserMessage: (ctx) => {

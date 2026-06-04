@@ -25,7 +25,7 @@ export const estrutura1Agent: Agent = {
     "Monta a estrutura completa da Parte 1 de Alpha King (11.500 palavras, 6 capítulos fixos) — hook expansão do título, mapa com fase da lua, capítulos com ritmo graduado, marcação flexível, questionamento sutil no final",
   model: MODELS.opus,
   thinking: "adaptive",
-  effort: "high",
+  effort: "medium",
   systemPrompt: ESTRUTURA_MASTER_PROMPT + ESTRUTURA1_PROMPT + CANONE_RULE,
   acceptsReferenceImage: true,
   buildUserMessage: (ctx) => {

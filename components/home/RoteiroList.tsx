@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -21,7 +21,17 @@ import {
   AlertDialog,
 } from "./AlertDialog";
 import { CategoryPicker } from "./CategoryPicker";
-import { ArrowRight, FileText, Plus, Trash2 } from "lucide-react";
+import { QueuePanel } from "@/components/queue/QueuePanel";
+import { useQueue } from "@/store/queue";
+import { useTabs } from "@/store/tabs";
+import {
+  ArrowRight,
+  FileText,
+  Layers,
+  Loader2,
+  Plus,
+  Trash2,
+} from "lucide-react";
 
 export function RoteiroList() {
   const router = useRouter();
@@ -29,15 +39,67 @@ export function RoteiroList() {
   const [ready, setReady] = useState(false);
   const [toDelete, setToDelete] = useState<Roteiro | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // Assinatura estável dos jobs ativos (queued/running) — muda só em TRANSIÇÃO
+  // de status, NÃO a cada tick de progresso (updateJob dispara a cada chunk do
+  // stream em 2º plano). Sem isso, a lista re-renderizava e o refresh()
+  // (listRoteiros) rodava a cada tick. Como string primitiva, o seletor só
+  // notifica quando o conteúdo muda de verdade.
+  const jobsSig = useQueue((s) =>
+    s.jobs
+      .filter((j) => j.status === "queued" || j.status === "running")
+      .map((j) => `${j.roteiroId}:${j.status}`)
+      .join("|"),
+  );
+  const activeJobByRoteiro = useMemo(() => {
+    const m = new Map<string, "queued" | "running">();
+    if (jobsSig) {
+      for (const part of jobsSig.split("|")) {
+        const sep = part.lastIndexOf(":");
+        if (sep > 0) {
+          m.set(part.slice(0, sep), part.slice(sep + 1) as "queued" | "running");
+        }
+      }
+    }
+    return m;
+  }, [jobsSig]);
+  const enqueue = useQueue((s) => s.enqueue);
+  const closeTab = useTabs((s) => s.closeTab);
 
   const refresh = useCallback(() => {
     setRoteiros(listRoteiros());
   }, []);
 
+  // Enfileira a Escrita de um roteiro pra rodar em 2º plano. Pede permissão de
+  // notificação aqui (gesto do usuário) — o QueueRunner usa se concedida.
+  const handleEnqueueEscrita = useCallback(
+    (r: Roteiro) => {
+      try {
+        if (
+          typeof Notification !== "undefined" &&
+          Notification.permission === "default"
+        ) {
+          void Notification.requestPermission();
+        }
+      } catch {
+        // ambiente sem Notification — segue sem notificação nativa.
+      }
+      enqueue(r.id, r.title, "escrita");
+    },
+    [enqueue],
+  );
+
   useEffect(() => {
     refresh();
     setReady(true);
   }, [refresh]);
+
+  // Quando a fila em 2º plano muda de STATUS (ex.: um job concluiu e gravou a
+  // Escrita no storage), recarrega a lista pra o contador "X de Y etapas"
+  // refletir. Depende de jobsSig (não do array jobs) pra NÃO re-ler o storage a
+  // cada tick de progresso.
+  useEffect(() => {
+    refresh();
+  }, [jobsSig, refresh]);
 
   const handlePickCategory = useCallback(
     (category: RoteiroCategory) => {
@@ -63,9 +125,10 @@ export function RoteiroList() {
   const confirmDelete = useCallback(() => {
     if (!toDelete) return;
     deleteRoteiro(toDelete.id);
+    closeTab(toDelete.id);
     setToDelete(null);
     refresh();
-  }, [toDelete, refresh]);
+  }, [toDelete, refresh, closeTab]);
 
   if (!ready) {
     return (
@@ -84,6 +147,8 @@ export function RoteiroList() {
           Novo roteiro
         </Button>
       </div>
+
+      <QueuePanel />
 
       {roteiros.length === 0 ? (
         <Card className="py-16 px-6 flex flex-col items-center gap-3 text-center border-dashed">
@@ -104,6 +169,11 @@ export function RoteiroList() {
             const completed = STEP_ORDER.filter(
               (s) => !!r.outputs[s]?.content,
             ).length;
+            const activeJob = activeJobByRoteiro.get(r.id);
+            // Escrita em 2º plano só faz sentido com as duas estruturas prontas.
+            const canQueueEscrita =
+              !!r.outputs.estrutura1?.content?.trim() &&
+              !!r.outputs.estrutura2?.content?.trim();
             return (
               <Card
                 key={r.id}
@@ -136,6 +206,30 @@ export function RoteiroList() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
+                  {activeJob ? (
+                    <Badge
+                      variant="secondary"
+                      className="gap-1 font-normal whitespace-nowrap"
+                    >
+                      {activeJob === "running" ? (
+                        <>
+                          <Loader2 className="size-3 animate-spin" /> Gerando…
+                        </>
+                      ) : (
+                        "Na fila"
+                      )}
+                    </Badge>
+                  ) : canQueueEscrita ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1 whitespace-nowrap"
+                      onClick={() => handleEnqueueEscrita(r)}
+                      title="Gera a Escrita deste roteiro em 2º plano enquanto você trabalha em outro — sem travar a produção principal"
+                    >
+                      <Layers className="size-4" /> 2º plano
+                    </Button>
+                  ) : null}
                   <Button
                     variant="ghost"
                     size="icon"

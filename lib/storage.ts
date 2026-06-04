@@ -393,8 +393,22 @@ function deserialize(raw: string): Roteiro[] {
   return JSON.parse(raw) as Roteiro[];
 }
 
-export function listRoteiros(): Roteiro[] {
-  if (!isBrowser()) return [];
+/**
+ * Cache em memória do array de roteiros já descomprimido + migrado + podado +
+ * sanitizado. O app é single-window Electron (sem aba/processo concorrente
+ * escrevendo no localStorage), então o cache é a fonte de verdade da sessão.
+ *
+ * Sem ele, CADA save batia em `listRoteiros()` que descomprime o blob inteiro
+ * e roda o pipeline `migrate→prune→sanitize` (incluindo `normalizeEscritaOutput`
+ * em todo `outputs.escrita`) sobre TODOS os roteiros — O(biblioteca) por save.
+ * Como o store persiste a cada mutação (debounce 600ms) e o streaming faz
+ * checkpoint a cada ~2.5s, isso recomputava a biblioteca dezenas de vezes por
+ * geração e piorava com mais projetos. Agora o pipeline pesado roda só na 1ª
+ * leitura (lazy); os writers mutam o cache e só pagam o `serialize` (compress).
+ */
+let roteirosCache: Roteiro[] | null = null;
+
+function readFromStorage(): Roteiro[] {
   try {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return [];
@@ -402,15 +416,38 @@ export function listRoteiros(): Roteiro[] {
     return parsed
       .map(migrateLegacy)
       .map(pruneHistory)
-      .map(sanitizeRoteiroXmlCruft)
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+      .map(sanitizeRoteiroXmlCruft);
   } catch {
     return [];
   }
 }
 
+/** Cache populado preguiçosamente; pipeline de sanitização roda 1x por sessão. */
+function getCache(): Roteiro[] {
+  if (roteirosCache === null) {
+    roteirosCache = readFromStorage();
+  }
+  return roteirosCache;
+}
+
+/**
+ * Invalida o cache em memória. Chamar quando o localStorage for escrito por fora
+ * dos helpers deste módulo (ex.: import manual, seed de dev). No fluxo normal do
+ * app não é necessário — os writers daqui mantêm o cache coerente.
+ */
+export function resetRoteirosCache() {
+  roteirosCache = null;
+}
+
+export function listRoteiros(): Roteiro[] {
+  if (!isBrowser()) return [];
+  // Cópia ordenada — não muta a ordem interna do cache (writers usam findIndex).
+  return [...getCache()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
 export function getRoteiro(id: string): Roteiro | null {
-  return listRoteiros().find((r) => r.id === id) ?? null;
+  if (!isBrowser()) return null;
+  return getCache().find((r) => r.id === id) ?? null;
 }
 
 /**
@@ -444,7 +481,7 @@ function safeSetItem(value: string) {
 
 export function saveRoteiro(roteiro: Roteiro) {
   if (!isBrowser()) return;
-  const all = listRoteiros();
+  const all = getCache();
   const idx = all.findIndex((r) => r.id === roteiro.id);
   const updated: Roteiro = { ...roteiro, updatedAt: new Date().toISOString() };
   if (idx >= 0) all[idx] = updated;
@@ -503,7 +540,7 @@ function runWhenIdle(cb: () => void) {
 
 function performPendingSave() {
   if (pendingRoteiros.size === 0) return;
-  const all = listRoteiros();
+  const all = getCache();
   const now = new Date().toISOString();
   for (const [id, roteiro] of pendingRoteiros) {
     const idx = all.findIndex((r) => r.id === id);
@@ -547,7 +584,9 @@ export function deleteRoteiro(id: string) {
   if (!isBrowser()) return;
   // Se havia gravação pendente desse roteiro, descarta — o delete vence.
   pendingRoteiros.delete(id);
-  const all = listRoteiros().filter((r) => r.id !== id);
+  const all = getCache();
+  const idx = all.findIndex((r) => r.id === id);
+  if (idx >= 0) all.splice(idx, 1);
   safeSetItem(serialize(all));
 }
 

@@ -45,6 +45,8 @@ import {
   type StepOutput,
 } from "@/types/roteiro";
 import { useWizard } from "@/store/wizard";
+import { useQueue } from "@/store/queue";
+import { abortJob } from "@/lib/generation/job-control";
 import { useDraft } from "@/lib/use-draft";
 import { getAgent } from "@/lib/agents";
 import { CATEGORIES } from "@/lib/categories";
@@ -73,6 +75,11 @@ import {
 } from "@/lib/parse-estrutura-chapters";
 import { parseEscritaBatch } from "@/lib/parse-escrita-batch";
 import { canonPart, dedupChaptersLast } from "@/lib/dedup-chapters";
+import { mapWithConcurrency } from "@/lib/concurrency";
+import {
+  CALIBRATION_THRESHOLD,
+  CALIBRATION_CONCURRENCY,
+} from "@/lib/escrita-calibration";
 import {
   extractChapterTargets,
   isWithinTarget,
@@ -237,6 +244,32 @@ export function StepShell({ step }: Props) {
   const clearDraft = useWizard((s) => s.clearDraft);
   const setCurrentStep = useWizard((s) => s.setCurrentStep);
   const pushOutputToHistory = useWizard((s) => s.pushOutputToHistory);
+  // Texto ao vivo de um job rodando em 2º plano (alimentado pelo QueueRunner só
+  // quando o roteiro do job é este). Só usado no banner do stepJob abaixo.
+  const queueLiveStream = useWizard((s) => s.queueLiveStream);
+  const enqueueStep = useQueue((s) => s.enqueue);
+  const removeJob = useQueue((s) => s.removeJob);
+  const queueJobs = useQueue((s) => s.jobs);
+
+  // Steps que rodam no gerenciador persistente (sobrevivem a trocar/fechar guia).
+  const isPersistentStep =
+    step === "escrita" ||
+    step === "estrutura1" ||
+    step === "estrutura2" ||
+    isRevisorStep(step) ||
+    step === "overview";
+
+  // Job ATIVO (rodando/na fila) deste roteiro+step — quando existe, a geração
+  // está acontecendo no gerenciador persistente, não no componente.
+  const stepJob =
+    roteiro && isPersistentStep
+      ? queueJobs.find(
+          (j) =>
+            j.roteiroId === roteiro.id &&
+            j.step === step &&
+            (j.status === "running" || j.status === "queued"),
+        )
+      : undefined;
 
   const category = roteiro?.category ?? DEFAULT_CATEGORY;
   const agent = getAgent(category, step);
@@ -348,6 +381,19 @@ export function StepShell({ step }: Props) {
       countChaptersInEstrutura(roteiro?.outputs.estrutura2?.content)
     );
   }, [step, roteiro?.outputs.estrutura1?.content, roteiro?.outputs.estrutura2?.content]);
+  // Escrita incompleta: já tem capítulos salvos (rodada anterior persistida via
+  // `onPartial`), mas faltam — gerou menos que o esperado pelas estruturas, ou
+  // algum batch deixou warning de cap faltando/erro fatal. Só conta como
+  // "retomável" quando não há job rodando/na fila pra este roteiro+step.
+  const escritaIncomplete = useMemo(() => {
+    if (step !== "escrita" || stepJob || isGenerating) return false;
+    if (chapterCount === 0 || expectedChapterCount === 0) return false;
+    const warnings = output?.metadata?.batchWarnings ?? [];
+    const hasGap = warnings.some(
+      (w) => w.fatalError || (w.missing?.length ?? 0) > 0,
+    );
+    return chapterCount < expectedChapterCount || hasGap;
+  }, [step, stepJob, isGenerating, chapterCount, expectedChapterCount, output?.metadata?.batchWarnings]);
   // Map (part, number) → target de palavras pro feedback ±3% nos cap cards.
   // Sem isso, a UI mostra a contagem real sem sinal visual de se está dentro
   // do esperado da estrutura — o usuário só descobre via Revisor (~5min).
@@ -449,6 +495,38 @@ export function StepShell({ step }: Props) {
     // Modo correção precisa de output existente + instrução escrita.
     if (mode === "refine") {
       if (!output?.content?.trim() || !effectiveUserInput) return;
+    }
+
+    // ── Geração "do zero" roda no GERENCIADOR persistente/concorrente ─────
+    // Em vez do loop no componente (que morre ao trocar de guia), enfileira no
+    // QueueRunner (montado no layout): a geração sobrevive a trocar/fechar a
+    // guia E roda em paralelo com outras abas. Cobre Escrita + Estrutura 1/2 +
+    // Revisor 1/2. Os modos pontuais (refine / "continuar de onde parou" /
+    // "continuar revisão") seguem no componente. O input "Ajustes opcionais" vai
+    // como snapshot no job (evita race com o debounce de save).
+    if (
+      mode !== "refine" &&
+      !continuation &&
+      (step === "escrita" ||
+        ((step === "estrutura1" ||
+          step === "estrutura2" ||
+          isRevisorStep(step) ||
+          step === "overview") &&
+          mode === "regenerate"))
+    ) {
+      enqueueStep(
+        roteiro.id,
+        roteiro.title,
+        step as
+          | "escrita"
+          | "estrutura1"
+          | "estrutura2"
+          | "revisor1"
+          | "revisor2"
+          | "overview",
+        effectiveUserInput || undefined,
+      );
+      return;
     }
 
     // Modo "Continuar revisão": agrega os títulos dos erros já destacados em
@@ -585,13 +663,22 @@ export function StepShell({ step }: Props) {
       }
     }
 
-    // ─── Branch Escrita: loop 2-em-2 (sem fix-wordcount nem revisor) ────
-    // Calibração de palavras e revisão gramatical/estrutural acontecem no
-    // step Revisor — aqui só geramos os capítulos.
+    // ─── Branch Escrita: loop 2-em-2 + calibração deferida ──────────────
+    // Geramos os capítulos em batches 2-em-2 (encadeados por sinopses) e, só
+    // DEPOIS de todos os batches, rodamos a calibração de word-count
+    // (CALIBRATION_THRESHOLD de @/lib/escrita-calibration) em PARALELO sobre os
+    // caps fora da faixa — cada cap é uma reescrita Opus independente. A revisão
+    // gramatical/estrutural continua no step Revisor (que também faz um ajuste
+    // fino de ±3%).
     //
     // Em modo correção, pulamos o loop 2-em-2 e caímos no branch padrão
     // (1 chamada com refineMode: true). O agente da Escrita devolve o
     // roteiro inteiro corrigido em uma única passada.
+    //
+    // NOTA: a full-gen da Escrita SEMPRE é interceptada antes (enqueue no
+    // QueueRunner) — este branch é caminho morto pra full-gen. Por isso a lógica
+    // de RETOMADA (pular batches já feitos) vive só no motor da fila
+    // (lib/generation/run-escrita.ts), não aqui.
     if (step === "escrita" && mode !== "refine") {
       const estrutura1 = roteiro.outputs.estrutura1?.content;
       const estrutura2 = roteiro.outputs.estrutura2?.content;
@@ -848,115 +935,140 @@ export function StepShell({ step }: Props) {
           }
 
           persist();
+          setLiveStream("");
+        }
 
-          // ─── Calibração automática de word count ─────────────────────
-          // Threshold alinhado com a regra do prompt (±3%, com folga de ±5%
-          // pra evitar disparar por arredondamento). Captura praticamente
-          // todos os caps fora da faixa — o reforço de prompt (REGRA #1) é a
-          // primeira linha de defesa, mas o Opus desobedece word count com
-          // frequência mesmo com regra rígida. A roteirista validou ±5%.
-          const CALIBRATION_THRESHOLD = 0.05;
-          const calibrationCandidates: Array<{
-            arrIndex: number;
-            chapter: EscritaChapter;
-            target: number;
-            current: number;
-          }> = [];
-          for (let i = 0; i < accChapters.length; i++) {
-            const ch = accChapters[i]!;
-            if (ch.part !== b.part) continue;
-            const chIdx = b.chapters.indexOf(ch.number);
-            if (chIdx < 0) continue; // não é cap deste batch
-            const target = b.targets[chIdx];
-            if (!target) continue;
-            const current = countWords(ch.content);
-            const ratio = Math.abs(current - target) / target;
-            if (ratio > CALIBRATION_THRESHOLD) {
-              calibrationCandidates.push({ arrIndex: i, chapter: ch, target, current });
-            }
-          }
+        // ─── Calibração automática de word count (deferida + PARALELA) ──────
+        // Roda UMA vez, após TODOS os batches. Threshold/concorrência em
+        // @/lib/escrita-calibration (hoje ±8%, folga sobre o ±3% do prompt) — o
+        // Opus desobedece word count com frequência mesmo com regra rígida.
+        // Cada cap fora da faixa é uma reescrita Opus
+        // INDEPENDENTE (escreve um índice distinto de accChapters, só LÊ
+        // accSynopses já completas), então rodamos em paralelo com cap de
+        // concorrência — mesmo resultado da versão sequencial, só mais rápido.
+        // Espelha lib/generation/run-escrita.ts (manter os dois em sincronia).
+        if (!ctrl.signal.aborted) {
+          const targetForChapter = (ch: EscritaChapter): number | null => {
+            if (!ch.number || ch.number < 1) return null;
+            const arr =
+              ch.part === "Parte 2"
+                ? targetsP2
+                : ch.part === "Parte 1"
+                  ? targetsP1
+                  : null;
+            return arr ? (arr[ch.number - 1] ?? null) : null;
+          };
+          const calibrationCandidates = accChapters
+            .map((chapter, arrIndex) => ({
+              arrIndex,
+              chapter,
+              target: targetForChapter(chapter),
+            }))
+            .filter(
+              (
+                c,
+              ): c is { arrIndex: number; chapter: EscritaChapter; target: number } => {
+                if (!c.target) return false;
+                const current = countWords(c.chapter.content);
+                return (
+                  Math.abs(current - c.target) / c.target > CALIBRATION_THRESHOLD
+                );
+              },
+            );
 
-          for (let k = 0; k < calibrationCandidates.length; k++) {
-            if (ctrl.signal.aborted) break;
-            const cand = calibrationCandidates[k]!;
-            setBatchProgress({
-              kind: "calibrating",
-              part: b.part,
-              chapter: cand.chapter.number,
-              currentWords: cand.current,
-              targetWords: cand.target,
-              currentIndex: k + 1,
-              totalToCalibrate: calibrationCandidates.length,
-            });
-            setLiveStream("");
+          // Lê o stream da calibração SEM atualizar o liveStream — vários
+          // streams concorrentes embaralhariam o preview. O badge "calibrando
+          // cap X de Y" (setBatchProgress) já comunica o progresso.
+          const readStreamSilent = (res: Response) =>
+            readStreamThrottled(res, () => {}, ctrl.signal);
 
-            // Sinopses dos caps vizinhos (Parte igual, número ±1) pra não
-            // contradizer continuidade ao reescrever.
-            const neighborSynopses = accSynopses
-              .filter(
-                (s) =>
-                  s.part === cand.chapter.part &&
-                  Math.abs(s.number - cand.chapter.number) <= 1,
-              )
-              .map((s) => ({
-                number: s.number,
-                part: s.part,
-                synopsis: s.synopsis,
-              }));
-
-            try {
-              const fixRes = await fetch("/api/escrita-fix-wordcount", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  category,
-                  chapter: {
-                    number: cand.chapter.number,
-                    title: cand.chapter.title,
-                    part: cand.chapter.part as "Parte 1" | "Parte 2",
-                    content: cand.chapter.content,
-                  },
-                  currentWords: cand.current,
-                  targetWords: cand.target,
-                  premissa: roteiro.outputs.premissa?.content,
-                  neighborSynopses,
-                }),
-                signal: ctrl.signal,
+          let calibrationDone = 0;
+          await mapWithConcurrency(
+            calibrationCandidates,
+            CALIBRATION_CONCURRENCY,
+            async (cand) => {
+              if (ctrl.signal.aborted) return;
+              const current = countWords(cand.chapter.content);
+              calibrationDone += 1;
+              setBatchProgress({
+                kind: "calibrating",
+                part: cand.chapter.part as "Parte 1" | "Parte 2",
+                chapter: cand.chapter.number,
+                currentWords: current,
+                targetWords: cand.target,
+                currentIndex: calibrationDone,
+                totalToCalibrate: calibrationCandidates.length,
               });
-              if (!fixRes.ok || !fixRes.body) {
-                console.warn(
-                  `[calibração] cap ${cand.chapter.number} (${cand.chapter.part}): HTTP ${fixRes.status} — mantendo original`,
-                );
-                continue;
-              }
-              const fixAcc = await readStreamFully(fixRes);
-              if (ctrl.signal.aborted) break;
 
-              const parsedFix = parseEscritaChaptersDirect(fixAcc);
-              const newCh = parsedFix.find(
-                (p) => p.number === cand.chapter.number,
-              );
-              if (newCh?.content) {
-                accChapters[cand.arrIndex] = {
-                  ...cand.chapter,
-                  content: newCh.content,
-                  title: newCh.title ?? cand.chapter.title,
-                  generatedAt: new Date().toISOString(),
-                };
-                persist();
-              } else {
+              // Sinopses dos caps vizinhos (Parte igual, número ±1) pra não
+              // contradizer continuidade ao reescrever.
+              const neighborSynopses = accSynopses
+                .filter(
+                  (s) =>
+                    s.part === cand.chapter.part &&
+                    Math.abs(s.number - cand.chapter.number) <= 1,
+                )
+                .map((s) => ({
+                  number: s.number,
+                  part: s.part,
+                  synopsis: s.synopsis,
+                }));
+
+              try {
+                const fixRes = await fetch("/api/escrita-fix-wordcount", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    category,
+                    chapter: {
+                      number: cand.chapter.number,
+                      title: cand.chapter.title,
+                      part: cand.chapter.part as "Parte 1" | "Parte 2",
+                      content: cand.chapter.content,
+                    },
+                    currentWords: current,
+                    targetWords: cand.target,
+                    premissa: roteiro.outputs.premissa?.content,
+                    neighborSynopses,
+                  }),
+                  signal: ctrl.signal,
+                });
+                if (!fixRes.ok || !fixRes.body) {
+                  console.warn(
+                    `[calibração] cap ${cand.chapter.number} (${cand.chapter.part}): HTTP ${fixRes.status} — mantendo original`,
+                  );
+                  return;
+                }
+                const fixAcc = await readStreamSilent(fixRes);
+                if (ctrl.signal.aborted) return;
+
+                const parsedFix = parseEscritaChaptersDirect(fixAcc);
+                const newCh = parsedFix.find(
+                  (p) => p.number === cand.chapter.number,
+                );
+                if (newCh?.content) {
+                  accChapters[cand.arrIndex] = {
+                    ...cand.chapter,
+                    content: newCh.content,
+                    title: newCh.title ?? cand.chapter.title,
+                    generatedAt: new Date().toISOString(),
+                  };
+                  persist();
+                } else {
+                  console.warn(
+                    `[calibração] cap ${cand.chapter.number} (${cand.chapter.part}): parser não achou cap no output — mantendo original`,
+                  );
+                }
+              } catch (e) {
+                if ((e as Error).name === "AbortError") throw e;
                 console.warn(
-                  `[calibração] cap ${cand.chapter.number} (${cand.chapter.part}): parser não achou cap no output — mantendo original`,
+                  `[calibração] cap ${cand.chapter.number} (${cand.chapter.part}):`,
+                  e,
                 );
               }
-            } catch (e) {
-              if ((e as Error).name === "AbortError") throw e;
-              console.warn(
-                `[calibração] cap ${cand.chapter.number} (${cand.chapter.part}):`,
-                e,
-              );
-            }
-          }
+            },
+            { signal: ctrl.signal },
+          );
           setLiveStream("");
         }
 
@@ -1656,6 +1768,7 @@ export function StepShell({ step }: Props) {
     setIsGenerating,
     setCurrentStep,
     pushOutputToHistory,
+    enqueueStep,
   ]);
 
   const cancel = useCallback(() => {
@@ -1663,11 +1776,38 @@ export function StepShell({ step }: Props) {
     setIsGenerating(false);
   }, [setIsGenerating]);
 
+  // Cancela a geração em andamento no gerenciador (aborta + remove o job).
+  // Diferente de `cancel` (que aborta a geração in-componente).
+  const cancelStepJob = useCallback(() => {
+    if (!stepJob) return;
+    removeJob(stepJob.id);
+    abortJob(stepJob.id);
+  }, [stepJob, removeJob]);
+
+  // Continuar a Escrita interrompida: enfileira com resume=true → o motor
+  // (run-escrita) semeia os capítulos já salvos e pula os batches concluídos,
+  // gerando só o que falta. Snapshot do input "Instruções adicionais" (draft ou
+  // commit) igual ao caminho normal de enqueue.
+  const continueEscrita = useCallback(() => {
+    if (!roteiro) return;
+    const draftInput = (
+      (roteiro.drafts?.escrita as { input?: string } | undefined)?.input ?? ""
+    ).trim();
+    const committedInput = (roteiro.userInputs?.escrita ?? "").trim();
+    enqueueStep(
+      roteiro.id,
+      roteiro.title,
+      "escrita",
+      draftInput || committedInput || undefined,
+      true,
+    );
+  }, [roteiro, enqueueStep]);
+
   // Regerar UM capítulo individual no step Escrita. Reusa o pipeline 2-em-2
   // disparando um batch de 1 capítulo + sinopses dos vizinhos (todas
   // disponíveis em metadata.synopses) pra preservar continuidade.
   // dedupChaptersLast substitui o cap antigo pelo novo no merge final.
-  // Calibração automática (±5%) roda igual ao loop principal.
+  // Calibração automática (CALIBRATION_THRESHOLD) roda igual ao loop principal.
   const handleRegenerateChapter = useCallback(
     async (idx: number) => {
       if (!roteiro || step !== "escrita") return;
@@ -2170,6 +2310,19 @@ export function StepShell({ step }: Props) {
           />
         )}
 
+      {/* Banner "Escrita interrompida" — aparece quando há capítulos salvos mas
+          a geração não terminou (menos caps que o esperado, ou batch com gap),
+          e nenhum job está rodando/na fila. "Continuar geração" retoma de onde
+          parou (motor pula os batches já feitos); "Gerar tudo do zero" regera. */}
+      {escritaIncomplete && (
+        <EscritaIncompleteBanner
+          chapterCount={chapterCount}
+          expectedChapterCount={expectedChapterCount}
+          onContinue={continueEscrita}
+          onRegenerate={() => generate("regenerate")}
+        />
+      )}
+
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">
@@ -2391,6 +2544,42 @@ export function StepShell({ step }: Props) {
             </div>
           )}
 
+        {stepJob && (
+          <div className="rounded-lg border-2 border-primary/40 bg-primary/[0.04] px-4 sm:px-5 py-4 flex flex-col gap-2 mb-2">
+            <div className="flex items-center gap-3">
+              <Loader2 className="size-4 animate-spin text-primary" />
+              <span className="text-sm font-semibold text-primary">
+                {stepJob.status === "queued"
+                  ? "Na fila — começa em instantes…"
+                  : stepJob.progress
+                    ? stepJob.progress.kind === "writing"
+                      ? `Gerando ${stepJob.progress.part} — cap. ${stepJob.progress.chapters.join(" e ")} (batch ${stepJob.progress.batchIndex}/${stepJob.progress.totalBatches})`
+                      : `Calibrando ${stepJob.progress.part} — cap. ${stepJob.progress.chapter} (${stepJob.progress.currentIndex}/${stepJob.progress.totalToCalibrate})`
+                    : (stepJob.phase ?? "Iniciando…")}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="ml-auto h-7 text-xs text-destructive hover:text-destructive"
+                onClick={cancelStepJob}
+              >
+                Cancelar
+              </Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Rodando em 2º plano — você pode trocar de guia ou fechar esta que a
+              geração continua.
+            </p>
+            {/* Preview ao vivo do texto sendo gerado (só o batch atual; a
+                calibração roda silenciosa). Vazio entre batches/ao calibrar. */}
+            {queueLiveStream && (
+              <pre className="whitespace-pre-wrap font-sans text-[12px] leading-relaxed text-foreground/80 max-h-64 overflow-auto border-t border-primary/20 pt-3 mt-1">
+                {queueLiveStream.slice(-2000)}
+              </pre>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center gap-2 flex-wrap pt-2">
           {!isGenerating ? (
             isRevisorStep(step) && hasContent ? (
@@ -2400,6 +2589,7 @@ export function StepShell({ step }: Props) {
                   size="lg"
                   variant="outline"
                   className="gap-2"
+                  disabled={!!stepJob}
                 >
                   <RotateCcw className="size-4" />
                   Gerar novamente
@@ -2415,21 +2605,29 @@ export function StepShell({ step }: Props) {
                   }
                   size="lg"
                   className="gap-2"
+                  disabled={!!stepJob}
                 >
                   <Sparkles className="size-4" />
                   Continuar revisão
                 </Button>
               </>
             ) : (
-              <Button onClick={() => generate("regenerate")} size="lg" className="gap-2">
-                {step === "escrita" && chapterCount > 0 ? (
+              <Button
+                onClick={() => generate("regenerate")}
+                size="lg"
+                className="gap-2"
+                disabled={!!stepJob}
+              >
+                {stepJob ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : step === "escrita" && chapterCount > 0 ? (
                   <ArrowRight className="size-4" />
                 ) : hasContent ? (
                   <RotateCcw className="size-4" />
                 ) : (
                   <Sparkles className="size-4" />
                 )}
-                {generateLabel}
+                {stepJob ? "Gerando em 2º plano…" : generateLabel}
               </Button>
             )
           ) : (
@@ -2842,6 +3040,23 @@ function PremissaWizard() {
   const readStreamFully = (res: Response, signal: AbortSignal) =>
     readStreamThrottled(res, setLiveStream, signal);
 
+  // Job de Premissa ATIVO deste roteiro — quando existe, a geração (resumo ou
+  // estrutura) está rodando no gerenciador persistente (sobrevive a trocar/
+  // fechar guia + roda concorrente com outros projetos), não no componente.
+  const enqueue = useQueue((s) => s.enqueue);
+  const removeQueueJob = useQueue((s) => s.removeJob);
+  const queuePremissaLive = useWizard((s) => s.queueLiveStream);
+  const premissaJob = useQueue((s) =>
+    roteiro
+      ? s.jobs.find(
+          (j) =>
+            j.roteiroId === roteiro.id &&
+            j.step === "premissa" &&
+            (j.status === "running" || j.status === "queued"),
+        )
+      : undefined,
+  );
+
   // ─── Fase 1: gerar resumo (Bloco 0) ─────────────────────────────────
   const generateResumo = useCallback(async (instructionOverride?: string) => {
     // Lê o briefing atual via ref imperativo — sem isso, precisaríamos
@@ -2852,7 +3067,7 @@ function PremissaWizard() {
     const briefingDraft =
       briefingRef.current?.getValue() ?? briefingDraftStored ?? briefing;
     const briefingTrim = briefingDraft.trim();
-    if (!briefingTrim || isGenerating) return;
+    if (!briefingTrim || premissaJob) return;
 
     if (resumo) {
       pushOutputToHistory("premissa", "Antes de regenerar resumo");
@@ -2874,97 +3089,41 @@ function PremissaWizard() {
       ? `${briefingTrim}\n\n━━━ INSTRUÇÕES ADICIONAIS DA AUTORA ━━━\n${instruction}`
       : briefingTrim;
 
-    abortRef.current?.abort();
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
-    setIsGenerating(true);
-    setLiveStream("");
-    setStreamingPhase("resumo");
-    setIsStreamingRefine(false);
+    if (!roteiro) return;
     setErrorMessage(null);
-
     const startedAt = new Date().toISOString();
 
-    // Persiste o briefing no metadata logo no início — assim, se a
-    // geração falhar, o usuário não perde o que digitou.
+    // Persiste o briefing no metadata logo no início (não se perde se falhar)
+    // e limpa o draft.
     setOutput("premissa", {
       content,
       generatedAt: output?.generatedAt ?? startedAt,
       metadata: { ...meta, premissaBriefing: briefingTrim },
     });
+    clearDraft("premissa", "briefing");
 
-    try {
-      const res = await fetch("/api/agent/premissa", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          category,
-          userInput: fullUserInput,
-          referenceImage: roteiro?.referenceImage,
-          premissaPhase: "resumo",
-        }),
-        signal: ctrl.signal,
-      });
-      if (!res.ok || !res.body) {
-        const errText = await res.text().catch(() => "");
-        throw new Error(`HTTP ${res.status}: ${errText.slice(0, 200) || res.statusText}`);
-      }
-      const fullText = (await readStreamFully(res, ctrl.signal)).trim();
-      if (!fullText) {
-        throw new Error("O agente não retornou nenhum texto. Tente novamente.");
-      }
-
-      const now = new Date().toISOString();
-      setOutput("premissa", {
-        // O conteúdo final só é populado depois da Fase 2; aqui zeramos
-        // pra que o downstream (Estrutura 1/2) não consuma um resumo
-        // ainda não aprovado como se fosse a premissa final.
-        content: "",
-        generatedAt: now,
-        metadata: {
-          ...meta,
-          premissaBriefing: briefingTrim,
-          premissaResumo: fullText,
-          premissaResumoApproved: false,
-          premissaManualPaste: false,
-        },
-      });
-      // Briefing e resumo viraram oficiais (metadata) — apaga drafts pra
-      // que próximas remontagens leiam do metadata, não do draft antigo.
-      clearDraft("premissa", "briefing");
-      clearDraft("premissa", "resumo");
-      // Sincroniza o local state do textarea de resumo (memo'd) com o
-      // texto recém-gerado — o useEffect interno do useDraft não dispara
-      // porque committedValue ainda é o valor antigo até o próximo render.
-      resumoRef.current?.setValue(fullText);
-      setIsEditingResumo(false);
-    } catch (e) {
-      if (!(e instanceof Error && e.name === "AbortError")) {
-        console.error("[premissa] erro fase resumo:", e);
-        setErrorMessage(e instanceof Error ? e.message : String(e));
-      }
-    } finally {
-      setIsGenerating(false);
-      setStreamingPhase(null);
-      setIsStreamingRefine(false);
-      setLiveStream("");
-    }
+    // Enfileira no GERENCIADOR persistente — a geração do resumo sobrevive a
+    // trocar/fechar a guia e roda concorrente com outros projetos. O resultado
+    // (metadata.premissaResumo) aparece na aba quando termina.
+    enqueue(roteiro.id, roteiro.title, "premissa", fullUserInput, false, {
+      phase: "resumo",
+      briefing: briefingTrim,
+    });
   }, [
     briefing,
     briefingDraftStored,
-    category,
-    isGenerating,
+    premissaJob,
     resumo,
     savedInstruction,
     instructionDraftStored,
     pushOutputToHistory,
-    setIsGenerating,
     setOutput,
     clearDraft,
     content,
     output?.generatedAt,
     meta,
-    roteiro?.referenceImage,
+    roteiro,
+    enqueue,
   ]);
 
   // ─── Fase 2: aprovar resumo + gerar Blocos 1-7 ──────────────────────
@@ -2984,7 +3143,7 @@ function PremissaWizard() {
       briefingRef.current?.getValue() || briefingDraftStored || briefing;
     const resumoTrim = resumoDraft.trim();
     const briefingTrim = briefingDraft.trim() || briefing;
-    if (!resumoTrim || isGenerating) return;
+    if (!resumoTrim || premissaJob) return;
 
     if (content) {
       pushOutputToHistory("premissa", "Antes de regenerar estrutura");
@@ -3003,84 +3162,45 @@ function PremissaWizard() {
       ? `${briefingTrim}\n\n━━━ INSTRUÇÕES ADICIONAIS DA AUTORA ━━━\n${instruction}`
       : briefingTrim;
 
-    abortRef.current?.abort();
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
-    setIsGenerating(true);
-    setLiveStream("");
-    setStreamingPhase("estrutura");
-    setIsStreamingRefine(false);
+    if (!roteiro) return;
     setErrorMessage(null);
 
-    try {
-      const res = await fetch("/api/agent/premissa", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          category,
-          userInput: fullUserInput,
-          referenceImage: roteiro?.referenceImage,
-          premissaPhase: "estrutura",
-          approvedResumo: resumoTrim,
-        }),
-        signal: ctrl.signal,
-      });
-      if (!res.ok || !res.body) {
-        const errText = await res.text().catch(() => "");
-        throw new Error(`HTTP ${res.status}: ${errText.slice(0, 200) || res.statusText}`);
-      }
-      const estrutura = (await readStreamFully(res, ctrl.signal)).trim();
-      if (!estrutura) {
-        throw new Error("O agente não retornou nenhuma estrutura. Tente novamente.");
-      }
+    // Salva o resumo aprovado no metadata já (não se perde) e limpa drafts.
+    const startedAt = new Date().toISOString();
+    setOutput("premissa", {
+      content,
+      generatedAt: output?.generatedAt ?? startedAt,
+      metadata: {
+        ...meta,
+        premissaBriefing: briefingTrim,
+        premissaResumo: resumoTrim,
+      },
+    });
+    clearDraft("premissa");
 
-      const fullContent = `# RESUMO\n\n${resumoTrim}\n\n# ESTRUTURA COMPLETA\n\n${estrutura}`;
-      const now = new Date().toISOString();
-      setOutput("premissa", {
-        content: fullContent,
-        generatedAt: now,
-        metadata: {
-          ...meta,
-          premissaBriefing: briefingTrim,
-          premissaResumo: resumoTrim,
-          premissaResumoApproved: true,
-          premissaResumoApprovedAt: now,
-          premissaManualPaste: false,
-        },
-      });
-      // Estrutura aprovada — todos os campos da Premissa viraram oficiais
-      // (briefing/resumo no metadata, content no output). Apaga drafts.
-      clearDraft("premissa");
-      contentRef.current?.setValue(fullContent);
-      setIsEditingResumo(false);
-      setIsEditingContent(false);
-    } catch (e) {
-      if (!(e instanceof Error && e.name === "AbortError")) {
-        console.error("[premissa] erro fase estrutura:", e);
-        setErrorMessage(e instanceof Error ? e.message : String(e));
-      }
-    } finally {
-      setIsGenerating(false);
-      setStreamingPhase(null);
-      setIsStreamingRefine(false);
-      setLiveStream("");
-    }
+    // Enfileira a Fase 2 (estrutura) no GERENCIADOR persistente — sobrevive a
+    // trocar/fechar a guia. O content final aparece quando termina.
+    enqueue(roteiro.id, roteiro.title, "premissa", fullUserInput, false, {
+      phase: "estrutura",
+      approvedResumo: resumoTrim,
+      briefing: briefingTrim,
+    });
   }, [
     briefing,
     briefingDraftStored,
-    category,
     resumo,
     resumoDraftStored,
-    isGenerating,
+    premissaJob,
     content,
+    output?.generatedAt,
     savedInstruction,
     instructionDraftStored,
     pushOutputToHistory,
-    setIsGenerating,
     setOutput,
     clearDraft,
     meta,
-    roteiro?.referenceImage,
+    roteiro,
+    enqueue,
   ]);
 
   const cancelStream = useCallback(() => {
@@ -3525,6 +3645,39 @@ function PremissaWizard() {
           </p>
         </div>
       </div>
+
+      {premissaJob && (
+        <div className="rounded-lg border-2 border-primary/40 bg-primary/[0.04] px-4 sm:px-5 py-4 flex flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <Loader2 className="size-4 animate-spin text-primary" />
+            <span className="text-sm font-semibold text-primary">
+              {premissaJob.status === "queued"
+                ? "Na fila — começa em instantes…"
+                : (premissaJob.phase ?? "Gerando…")}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-auto h-7 text-xs text-destructive hover:text-destructive"
+              onClick={() => {
+                removeQueueJob(premissaJob.id);
+                abortJob(premissaJob.id);
+              }}
+            >
+              Cancelar
+            </Button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Rodando em 2º plano — você pode trocar de guia ou fechar esta que a
+            geração continua.
+          </p>
+          {queuePremissaLive && (
+            <pre className="whitespace-pre-wrap font-sans text-[12px] leading-relaxed text-foreground/80 max-h-64 overflow-auto border-t border-primary/20 pt-3 mt-1">
+              {queuePremissaLive.slice(-2000)}
+            </pre>
+          )}
+        </div>
+      )}
 
       {/* ─── Briefing ─── */}
       {(phase === "briefing" || phase === "approving") && (
@@ -4459,6 +4612,61 @@ function InterruptedGenerationBanner({
         >
           <RotateCcw className="size-3.5" />
           Descartar e regenerar
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Banner de Escrita interrompida no meio (app fechado, crash, cancelamento,
+ * erro de cota/rede). Os capítulos prontos já estão salvos; oferece retomar
+ * gerando só o que falta, ou regerar tudo do zero.
+ */
+function EscritaIncompleteBanner({
+  chapterCount,
+  expectedChapterCount,
+  onContinue,
+  onRegenerate,
+}: {
+  chapterCount: number;
+  expectedChapterCount: number;
+  onContinue: () => void;
+  onRegenerate: () => void;
+}) {
+  return (
+    <div className="rounded-lg border-2 border-amber-300 bg-amber-50 px-4 sm:px-5 py-4 flex flex-col gap-3">
+      <div className="flex items-start gap-3">
+        <AlertTriangle className="size-5 flex-none text-amber-700 mt-0.5" />
+        <div className="flex flex-col gap-1 min-w-0">
+          <p className="text-sm font-semibold text-amber-900">
+            Geração interrompida — {chapterCount} de {expectedChapterCount}{" "}
+            capítulos prontos
+          </p>
+          <p className="text-xs text-amber-800/90">
+            Os capítulos já gerados estão salvos. Você pode continuar de onde
+            parou (gera só os que faltam, mantendo o que já existe) ou gerar
+            tudo do zero.
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 pl-8">
+        <Button
+          onClick={onContinue}
+          size="sm"
+          className="gap-2 bg-amber-700 hover:bg-amber-800 text-white"
+        >
+          <Sparkles className="size-3.5" />
+          Continuar geração
+        </Button>
+        <Button
+          onClick={onRegenerate}
+          size="sm"
+          variant="outline"
+          className="gap-2 border-amber-300 text-amber-900 hover:bg-amber-100"
+        >
+          <RotateCcw className="size-3.5" />
+          Gerar tudo do zero
         </Button>
       </div>
     </div>

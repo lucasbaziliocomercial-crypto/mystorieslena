@@ -22,7 +22,7 @@ export const estrutura2Agent: Agent = {
     "Monta a estrutura completa da Parte 2 de Alpha King (13.000-13.500 palavras, 5-6 capítulos) — bomba inicial, mapa com narrador, distribuição de 2-4 POVs do Alpha King (✦ NOME), cena de marcação completa flexível, easter eggs, coroação como Luna + herdeiro",
   model: MODELS.opus,
   thinking: "adaptive",
-  effort: "high",
+  effort: "medium",
   systemPrompt: ESTRUTURA_MASTER_PROMPT + ESTRUTURA2_PROMPT + CANONE_RULE,
   acceptsReferenceImage: true,
   buildUserMessage: (ctx) => {

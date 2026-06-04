@@ -25,7 +25,7 @@ export const estrutura1Agent: Agent = {
     "Monta a estrutura completa da Parte 1 de Milionário 3p (9.500-10.500 palavras, 5-6 capítulos) — hook expansão do título com 3 alternativos, mapa cena por cena, capítulos com química crescente, narração 3ª pessoa limitada à FMC (sem POV masculino), entrega do casal SEM cena íntima descrita (apenas elipse), final em paz sem casamento e sem filhos",
   model: MODELS.opus,
   thinking: "adaptive",
-  effort: "high",
+  effort: "medium",
   systemPrompt: ESTRUTURA_MASTER_PROMPT + ESTRUTURA1_PROMPT + CANONE_RULE,
   acceptsReferenceImage: true,
   buildUserMessage: (ctx) => {

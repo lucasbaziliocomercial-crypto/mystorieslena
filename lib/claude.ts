@@ -1,4 +1,7 @@
-import { query } from "@anthropic-ai/claude-agent-sdk";
+import {
+  query,
+  SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
+} from "@anthropic-ai/claude-agent-sdk";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -208,7 +211,17 @@ export async function* streamClaudeText(
       prompt: promptInput,
       options: {
         model: params.model,
-        systemPrompt: params.systemPrompt,
+        // System prompt como array com o marcador SYSTEM_PROMPT_DYNAMIC_BOUNDARY:
+        // tudo ANTES do marcador vira prefixo estático cacheável entre chamadas
+        // (cross-call), DEPOIS não. Como nosso system prompt é 100% estático por
+        // categoria/step, marcamos ele inteiro como cacheável e deixamos o
+        // boundary no fim (sem sufixo dinâmico). Isso reaproveita o system prompt
+        // (grande) nos 6+ lotes da Escrita, nas calibrações paralelas, nas fases
+        // do Revisor e no fallback — sem mudar 1 byte do que o modelo lê. O
+        // cache_control ephemeral da mensagem do usuário (buildPromptInput)
+        // continua cobrindo re-runs idênticos. Evidência: `cache_read` nos logs
+        // de usage abaixo.
+        systemPrompt: [params.systemPrompt, SYSTEM_PROMPT_DYNAMIC_BOUNDARY],
         tools: [],
         maxTurns: 1,
         includePartialMessages: true,

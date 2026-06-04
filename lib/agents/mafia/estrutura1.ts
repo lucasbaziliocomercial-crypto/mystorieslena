@@ -25,7 +25,7 @@ export const estrutura1Agent: Agent = {
     "Monta a estrutura completa da Parte 1 de Máfia (12.500 palavras, 5-6 capítulos) — hook, mapa, capítulos com ritmo graduado, cena de entrega, dúvida sutil no final",
   model: MODELS.opus,
   thinking: "adaptive",
-  effort: "high",
+  effort: "medium",
   systemPrompt: ESTRUTURA_MASTER_PROMPT + ESTRUTURA1_PROMPT + CANONE_RULE,
   acceptsReferenceImage: true,
   buildUserMessage: (ctx) => {

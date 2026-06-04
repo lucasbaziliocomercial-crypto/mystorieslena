@@ -26,7 +26,7 @@ export const estrutura1Agent: Agent = {
     "Monta a estrutura completa da Parte 1 (11.500 palavras, 6 capítulos) seguindo o prompt mestre especializado — hook, mapa, capítulos, cena íntima, questionamento final",
   model: MODELS.opus,
   thinking: "adaptive",
-  effort: "high",
+  effort: "medium",
   systemPrompt: ESTRUTURA_MASTER_PROMPT + ESTRUTURA1_PROMPT + CANONE_RULE,
   acceptsReferenceImage: true,
   buildUserMessage: (ctx) => {

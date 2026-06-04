@@ -30,6 +30,15 @@ interface WizardState {
   roteiro: Roteiro | null;
   isGenerating: boolean;
   autoAdvance: boolean;
+  /**
+   * Texto sendo gerado AO VIVO por um job da fila em 2º plano, quando o roteiro
+   * do job é o que está aberto. Transient (NÃO persiste no localStorage) — é só
+   * o preview do stream. O QueueRunner alimenta via `setQueueLiveStream` (só pro
+   * roteiro ativo) e limpa ao concluir/abortar. O foreground (StepShell) tem seu
+   * próprio `liveStream` local e NÃO usa este campo.
+   */
+  queueLiveStream: string;
+  setQueueLiveStream: (text: string) => void;
   setRoteiro: (r: Roteiro) => void;
   setCurrentStep: (step: StepId) => void;
   setOutput: (step: StepId, output: StepOutput) => void;
@@ -171,12 +180,17 @@ export const useWizard = create<WizardState>((set, get) => ({
   roteiro: null,
   isGenerating: false,
   autoAdvance: false,
+  queueLiveStream: "",
+
+  setQueueLiveStream: (text) => set({ queueLiveStream: text }),
 
   setRoteiro: (r) => {
     // Flush antes de trocar — o roteiro anterior em mem pode ter pendências
     // que ainda não bateram no localStorage por causa do debounce.
     flushPendingSave();
-    set({ roteiro: r });
+    // Limpa o preview ao vivo: ele é específico do roteiro anterior. Se o novo
+    // roteiro tiver um job rodando, o QueueRunner volta a alimentar.
+    set({ roteiro: r, queueLiveStream: "" });
   },
 
   setCurrentStep: (step) => {
@@ -744,7 +758,12 @@ export const useWizard = create<WizardState>((set, get) => ({
     // pendentes não persistidas. Sem isso, "Voltar à lista" logo após digitar
     // perderia a última edição.
     flushPendingSave();
-    set({ roteiro: null, isGenerating: false, autoAdvance: false });
+    set({
+      roteiro: null,
+      isGenerating: false,
+      autoAdvance: false,
+      queueLiveStream: "",
+    });
   },
 }));
 

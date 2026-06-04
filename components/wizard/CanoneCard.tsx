@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,132 +10,79 @@ import {
 } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useWizard } from "@/store/wizard";
+import { useQueue } from "@/store/queue";
+import { abortJob } from "@/lib/generation/job-control";
 
 /**
  * Card de Cânone de Entidades — aparece dentro do step Premissa, abaixo do
  * conteúdo da premissa, e trava o avanço pra Estrutura P1 enquanto não
- * estiver aprovado (em roteiros novos). Roteiros legados sem cânone
- * aparecem com um banner "Gerar agora" não-bloqueante: a roteirista pode
- * seguir sem aprovar e o app funciona como antes.
+ * estiver aprovado (em roteiros novos).
  *
- * Fluxo:
- *   1. Roteirista clica "Gerar cânone" → POST /api/canone com a premissa
- *      atual; stream de markdown chega num textarea editável.
- *   2. Ela ajusta livremente (corrigir nome, idade, profissão, etc.).
- *   3. Clica "Aprovar cânone" → flag canoneApproved=true. A partir daí o
- *      cânone vira contexto canônico injetado em estrutura1/2, escrita,
- *      revisor, escrita-apply-suggestion (ver canone-rule.ts).
- *
- * Edição depois de aprovar invalida a aprovação automaticamente (store
- * setCanone) — força a roteirista a re-aprovar antes de avançar.
+ * A geração roda no GERENCIADOR persistente (`QueueRunner` → `runCanone`):
+ * sobrevive a trocar/fechar a guia e roda concorrente com outros projetos,
+ * igual aos steps. O resultado vai pra `roteiro.canone` (regerar invalida a
+ * aprovação). O preview ao vivo usa `queueLiveStream` (só do roteiro aberto).
  */
-
-// Lê stream de texto (Response do POST /api/canone) acumulando e atualizando
-// `setLive` ~1×/frame. Mesmo padrão de `readStreamThrottled` do StepShell —
-// duplicado aqui pra evitar dependência cruzada com o módulo gigante. Sem
-// throttle, setState a cada chunk causava OOM em geração de markdown longo.
-async function readStreamThrottled(
-  res: Response,
-  setLive: (v: string) => void,
-  signal?: AbortSignal,
-): Promise<string> {
-  if (!res.body) throw new Error("Stream sem corpo");
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let acc = "";
-  let pending: string | null = null;
-  let rafId: number | null = null;
-  const flush = () => {
-    if (pending !== null) setLive(pending);
-    pending = null;
-    rafId = null;
-  };
-  try {
-    while (true) {
-      if (signal?.aborted) break;
-      const { done, value } = await reader.read();
-      if (done) break;
-      acc += decoder.decode(value, { stream: true });
-      pending = acc;
-      if (rafId === null && typeof requestAnimationFrame !== "undefined") {
-        rafId = requestAnimationFrame(flush);
-      }
-    }
-  } finally {
-    if (rafId !== null && typeof cancelAnimationFrame !== "undefined") {
-      cancelAnimationFrame(rafId);
-    }
-    setLive(acc);
-  }
-  return acc;
-}
-
 export function CanoneCard() {
   const roteiro = useWizard((s) => s.roteiro);
-  const setCanone = useWizard((s) => s.setCanone);
   const approveCanone = useWizard((s) => s.approveCanone);
   const clearCanone = useWizard((s) => s.clearCanone);
+  const setCanone = useWizard((s) => s.setCanone);
+  const queueLiveStream = useWizard((s) => s.queueLiveStream);
+  const enqueue = useQueue((s) => s.enqueue);
+  const removeQueueJob = useQueue((s) => s.removeJob);
 
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [liveStream, setLiveStream] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
-
-  // Quando uma nova geração termina, limpa o liveStream pra que o textarea
-  // passe a refletir só o `roteiro.canone` (fonte de verdade persistida).
-  // Sem isso, edições subsequentes ficavam sobrescritas pelo último chunk.
-  useEffect(() => {
-    if (!isGenerating) setLiveStream("");
-  }, [isGenerating]);
+  const canoneJob = useQueue((s) =>
+    roteiro
+      ? s.jobs.find(
+          (j) =>
+            j.roteiroId === roteiro.id &&
+            j.step === "canone" &&
+            (j.status === "running" || j.status === "queued"),
+        )
+      : undefined,
+  );
+  // Erro do último job de cânone (pra mostrar feedback de falha).
+  const canoneError = useQueue((s) =>
+    roteiro
+      ? s.jobs.find(
+          (j) =>
+            j.roteiroId === roteiro.id &&
+            j.step === "canone" &&
+            j.status === "error",
+        )?.error
+      : undefined,
+  );
 
   if (!roteiro) return null;
 
   const premissaContent = roteiro.outputs.premissa?.content?.trim() ?? "";
   const canone = roteiro.canone ?? "";
   const canoneApproved = !!roteiro.canoneApproved;
-  const canoneTrim = canone.trim();
-  const hasCanone = canoneTrim.length > 0;
-  const displayedValue = isGenerating ? liveStream : canone;
+  const hasCanone = canone.trim().length > 0;
+  const generating = !!canoneJob;
+  const displayedValue = generating ? queueLiveStream : canone;
+  const canGenerate = premissaContent.length > 0 && !generating;
 
-  const canGenerate = premissaContent.length > 0 && !isGenerating;
-
-  const generate = async () => {
-    if (!canGenerate) return;
-    setError(null);
-    setLiveStream("");
-    setIsGenerating(true);
-
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
-
-    try {
-      const res = await fetch("/api/canone", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ premissa: premissaContent }),
-        signal: ctrl.signal,
-      });
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        throw new Error(text || `HTTP ${res.status}`);
+  const generate = () => {
+    if (!canGenerate || !roteiro) return;
+    // Limpa jobs de cânone finalizados/errados antigos deste roteiro.
+    for (const j of useQueue.getState().jobs) {
+      if (
+        j.roteiroId === roteiro.id &&
+        j.step === "canone" &&
+        (j.status === "done" || j.status === "error")
+      ) {
+        removeQueueJob(j.id);
       }
-      const acc = await readStreamThrottled(res, setLiveStream, ctrl.signal);
-      // setCanone invalida canoneApproved automaticamente se já estava aprovado
-      // — força re-aprovação manual depois de regerar.
-      setCanone(acc);
-    } catch (e) {
-      if ((e as Error).name === "AbortError") return;
-      setError((e as Error).message || "Erro ao gerar cânone.");
-    } finally {
-      setIsGenerating(false);
-      abortRef.current = null;
     }
+    enqueue(roteiro.id, roteiro.title, "canone");
   };
 
   const cancel = () => {
-    abortRef.current?.abort();
-    abortRef.current = null;
-    setIsGenerating(false);
+    if (!canoneJob) return;
+    removeQueueJob(canoneJob.id);
+    abortJob(canoneJob.id);
   };
 
   // Roteiro sem premissa preenchida: card fica oculto (cânone só faz sentido
@@ -158,41 +103,47 @@ export function CanoneCard() {
       </CardHeader>
 
       <CardContent className="flex flex-col gap-3">
-        {!hasCanone && !isGenerating && (
+        {!hasCanone && !generating && (
           <div className="rounded-md border border-amber-300/50 bg-amber-100/40 p-3 text-sm dark:border-amber-800/40 dark:bg-amber-900/20">
-            Ainda não há cânone para esse roteiro. Clique em <strong>Gerar
-            cânone</strong> para extrair as entidades da premissa. Você pode
-            ajustar o texto antes de aprovar.
+            Ainda não há cânone para esse roteiro. Clique em{" "}
+            <strong>Gerar cânone</strong> para extrair as entidades da premissa.
+            Você pode ajustar o texto antes de aprovar.
           </div>
         )}
 
-        {isGenerating && (
+        {generating && (
           <div className="rounded-md border border-blue-300/50 bg-blue-50 p-3 text-sm dark:border-blue-800/40 dark:bg-blue-950/30">
-            Extraindo entidades da premissa…
+            {canoneJob?.status === "queued"
+              ? "Na fila — começa em instantes…"
+              : "Extraindo entidades da premissa…"}{" "}
+            <span className="text-blue-900/70 dark:text-blue-100/60">
+              Rodando em 2º plano — você pode trocar de guia que a geração
+              continua.
+            </span>
           </div>
         )}
 
-        {error && (
+        {canoneError && !generating && (
           <div className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-900 dark:border-red-800/40 dark:bg-red-950/30 dark:text-red-200">
-            {error}
+            {canoneError}
           </div>
         )}
 
-        {(hasCanone || isGenerating) && (
+        {(hasCanone || generating) && (
           <Textarea
             value={displayedValue}
             onChange={(e) => {
-              if (isGenerating) return; // evita corrida com stream
+              if (generating) return; // evita corrida com stream
               setCanone(e.target.value);
             }}
             placeholder="O cânone aparecerá aqui após a geração — você pode editar livremente."
             className="min-h-[280px] font-mono text-xs"
-            readOnly={isGenerating}
+            readOnly={generating}
           />
         )}
 
         <div className="flex flex-wrap items-center gap-2">
-          {!isGenerating ? (
+          {!generating ? (
             <Button
               type="button"
               size="sm"
@@ -208,7 +159,7 @@ export function CanoneCard() {
             </Button>
           )}
 
-          {hasCanone && !isGenerating && (
+          {hasCanone && !generating && (
             <>
               {canoneApproved ? (
                 <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100">
@@ -245,7 +196,7 @@ export function CanoneCard() {
           )}
         </div>
 
-        {hasCanone && !canoneApproved && !isGenerating && (
+        {hasCanone && !canoneApproved && !generating && (
           <p className="text-xs text-amber-900/80 dark:text-amber-100/70">
             ⚠️ Aprove o cânone para destravar o avanço pra Estrutura — Parte 1.
             Em roteiros legados (sem cânone), o avanço continua liberado mas

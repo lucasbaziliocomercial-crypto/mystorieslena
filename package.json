@@ -11,7 +11,7 @@
     "start": "next start",
     "clean": "node -e \"for (const d of ['.next','dist-electron']) { try { require('fs').rmSync(d,{recursive:true,force:true}); console.log('removido:',d) } catch(e) { console.log('skip',d,e.message) } }\"",
     "clean:next": "node -e \"try { require('fs').rmSync('.next',{recursive:true,force:true}); console.log('.next removido') } catch(e) { console.log(e.message) }\"",
-    "electron:dev": "concurrently --kill-others-on-fail \"npm:dev\" \"wait-on http://localhost:3000 && node scripts/run-electron.mjs --dev\"",
+    "electron:dev": "concurrently --kill-others \"npm:dev\" \"wait-on http://localhost:3000 && node scripts/run-electron.mjs --dev\"",
     "electron:start": "node scripts/run-electron.mjs",
     "prepackage": "node scripts/build-icon.js",
     "package": "next build && electron-builder",
