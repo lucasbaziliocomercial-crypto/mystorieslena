@@ -271,6 +271,18 @@ export function StepShell({ step }: Props) {
         )
       : undefined;
 
+  // Último job com ERRO deste roteiro+step (Escrita) — pra mostrar a causa real
+  // (login/cota/rede) no banner de "interrompida", em vez de só "interrompida".
+  const erroredJob =
+    roteiro && step === "escrita" && !stepJob
+      ? queueJobs.find(
+          (j) =>
+            j.roteiroId === roteiro.id &&
+            j.step === step &&
+            j.status === "error",
+        )
+      : undefined;
+
   const category = roteiro?.category ?? DEFAULT_CATEGORY;
   const agent = getAgent(category, step);
   const output = roteiro?.outputs[step];
@@ -514,6 +526,18 @@ export function StepShell({ step }: Props) {
           step === "overview") &&
           mode === "regenerate"))
     ) {
+      // Limpa jobs já concluídos/errados deste roteiro+step antes de re-enfileirar
+      // — senão um job "error" anterior fica preso no painel e o banner de erro
+      // continua aparecendo mesmo com a nova geração rodando.
+      for (const j of queueJobs) {
+        if (
+          j.roteiroId === roteiro.id &&
+          j.step === step &&
+          (j.status === "error" || j.status === "done")
+        ) {
+          removeJob(j.id);
+        }
+      }
       enqueueStep(
         roteiro.id,
         roteiro.title,
@@ -1794,6 +1818,16 @@ export function StepShell({ step }: Props) {
       (roteiro.drafts?.escrita as { input?: string } | undefined)?.input ?? ""
     ).trim();
     const committedInput = (roteiro.userInputs?.escrita ?? "").trim();
+    // Limpa jobs concluídos/errados deste roteiro+escrita antes de retomar.
+    for (const j of queueJobs) {
+      if (
+        j.roteiroId === roteiro.id &&
+        j.step === "escrita" &&
+        (j.status === "error" || j.status === "done")
+      ) {
+        removeJob(j.id);
+      }
+    }
     enqueueStep(
       roteiro.id,
       roteiro.title,
@@ -1801,7 +1835,7 @@ export function StepShell({ step }: Props) {
       draftInput || committedInput || undefined,
       true,
     );
-  }, [roteiro, enqueueStep]);
+  }, [roteiro, enqueueStep, queueJobs, removeJob]);
 
   // Regerar UM capítulo individual no step Escrita. Reusa o pipeline 2-em-2
   // disparando um batch de 1 capítulo + sinopses dos vizinhos (todas
@@ -2314,12 +2348,13 @@ export function StepShell({ step }: Props) {
           a geração não terminou (menos caps que o esperado, ou batch com gap),
           e nenhum job está rodando/na fila. "Continuar geração" retoma de onde
           parou (motor pula os batches já feitos); "Gerar tudo do zero" regera. */}
-      {escritaIncomplete && (
+      {(escritaIncomplete || erroredJob) && (
         <EscritaIncompleteBanner
           chapterCount={chapterCount}
           expectedChapterCount={expectedChapterCount}
           onContinue={continueEscrita}
           onRegenerate={() => generate("regenerate")}
+          {...(erroredJob?.error ? { errorReason: erroredJob.error } : {})}
         />
       )}
 
@@ -4628,11 +4663,14 @@ function EscritaIncompleteBanner({
   expectedChapterCount,
   onContinue,
   onRegenerate,
+  errorReason,
 }: {
   chapterCount: number;
   expectedChapterCount: number;
   onContinue: () => void;
   onRegenerate: () => void;
+  /** Causa real da interrupção (login/cota/rede), quando o job terminou em erro. */
+  errorReason?: string;
 }) {
   return (
     <div className="rounded-lg border-2 border-amber-300 bg-amber-50 px-4 sm:px-5 py-4 flex flex-col gap-3">
@@ -4643,6 +4681,11 @@ function EscritaIncompleteBanner({
             Geração interrompida — {chapterCount} de {expectedChapterCount}{" "}
             capítulos prontos
           </p>
+          {errorReason && (
+            <p className="text-xs font-medium text-amber-900 bg-amber-100 border border-amber-300 rounded px-2 py-1.5">
+              Motivo: {errorReason}
+            </p>
+          )}
           <p className="text-xs text-amber-800/90">
             Os capítulos já gerados estão salvos. Você pode continuar de onde
             parou (gera só os que faltam, mantendo o que já existe) ou gerar
