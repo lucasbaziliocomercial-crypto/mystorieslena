@@ -1364,6 +1364,38 @@ ipcMain.handle("roteiros:auto-backup", (_event, payload) => {
   }
 });
 
+ipcMain.handle("roteiros:list-backups", () => {
+  try {
+    const dir = getBackupDir();
+    const backups = fs
+      .readdirSync(dir)
+      .filter((f) => f.startsWith("veludo-roteiros-") && f.endsWith(".json"))
+      .map((name) => {
+        const st = fs.statSync(path.join(dir, name));
+        return { name, mtimeMs: st.mtimeMs, size: st.size };
+      })
+      .sort((a, b) => b.mtimeMs - a.mtimeMs);
+    return { ok: true, backups };
+  } catch (e) {
+    return { ok: false, reason: String(e?.message || e), backups: [] };
+  }
+});
+
+ipcMain.handle("roteiros:read-backup", (_event, payload) => {
+  try {
+    const name = String(payload?.name ?? "");
+    // Anti path-traversal: só aceita o basename no padrão esperado.
+    if (!/^veludo-roteiros-[\w.-]+\.json$/.test(name)) {
+      return { ok: false, reason: "nome inválido" };
+    }
+    const file = path.join(getBackupDir(), name);
+    if (!fs.existsSync(file)) return { ok: false, reason: "não encontrado" };
+    return { ok: true, data: fs.readFileSync(file, "utf8") };
+  } catch (e) {
+    return { ok: false, reason: String(e?.message || e) };
+  }
+});
+
 ipcMain.handle("roteiros:export", async (_event, payload) => {
   try {
     const data = String(payload?.data ?? "");

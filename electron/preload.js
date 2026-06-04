@@ -64,6 +64,13 @@ contextBridge.exposeInMainWorld("mystorieslena", {
   exportRoteiros: (data, filename) =>
     ipcRenderer.invoke("roteiros:export", { data, filename }),
 
+  /** Lista os backups automáticos em userData/backups (mais recente primeiro). */
+  listRoteiroBackups: () => ipcRenderer.invoke("roteiros:list-backups"),
+
+  /** Lê o conteúdo de um backup automático pelo nome do arquivo. */
+  readRoteiroBackup: (name) =>
+    ipcRenderer.invoke("roteiros:read-backup", { name }),
+
   /**
    * Verifica se o usuário já fez login na conta Claude.
    * Retorna { loggedIn, hasBinary, binaryPath }.

@@ -24,12 +24,14 @@ import {
 } from "./AlertDialog";
 import { CategoryPicker } from "./CategoryPicker";
 import { QueuePanel } from "@/components/queue/QueuePanel";
+import { RestoreBackupDialog } from "@/components/RestoreBackupDialog";
 import { useQueue } from "@/store/queue";
 import { useTabs } from "@/store/tabs";
 import {
   ArrowRight,
   Download,
   FileText,
+  History,
   Layers,
   Loader2,
   Plus,
@@ -42,6 +44,7 @@ export function RoteiroList() {
   const [ready, setReady] = useState(false);
   const [toDelete, setToDelete] = useState<Roteiro | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
   // Assinatura estável dos jobs ativos (queued/running) — muda só em TRANSIÇÃO
   // de status, NÃO a cada tick de progresso (updateJob dispara a cada chunk do
   // stream em 2º plano). Sem isso, a lista re-renderizava e o refresh()
@@ -165,6 +168,15 @@ export function RoteiroList() {
               Exportar biblioteca
             </Button>
           )}
+          <Button
+            onClick={() => setRestoreOpen(true)}
+            variant="outline"
+            className="gap-2"
+            title="Restaura a biblioteca a partir de um backup automático ou de um arquivo exportado"
+          >
+            <History className="size-4" />
+            Restaurar backup
+          </Button>
           <Button onClick={openPicker} className="gap-2" size="lg">
             <Plus className="size-4" />
             Novo roteiro
@@ -280,6 +292,8 @@ export function RoteiroList() {
         onOpenChange={setPickerOpen}
         onConfirm={handlePickCategory}
       />
+
+      <RestoreBackupDialog open={restoreOpen} onOpenChange={setRestoreOpen} />
 
       <AlertDialogRoot open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
         <AlertDialog

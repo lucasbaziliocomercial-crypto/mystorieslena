@@ -68,6 +68,24 @@ export interface ExportRoteirosResult {
   reason?: string;
 }
 
+export interface RoteiroBackupEntry {
+  name: string;
+  mtimeMs: number;
+  size: number;
+}
+
+export interface ListBackupsResult {
+  ok: boolean;
+  backups: RoteiroBackupEntry[];
+  reason?: string;
+}
+
+export interface ReadBackupResult {
+  ok: boolean;
+  data?: string;
+  reason?: string;
+}
+
 export interface ClaudeStatus {
   loggedIn: boolean;
   hasBinary: boolean;
@@ -109,6 +127,10 @@ export interface MyStoriesLenaBridge {
     data: string,
     filename?: string,
   ) => Promise<ExportRoteirosResult>;
+  /** Lista os backups automáticos gravados em userData/backups. */
+  listRoteiroBackups: () => Promise<ListBackupsResult>;
+  /** Lê o conteúdo de um backup automático pelo nome do arquivo. */
+  readRoteiroBackup: (name: string) => Promise<ReadBackupResult>;
   getClaudeStatus: () => Promise<ClaudeStatus>;
   setupClaude: () => Promise<ClaudeSetupResult>;
   logoutClaude: () => Promise<ClaudeLogoutResult>;

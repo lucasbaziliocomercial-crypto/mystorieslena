@@ -9,7 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit --incremental false",
     "test": "node scripts/test-parse-markdown-errors.mjs && node scripts/test-build-prompt-input.mjs && node scripts/test-validate-rewrite.mjs",
     "clean": "node -e \"for (const d of ['.next','dist-electron']) { try { require('fs').rmSync(d,{recursive:true,force:true}); console.log('removido:',d) } catch(e) { console.log('skip',d,e.message) } }\"",
     "clean:next": "node -e \"try { require('fs').rmSync('.next',{recursive:true,force:true}); console.log('.next removido') } catch(e) { console.log(e.message) }\"",

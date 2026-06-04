@@ -529,6 +529,73 @@ export function getQuarantinedBlob(): string | null {
 }
 
 /**
+ * Restaura a biblioteca a partir do conteúdo de um backup. Aceita tanto o
+ * formato de export/auto-backup (JSON array descomprimido) quanto o blob bruto
+ * (`LZ1:`/JSON legado). SUBSTITUI a biblioteca atual — mas antes guarda uma
+ * cópia em `veludo:roteiros.pre-restore` (restore reversível). Passa pelo
+ * pipeline de migração/sanitização e regrava comprimido. Limpa o
+ * `storageReadBlocked` (restaurar é justamente a saída pra corrupção).
+ *
+ * Retorna o nº de roteiros restaurados. Lança Error (com mensagem amigável em
+ * PT-BR) se o arquivo for inválido ou não couber no quota.
+ */
+export function importLibraryFromString(raw: string): number {
+  if (!isBrowser()) throw new Error("Sem ambiente de navegador.");
+  const trimmed = raw.trim();
+  if (!trimmed) throw new Error("Arquivo vazio.");
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    // Não é JSON cru — tenta o formato comprimido/legado do localStorage.
+    try {
+      parsed = deserialize(trimmed);
+    } catch {
+      throw new Error("Arquivo não reconhecido como backup de roteiros.");
+    }
+  }
+  if (!Array.isArray(parsed)) {
+    throw new Error("Formato inválido: esperava uma lista de roteiros.");
+  }
+  const roteiros = parsed.filter(
+    (r): r is Roteiro =>
+      !!r && typeof r === "object" && typeof (r as Roteiro).id === "string",
+  );
+  if (roteiros.length === 0 && parsed.length > 0) {
+    throw new Error("Nenhum roteiro válido no arquivo.");
+  }
+
+  // Segurança: preserva a biblioteca atual antes de sobrescrever.
+  try {
+    const current = window.localStorage.getItem(KEY);
+    if (current) window.localStorage.setItem(`${KEY}.pre-restore`, current);
+  } catch {
+    // best-effort — não impede o restore
+  }
+
+  const sanitized = roteiros
+    .map(migrateLegacy)
+    .map(pruneHistory)
+    .map(sanitizeRoteiroXmlCruft);
+
+  try {
+    window.localStorage.setItem(KEY, serialize(sanitized));
+  } catch (e) {
+    if (isQuotaExceededError(e)) {
+      throw new Error(
+        "Backup grande demais pro espaço local (~5 MB). Apague roteiros antigos antes de restaurar.",
+      );
+    }
+    throw e;
+  }
+
+  storageReadBlocked = false;
+  roteirosCache = sanitized;
+  return sanitized.length;
+}
+
+/**
  * Detecta se um erro vindo do localStorage é o limite de quota (~5MB).
  * Suporta tanto navegadores que setam `name === "QuotaExceededError"` quanto
  * versões antigas que usam o legacy `code === 22`.

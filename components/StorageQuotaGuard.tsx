@@ -17,6 +17,7 @@ import {
   isStorageReadBlocked,
 } from "@/lib/storage";
 import { downloadFile } from "@/lib/backup";
+import { RestoreBackupDialog } from "@/components/RestoreBackupDialog";
 
 /**
  * Guarda de saúde do armazenamento local. Cobre dois cenários:
@@ -36,6 +37,7 @@ import { downloadFile } from "@/lib/backup";
 export function StorageQuotaGuard() {
   const [quotaOpen, setQuotaOpen] = useState(false);
   const [readFailedOpen, setReadFailedOpen] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
 
   useEffect(() => {
     const onQuota = () => setQuotaOpen(true);
@@ -109,6 +111,15 @@ export function StorageQuotaGuard() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setReadFailedOpen(false);
+                setRestoreOpen(true);
+              }}
+            >
+              Restaurar backup
+            </Button>
             <Button variant="outline" onClick={handleSaveCorrupt}>
               Salvar cópia de segurança
             </Button>
@@ -116,6 +127,8 @@ export function StorageQuotaGuard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <RestoreBackupDialog open={restoreOpen} onOpenChange={setRestoreOpen} />
     </>
   );
 }
