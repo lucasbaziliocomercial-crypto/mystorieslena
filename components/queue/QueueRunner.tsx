@@ -97,8 +97,14 @@ export function QueueRunner() {
   // fresco via getState(), então não precisa do array nas deps.
   const jobsSig = useQueue((s) => s.jobs.map((j) => `${j.id}:${j.status}`).join("|"));
   const mountedRef = useRef(true);
-  // roteiroIds atualmente gerando (controle de concorrência).
+  // Chaves `${roteiroId}:${step}` atualmente gerando (controle de concorrência).
+  // Lock por STEP (não por roteiro) pra que revisor1 e revisor2 do MESMO roteiro
+  // rodem em paralelo — cada um grava uma chave de step distinta em outputs, e
+  // `applyStepOutput` re-lê o roteiro fresco e síncrono antes de gravar (sem
+  // janela de interleave). `MAX_CONCURRENT` ainda limita o paralelismo total.
   const runningRef = useRef<Set<string>>(new Set());
+  const jobKey = (j: { roteiroId: string; step: string }) =>
+    `${j.roteiroId}:${j.step}`;
 
   const drainRef = useRef<() => void>(() => {});
   drainRef.current = () => {
@@ -108,13 +114,13 @@ export function QueueRunner() {
     const queued = useQueue
       .getState()
       .jobs.filter(
-        (j) => j.status === "queued" && !running.has(j.roteiroId),
+        (j) => j.status === "queued" && !running.has(jobKey(j)),
       );
 
     for (const job of queued) {
       if (running.size >= MAX_CONCURRENT) break;
 
-      running.add(job.roteiroId);
+      running.add(jobKey(job));
       const abort = new AbortController();
       registerJob(job.id, abort);
       updateJob(job.id, {
@@ -124,6 +130,9 @@ export function QueueRunner() {
       });
 
       void (async () => {
+        // [perf] cronômetro do step na fila (cobre escrita/estrutura/revisor/
+        // overview/premissa/canone "Gerar"). Logado no console ao concluir/falhar.
+        const startedMs = Date.now();
         try {
           const r = getRoteiro(job.roteiroId);
           if (!r) throw new Error("Roteiro não encontrado (foi excluído?).");
@@ -217,17 +226,23 @@ export function QueueRunner() {
             progress: undefined,
             phase: undefined,
           });
+          console.info(
+            `[perf] ${job.step} ("${job.roteiroTitle}") levou ${((Date.now() - startedMs) / 1000).toFixed(1)}s`,
+          );
           notifyDone(job.roteiroTitle);
         } catch (e) {
           const err = e as Error;
           if (err.name === "AbortError" || abort.signal.aborted) return; // cancelado
+          console.info(
+            `[perf] ${job.step} ("${job.roteiroTitle}") FALHOU após ${((Date.now() - startedMs) / 1000).toFixed(1)}s`,
+          );
           updateJob(job.id, {
             status: "error",
             error: err.message || "Falha desconhecida",
             finishedAt: new Date().toISOString(),
           });
         } finally {
-          running.delete(job.roteiroId);
+          running.delete(jobKey(job));
           unregisterJob(job.id);
           // Limpa o preview ao vivo deste roteiro (terminou/abortou/falhou) — só
           // se ele ainda é o aberto. Os capítulos finais já foram pro output.

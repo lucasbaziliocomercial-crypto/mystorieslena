@@ -43,6 +43,10 @@ interface Body {
    *  anteriores. O agente Revisor recebe instrução de não repetir esses erros
    *  e focar em refinamentos novos. Só relevante pros steps "revisor1"/"revisor2". */
   previousRevisorErrors?: string[];
+  /** Modo "relatório enxuto" do Revisor: a partir da 2ª passada, gera só o
+   *  bloco de erros (PRINCIPAIS ERROS + <erros_detalhados>), pulando o ensaio
+   *  (Análise de Leitor/Hater/Nota/Melhorias). Só relevante pros revisores. */
+  leanRevisorReport?: boolean;
   /** Modo "Continuar de onde parou" (Estrutura P1/P2): quando true, o agente
    *  recebe o `currentOutput` como partial e deve continuar exatamente daquele
    *  ponto sem repetir nem recomeçar. */
@@ -119,6 +123,7 @@ export async function POST(
     ...(body.previousRevisorErrors && body.previousRevisorErrors.length > 0
       ? { previousRevisorErrors: body.previousRevisorErrors }
       : {}),
+    ...(body.leanRevisorReport ? { leanRevisorReport: true } : {}),
     ...(body.continuationMode ? { continuationMode: true } : {}),
     ...(body.canone?.trim() ? { canone: body.canone } : {}),
   });

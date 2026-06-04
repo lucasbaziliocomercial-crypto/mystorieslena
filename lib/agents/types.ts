@@ -65,6 +65,17 @@ export interface AgentContext {
    */
   previousRevisorErrors?: string[];
   /**
+   * Modo "relatório enxuto" do Revisor — true a partir da 2ª passada (re-geração
+   * ou "Continuar revisão"). A 1ª revisão entrega o relatório completo (Análise
+   * de Leitor, Hater, Nota, Melhorias); as seguintes entregam SÓ o bloco de
+   * erros (PRINCIPAIS ERROS enxuto + <erros_detalhados>), que é o que move os
+   * cards de correção 1-clique. Como output domina o wall-clock, cortar o ensaio
+   * nas re-rodadas ~corta o tempo da ação que as roteiristas mais repetem.
+   * Só relevante pros steps "revisor1"/"revisor2". Injetado na factory
+   * `lib/agents/_shared/build-revisor-agent.ts`.
+   */
+  leanRevisorReport?: boolean;
+  /**
    * Modo "Continuar de onde parou" — disparado quando uma geração anterior
    * dos steps Estrutura P1/P2 foi interrompida no meio do stream e o output
    * parcial está preservado. O agente recebe o partial em `currentOutput` e

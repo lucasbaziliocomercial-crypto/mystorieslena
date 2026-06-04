@@ -84,6 +84,7 @@ import {
   extractChapterTargets,
   isWithinTarget,
 } from "@/lib/parse-estrutura-targets";
+import { normalizeEstruturaTargets } from "@/lib/normalize-estrutura-targets";
 import { MemoryVivaCard } from "@/components/wizard/MemoryVivaCard";
 import { WordCountBadge } from "@/components/wizard/WordCountBadge";
 // countWords sempre da lib canônica — mesmo contador que a UI usa pra
@@ -305,6 +306,11 @@ export function StepShell({ step }: Props) {
   const [revisorPhase, setRevisorPhase] = useState<
     "streaming" | "extracting" | null
   >(null);
+  // Override do gate do revisor2: por padrão a Parte 2 espera a Parte 1 ser
+  // revisada (a revisão da P1 vira contexto narrativo da P2). Mas a roteirista
+  // pode optar por revisar as duas EM PARALELO (mais rápido) — aí a P2 roda sem
+  // o contexto da P1. Este flag (por sessão) libera o step revisor2.
+  const [forceRevisor2Parallel, setForceRevisor2Parallel] = useState(false);
   // Tempo decorrido desde o início da geração corrente, em segundos. Zera
   // quando isGenerating cai pra false. Atualiza a cada 1s via useEffect.
   const [elapsedSec, setElapsedSec] = useState(0);
@@ -353,6 +359,18 @@ export function StepShell({ step }: Props) {
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [isGenerating]);
+
+  // [perf] loga no console o tempo de cada geração FOREGROUND (refine, continue,
+  // "Continuar revisão"). O caminho que enfileira na fila retorna ANTES de
+  // setIsGenerating(true)/generationStartRef, então só caem aqui as gerações de
+  // fato no componente — as gerações "Gerar" pesadas são cronometradas no
+  // QueueRunner. Loga na transição true→false e zera o ref pra não duplicar.
+  useEffect(() => {
+    if (isGenerating || generationStartRef.current == null) return;
+    const secs = ((Date.now() - generationStartRef.current) / 1000).toFixed(1);
+    console.info(`[perf] ${step} (foreground) levou ${secs}s`);
+    generationStartRef.current = null;
+  }, [isGenerating, step]);
 
   // Em caso de auto-reload do Electron (ver crash handler em main.js), aborta
   // streams em flight pra liberar a memória que o renderer estava acumulando
@@ -1183,6 +1201,10 @@ export function StepShell({ step }: Props) {
             ...(previousRevisorErrors && previousRevisorErrors.length > 0
               ? { previousRevisorErrors }
               : {}),
+            // Este branch só roda em "Continuar revisão" (re-revisão por
+            // definição) — relatório enxuto: só o bloco de erros, sem o ensaio.
+            // Espelha a detecção do run-step.ts headless.
+            leanRevisorReport: true,
           }),
           signal: ctrl.signal,
         });
@@ -1604,13 +1626,27 @@ export function StepShell({ step }: Props) {
               });
               setDraft(cleanContent);
             } else {
-              // Estrutura 1 / 2: o output é texto plano markdown.
+              // Estrutura 1 / 2: o output é texto plano markdown. Reaplica a
+              // trava de soma (uma correção pode ter empurrado o total pra fora
+              // da faixa da Parte).
+              const estruturaPart =
+                step === "estrutura1" ? "Parte 1" : "Parte 2";
+              const norm = normalizeEstruturaTargets(
+                result.text,
+                estruturaPart,
+                category,
+              );
+              if (norm.rescaled) {
+                console.info(
+                  `[estrutura] ${step} refine reescalado: soma ${norm.sumBefore} → ${norm.sumAfter}`,
+                );
+              }
               setOutput(step, {
-                content: result.text,
+                content: norm.text,
                 metadata: { ...(output?.metadata ?? {}) },
                 generatedAt: startedAt,
               });
-              setDraft(result.text);
+              setDraft(norm.text);
             }
             setLiveStream("");
 
@@ -1731,9 +1767,23 @@ export function StepShell({ step }: Props) {
         // partial. Sem `metadata`, o flag `partial:true` deixado pelos
         // checkpoints é limpo automaticamente — a UI para de mostrar o banner
         // de "geração interrompida".
-        const finalContent = isContinue
+        const mergedContent = isContinue
           ? mergeContinuation(partialBase, acc)
           : acc;
+        // Trava determinística: reescala os alvos por capítulo pra somar dentro
+        // da faixa da Parte (espelha o motor headless em run-step.ts).
+        const estruturaPart = step === "estrutura1" ? "Parte 1" : "Parte 2";
+        const norm = normalizeEstruturaTargets(
+          mergedContent,
+          estruturaPart,
+          category,
+        );
+        if (norm.rescaled) {
+          console.info(
+            `[estrutura] ${step} reescalado: soma ${norm.sumBefore} → ${norm.sumAfter} (dentro da faixa da ${estruturaPart})`,
+          );
+        }
+        const finalContent = norm.text;
         setOutput(step, {
           content: finalContent,
           generatedAt: startedAt,
@@ -2186,12 +2236,17 @@ export function StepShell({ step }: Props) {
 
   if (!roteiro) return null;
 
-  // Bloqueio de avanço pra revisor2: a roteirista precisa concluir e aprovar
-  // a revisão da Parte 1 antes de revisar a Parte 2. Sem isso, o revisor2
-  // perderia o contexto da revisão1 (que vai como referência narrativa pro
-  // agente) e a divisão em duas Partes não traria os benefícios que motivaram
-  // a refatoração — análise focada e sem inconsistências cruzadas.
-  if (step === "revisor2" && !roteiro.outputs.revisor1?.content?.trim()) {
+  // Gate (suave) do revisor2: por padrão a revisão da Parte 2 espera a Parte 1
+  // ser revisada — o relatório da P1 vira contexto narrativo da P2 (consistência
+  // sem inconsistências cruzadas). MAS a roteirista pode optar por revisar as
+  // duas EM PARALELO (mais rápido): a P2 roda sem o contexto da P1 e ela re-roda
+  // depois de consolidar a P1 se quiser a checagem cruzada (re-rodada é enxuta/
+  // rápida). O override `forceRevisor2Parallel` libera o step nesta sessão.
+  if (
+    step === "revisor2" &&
+    !roteiro.outputs.revisor1?.content?.trim() &&
+    !forceRevisor2Parallel
+  ) {
     return (
       <div className="flex flex-col gap-6">
         <header className="flex flex-col gap-1">
@@ -2206,24 +2261,37 @@ export function StepShell({ step }: Props) {
           <AlertTriangle className="size-8 text-amber-600" />
           <div className="flex flex-col gap-2 max-w-xl">
             <h3 className="text-lg font-semibold">
-              Conclua a revisão da Parte 1 antes
+              A Parte 1 ainda não foi revisada
             </h3>
             <p className="text-sm text-muted-foreground">
-              A revisão da Parte 2 é alimentada pelo relatório da revisão da
-              Parte 1 — assim o agente mantém consistência narrativa e não
-              levanta &quot;inconsistências&quot; contra escolhas que a Parte 1
-              já consolidou. Volte ao Revisor — Parte 1, gere a revisão e
-              aplique as correções; depois siga em frente.
+              O fluxo recomendado é revisar a Parte 1 primeiro — o relatório dela
+              vira contexto da revisão da Parte 2 (mantém a consistência entre as
+              Partes). Mas você pode revisar as duas{" "}
+              <span className="font-semibold">em paralelo</span> pra ganhar
+              tempo: a Parte 2 será revisada agora, sem o contexto da Parte 1.
+              Depois de consolidar a Parte 1, é só re-rodar a revisão da Parte 2
+              (a re-rodada é enxuta e rápida) pra pegar qualquer inconsistência
+              cruzada.
             </p>
           </div>
-          <Button
-            onClick={() => setCurrentStep("revisor1")}
-            size="lg"
-            className="gap-2"
-          >
-            <ArrowLeft className="size-4" />
-            Ir para Revisor — Parte 1
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button
+              onClick={() => setForceRevisor2Parallel(true)}
+              size="lg"
+              className="gap-2"
+            >
+              Revisar as duas em paralelo
+            </Button>
+            <Button
+              onClick={() => setCurrentStep("revisor1")}
+              size="lg"
+              variant="outline"
+              className="gap-2"
+            >
+              <ArrowLeft className="size-4" />
+              Ir para Revisor — Parte 1
+            </Button>
+          </div>
         </div>
       </div>
     );

@@ -22,6 +22,7 @@ import {
   parseRevisorErrors,
   stripErrosDetalhados,
 } from "@/lib/parse-revisor-output";
+import { normalizeEstruturaTargets } from "@/lib/normalize-estrutura-targets";
 
 /** Steps que o motor genérico de chamada única sabe rodar. */
 export const STREAMING_STEPS = [
@@ -296,7 +297,18 @@ async function runEstruturaStep(
     throw new Error(msg || res.statusText);
   }
   const acc = await readResponseText(res, hooks.signal, hooks.onLiveText);
-  return { content: acc.trim(), generatedAt: new Date().toISOString() };
+
+  // Trava determinística: garante que os alvos por capítulo somem dentro da
+  // faixa total da Parte (o modelo costuma estourar quando o prompt usa
+  // placeholders em vez de números fixos). Reescala silenciosamente se preciso.
+  const part = step === "estrutura1" ? "Parte 1" : "Parte 2";
+  const normalized = normalizeEstruturaTargets(acc.trim(), part, r.category);
+  if (normalized.rescaled) {
+    console.info(
+      `[estrutura] ${step} reescalado: soma ${normalized.sumBefore} → ${normalized.sumAfter} (dentro da faixa da ${part})`,
+    );
+  }
+  return { content: normalized.text, generatedAt: new Date().toISOString() };
 }
 
 async function runRevisorStep(
@@ -323,6 +335,15 @@ async function runRevisorStep(
   const escritaContent = concatenateChapters(accChapters);
   const escritaSnapshotHash = hashEscritaContent(escritaContent);
 
+  // Relatório enxuto a partir da 2ª passada: se já existe um relatório anterior
+  // deste step (output corrente não-sentinela OU entrada no histórico), pede só
+  // o bloco de erros — a 1ª passada já entregou o relatório completo. Espelha o
+  // branch "Continuar revisão" do StepShell (mantenha os dois em sincronia).
+  const priorContent = r.outputs[step]?.content?.trim() ?? "";
+  const hadPriorReport =
+    (priorContent.length > 0 && !priorContent.startsWith("[")) ||
+    (r.history?.[step]?.length ?? 0) > 0;
+
   const res = await fetch(`/api/agent/${step}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -332,6 +353,7 @@ async function runRevisorStep(
       userInput,
       referenceImage: r.referenceImage,
       ...(r.canone?.trim() ? { canone: r.canone } : {}),
+      ...(hadPriorReport ? { leanRevisorReport: true } : {}),
     }),
     signal: hooks.signal,
   });

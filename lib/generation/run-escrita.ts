@@ -489,6 +489,13 @@ export async function runEscrita(
       return Math.abs(cur - c.target) / c.target > CALIBRATION_THRESHOLD;
     });
 
+  // [perf] quantos capítulos saíram fora do alvo (±8%) e vão ser recalibrados
+  // (cada um é uma reescrita Opus de capítulo inteiro). Menos = Escrita mais
+  // rápida — é o ganho indireto da trava de soma da Estrutura.
+  console.info(
+    `[perf] escrita: ${candidates.length} de ${accChapters.length} capítulo(s) fora do alvo → recalibração`,
+  );
+
   let calibrationDone = 0;
   await mapWithConcurrency(
     candidates,

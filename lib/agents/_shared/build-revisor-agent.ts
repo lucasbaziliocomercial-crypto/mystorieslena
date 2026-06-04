@@ -185,7 +185,42 @@ export function buildRevisorAgent({
       }
 
       sections.push(baseMessage);
+
+      // 6) Modo relatório enxuto (2ª passada em diante) — sobrescreve o formato
+      //    de saída do system prompt SÓ pra esta passada: entrega só o bloco de
+      //    erros (PRINCIPAIS ERROS + <erros_detalhados>), pulando o ensaio.
+      //    Vai por ÚLTIMO pra ter precedência sobre o "Mantenha o formato
+      //    obrigatório" da seção de "Continuar revisão" (quando ambos coexistem).
+      if (ctx.leanRevisorReport) {
+        sections.push(buildLeanReportInstruction());
+      }
+
       return sections.join("\n\n");
     },
   };
+}
+
+/**
+ * Instrução de "relatório enxuto" — anexada na 2ª revisão em diante. A roteirista
+ * já leu o relatório completo numa passada anterior; agora só quer os erros pra
+ * corrigir. Como o OUTPUT domina o wall-clock, cortar o ensaio (Análise de
+ * Leitor / Hater / Nota / Melhorias) ~corta o tempo da ação que elas mais
+ * repetem (3×/parte). Mantém o bloco <erros_detalhados> intacto — é ele que
+ * move os cards de correção de 1 clique — e a lista PRINCIPAIS ERROS (o
+ * contador de erros do app usa ela pro fallback de extração).
+ */
+function buildLeanReportInstruction(): string {
+  return [
+    "━━━ MODO RELATÓRIO ENXUTO (re-revisão — PRIORIDADE sobre o formato do system prompt) ━━━",
+    "",
+    "Esta NÃO é a primeira revisão deste roteiro. A roteirista já leu o relatório completo numa passada anterior e agora só quer a lista de erros pra corrigir. Pra economizar tempo, entregue SOMENTE estas duas seções, NESTA ordem, e NADA MAIS:",
+    "",
+    "1. # ❌ PRINCIPAIS ERROS — lista numerada e classificada (🟢/🟡/🟠/🔴), UMA linha curta por erro (trecho citado + qual é o problema). Sem parágrafos de análise.",
+    "",
+    "2. O bloco <erros_detalhados>…</erros_detalhados> COMPLETO, no formato EXATO do system prompt — um <erro> por cada item de PRINCIPAIS ERROS, com trecho_original literal e trecho_corrigido plug-and-play.",
+    "",
+    "NÃO gere nesta passada: SUGESTÕES PRÁTICAS, ANÁLISE COMO LEITOR REAL, ANÁLISE DE HATER, NÍVEL DE RISCO DE HATE, NOTA FINAL, MELHORIAS PRÁTICAS. Pule essas seções inteiras — elas não entram aqui.",
+    "",
+    "Comece direto pelo cabeçalho # ❌ PRINCIPAIS ERROS. Sem preâmbulo.",
+  ].join("\n");
 }

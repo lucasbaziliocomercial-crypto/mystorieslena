@@ -26,9 +26,9 @@ const CHAPTER_HEADER_REGEX = /^#{0,4}\s*\*{0,2}\s*Cap[ií]tulo\s+(\d+)/im;
  *   `## Capítulo 1 — A Chegada (~1.380 palavras — ritmo rápido)`
  * Sem incluir a linha do header, o parser nunca acha o alvo.
  */
-function splitChapterBlocks(
+export function splitChapterBlocks(
   estrutura: string,
-): Array<{ number: number; body: string }> {
+): Array<{ number: number; body: string; start: number }> {
   type Hit = { number: number; index: number };
   const hits: Hit[] = [];
   const re = /^#{0,4}\s*\*{0,2}\s*Cap[ií]tulo\s+(\d+)\b[^\n]*$/gim;
@@ -41,7 +41,7 @@ function splitChapterBlocks(
   }
   hits.sort((a, b) => a.index - b.index);
 
-  const blocks: Array<{ number: number; body: string }> = [];
+  const blocks: Array<{ number: number; body: string; start: number }> = [];
   for (let i = 0; i < hits.length; i++) {
     const cur = hits[i]!;
     const nextStart =
@@ -49,13 +49,14 @@ function splitChapterBlocks(
     blocks.push({
       number: cur.number,
       body: estrutura.slice(cur.index, nextStart), // INCLUI header
+      start: cur.index,
     });
   }
   return blocks;
 }
 
 /** Tenta extrair um número de palavras de um bloco de texto. */
-function extractTargetFromBlock(body: string): number | undefined {
+export function extractTargetFromBlock(body: string): number | undefined {
   // Normaliza separador de milhar: "2.500" → "2500" (mas "2.5" continua "2.5")
   const normalized = body.replace(/(\d)\.(\d{3}\b)/g, "$1$2");
 
