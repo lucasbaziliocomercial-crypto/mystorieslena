@@ -11,7 +11,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { flushPendingSave, isStorageReadBlocked } from "@/lib/storage";
+import {
+  flushPendingSave,
+  getQuarantinedBlob,
+  isStorageReadBlocked,
+} from "@/lib/storage";
+import { downloadFile } from "@/lib/backup";
 
 /**
  * Guarda de saúde do armazenamento local. Cobre dois cenários:
@@ -47,6 +52,14 @@ export function StorageQuotaGuard() {
       window.removeEventListener("veludo:storage-write-blocked", onReadFailed);
     };
   }, []);
+
+  // Exporta o blob em quarentena pra disco, pra a usuária guardar/mandar pro
+  // suporte sem precisar de DevTools (proibido no build de produção).
+  const handleSaveCorrupt = async () => {
+    const blob = getQuarantinedBlob();
+    if (!blob) return;
+    await downloadFile(blob, "veludo-roteiros-backup-recuperacao.txt");
+  };
 
   // beforeunload: o scheduleSave debouncer pode ter até 600ms enfileirado.
   // Se a usuária fechar a janela do Electron antes do timer, a última
@@ -96,6 +109,9 @@ export function StorageQuotaGuard() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
+            <Button variant="outline" onClick={handleSaveCorrupt}>
+              Salvar cópia de segurança
+            </Button>
             <Button onClick={() => setReadFailedOpen(false)}>Entendi</Button>
           </DialogFooter>
         </DialogContent>

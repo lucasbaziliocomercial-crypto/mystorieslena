@@ -50,6 +50,21 @@ contextBridge.exposeInMainWorld("mystorieslena", {
   exportRoteiroPdf: (payload) => ipcRenderer.invoke("pdf:save-roteiro", payload),
 
   /**
+   * Grava um snapshot da biblioteca em disco (userData/backups), rotacionando
+   * os mais antigos. Chamado periodicamente pelo renderer — cópia fora do
+   * localStorage que sobrevive a corrupção/quota. Retorna { ok, path }.
+   */
+  autoBackupRoteiros: (data) =>
+    ipcRenderer.invoke("roteiros:auto-backup", { data }),
+
+  /**
+   * Abre dialog "Salvar como" e grava a biblioteca (string) onde o usuário
+   * escolher. Retorna { ok, path } ou { ok:false, canceled:true }.
+   */
+  exportRoteiros: (data, filename) =>
+    ipcRenderer.invoke("roteiros:export", { data, filename }),
+
+  /**
    * Verifica se o usuário já fez login na conta Claude.
    * Retorna { loggedIn, hasBinary, binaryPath }.
    */

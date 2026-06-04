@@ -18,6 +18,9 @@ import {
 
 const KEY = "veludo:roteiros";
 
+/** Chave onde um blob ilegível é posto em quarentena (ver `readFromStorage`). */
+const CORRUPT_KEY = `${KEY}.corrupt`;
+
 /**
  * Sentinel que marca um valor comprimido com lz-string. Sem isso, não dá pra
  * distinguir um JSON cru (formato legado, escrito por versões ≤ 1.0.51) de
@@ -438,7 +441,7 @@ function quarantineCorruptBlob(raw: string, error: unknown) {
     error,
   );
   try {
-    const backupKey = `${KEY}.corrupt`;
+    const backupKey = CORRUPT_KEY;
     // Só grava o primeiro backup (não acumula cópias a cada reload).
     if (window.localStorage.getItem(backupKey) === null) {
       window.localStorage.setItem(backupKey, raw);
@@ -500,6 +503,29 @@ export function listRoteiros(): Roteiro[] {
 export function getRoteiro(id: string): Roteiro | null {
   if (!isBrowser()) return null;
   return getCache().find((r) => r.id === id) ?? null;
+}
+
+/**
+ * Serializa a biblioteca atual (descomprimida) pra backup/export em disco.
+ * Lê do cache em memória — barato, sem re-rodar o pipeline de sanitização.
+ * Retorna "[]" quando não há nada.
+ */
+export function serializeLibraryForBackup(): string {
+  if (!isBrowser()) return "[]";
+  return JSON.stringify(getCache());
+}
+
+/**
+ * Retorna o blob posto em quarentena por uma leitura que falhou (CORRUPT_KEY),
+ * pra a UI oferecer "salvar cópia de segurança". null se não houver.
+ */
+export function getQuarantinedBlob(): string | null {
+  if (!isBrowser()) return null;
+  try {
+    return window.localStorage.getItem(CORRUPT_KEY);
+  } catch {
+    return null;
+  }
 }
 
 /**

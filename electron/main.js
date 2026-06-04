@@ -1326,6 +1326,70 @@ ipcMain.handle("pdf:save-roteiro", async (_event, payload) => {
 });
 
 /**
+ * Backup/export da biblioteca de roteiros (durabilidade — cópia FORA do
+ * localStorage). `roteiros:auto-backup` grava um snapshot rotativo em
+ * userData/backups; `roteiros:export` abre dialog "Salvar como".
+ */
+const BACKUP_KEEP = 5;
+
+function getBackupDir() {
+  const dir = path.join(app.getPath("userData"), "backups");
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+ipcMain.handle("roteiros:auto-backup", (_event, payload) => {
+  try {
+    const data = String(payload?.data ?? "");
+    if (!data || data === "[]") return { ok: false, reason: "vazio" };
+    const dir = getBackupDir();
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const file = path.join(dir, `veludo-roteiros-${stamp}.json`);
+    fs.writeFileSync(file, data, "utf8");
+    // Poda: mantém só os BACKUP_KEEP mais recentes (nome ISO ordena no tempo).
+    const files = fs
+      .readdirSync(dir)
+      .filter((f) => f.startsWith("veludo-roteiros-") && f.endsWith(".json"))
+      .sort();
+    for (const f of files.slice(0, Math.max(0, files.length - BACKUP_KEEP))) {
+      try {
+        fs.unlinkSync(path.join(dir, f));
+      } catch {
+        // best-effort
+      }
+    }
+    return { ok: true, path: file };
+  } catch (e) {
+    return { ok: false, reason: String(e?.message || e) };
+  }
+});
+
+ipcMain.handle("roteiros:export", async (_event, payload) => {
+  try {
+    const data = String(payload?.data ?? "");
+    const suggestedName = String(
+      payload?.filename ?? "biblioteca-mystorieslena.json",
+    );
+    if (!data) return { ok: false, reason: "vazio" };
+    const result = await dialog.showSaveDialog({
+      title: "Exportar biblioteca",
+      defaultPath: suggestedName,
+      filters: [
+        { name: "JSON", extensions: ["json"] },
+        { name: "Todos", extensions: ["*"] },
+      ],
+    });
+    if (result.canceled || !result.filePath) {
+      return { ok: false, canceled: true };
+    }
+    fs.writeFileSync(result.filePath, data, "utf8");
+    return { ok: true, path: result.filePath };
+  } catch (e) {
+    return { ok: false, reason: String(e?.message || e) };
+  }
+});
+
+/**
  * Verifica se o usuário já fez login na conta Claude (Pro/Max).
  *
  * - **Windows / Linux**: o Claude Code CLI guarda o token OAuth em

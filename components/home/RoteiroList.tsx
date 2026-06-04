@@ -8,7 +8,9 @@ import {
   listRoteiros,
   newRoteiroId,
   saveRoteiro,
+  serializeLibraryForBackup,
 } from "@/lib/storage";
+import { downloadFile } from "@/lib/backup";
 import type { Roteiro } from "@/types/roteiro";
 import { STEP_ORDER } from "@/types/roteiro";
 import { CATEGORIES } from "@/lib/categories";
@@ -26,6 +28,7 @@ import { useQueue } from "@/store/queue";
 import { useTabs } from "@/store/tabs";
 import {
   ArrowRight,
+  Download,
   FileText,
   Layers,
   Loader2,
@@ -122,6 +125,14 @@ export function RoteiroList() {
 
   const openPicker = useCallback(() => setPickerOpen(true), []);
 
+  // Backup manual: salva toda a biblioteca num .json. No Electron abre o dialog
+  // nativo "Salvar como"; no navegador puro dispara um download.
+  const handleExportLibrary = useCallback(async () => {
+    const data = serializeLibraryForBackup();
+    const date = new Date().toISOString().slice(0, 10);
+    await downloadFile(data, `biblioteca-mystorieslena-${date}.json`);
+  }, []);
+
   const confirmDelete = useCallback(() => {
     if (!toDelete) return;
     deleteRoteiro(toDelete.id);
@@ -142,10 +153,23 @@ export function RoteiroList() {
     <>
       <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
         <h2 className="text-xl font-serif">Seus roteiros</h2>
-        <Button onClick={openPicker} className="gap-2" size="lg">
-          <Plus className="size-4" />
-          Novo roteiro
-        </Button>
+        <div className="flex items-center gap-2">
+          {roteiros.length > 0 && (
+            <Button
+              onClick={handleExportLibrary}
+              variant="outline"
+              className="gap-2"
+              title="Salva uma cópia de todos os seus roteiros num arquivo .json (backup de segurança)"
+            >
+              <Download className="size-4" />
+              Exportar biblioteca
+            </Button>
+          )}
+          <Button onClick={openPicker} className="gap-2" size="lg">
+            <Plus className="size-4" />
+            Novo roteiro
+          </Button>
+        </div>
       </div>
 
       <QueuePanel />

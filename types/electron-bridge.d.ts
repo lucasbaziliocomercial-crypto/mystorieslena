@@ -55,6 +55,19 @@ export interface ExportPdfResult {
   reason?: string;
 }
 
+export interface BackupResult {
+  ok: boolean;
+  path?: string;
+  reason?: string;
+}
+
+export interface ExportRoteirosResult {
+  ok: boolean;
+  path?: string;
+  canceled?: boolean;
+  reason?: string;
+}
+
 export interface ClaudeStatus {
   loggedIn: boolean;
   hasBinary: boolean;
@@ -89,6 +102,13 @@ export interface MyStoriesLenaBridge {
   openDownloadPage: () => Promise<{ ok: boolean; reason?: string }>;
   onUpdateEvent: (cb: (event: UpdateEvent) => void) => () => void;
   exportRoteiroPdf: (payload: ExportPdfPayload) => Promise<ExportPdfResult>;
+  /** Grava um snapshot rotativo da biblioteca em userData/backups (Electron). */
+  autoBackupRoteiros: (data: string) => Promise<BackupResult>;
+  /** Abre dialog "Salvar como" e grava a biblioteca onde o usuário escolher. */
+  exportRoteiros: (
+    data: string,
+    filename?: string,
+  ) => Promise<ExportRoteirosResult>;
   getClaudeStatus: () => Promise<ClaudeStatus>;
   setupClaude: () => Promise<ClaudeSetupResult>;
   logoutClaude: () => Promise<ClaudeLogoutResult>;

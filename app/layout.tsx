@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Fraunces } from "next/font/google";
 import "./globals.css";
 import { StorageQuotaGuard } from "@/components/StorageQuotaGuard";
+import { LibraryBackup } from "@/components/LibraryBackup";
 import { QueueRunner } from "@/components/queue/QueueRunner";
 
 const geistSans = Geist({
@@ -42,6 +43,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {children}
         <StorageQuotaGuard />
+        <LibraryBackup />
         <QueueRunner />
       </body>
     </html>
