@@ -1,7 +1,7 @@
 {
   "name": "mystorieslena",
   "productName": "MyStoriesLena",
-  "version": "1.0.70",
+  "version": "1.0.71",
   "description": "MyStoriesLena — Gerador de Roteiros de Romance",
   "private": true,
   "main": "electron/main.js",
@@ -81,7 +81,9 @@
         "to": "app",
         "filter": [
           "**/*",
-          "!node_modules/@anthropic-ai/**"
+          "!node_modules/@anthropic-ai/**",
+          "!public/dev-roteiros.json",
+          "!public/dev-seed.html"
         ]
       },
       {
