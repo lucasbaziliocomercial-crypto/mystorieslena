@@ -1,19 +1,23 @@
 /**
  * Endpoint que reescreve UM capítulo da Escrita pra atingir o alvo de palavras.
  *
- * Acionado pelo loop da Escrita após cada batch: se algum cap saiu fora de
- * uma margem larga (default ±15% pra economizar Opus tokens — não dispara
- * por pequenos desvios), o frontend chama esse endpoint pra encurtar ou
- * expandir o cap específico.
+ * Acionado pela calibração da Escrita após os batches: se algum cap saiu fora
+ * da faixa (CALIBRATION_THRESHOLD = ±8% em lib/escrita-calibration.ts — não
+ * dispara por pequenos desvios), o frontend chama esse endpoint pra encurtar
+ * ou expandir o cap específico. O ajuste fino final a ±3% é no step Revisor.
  *
  * Histórico: o endpoint existia até maio de 2026 (commit 66d628d removeu
  * "por custo alto"), mas o estouro generalizado de word count voltou a ser
- * problema na prática. Recriado com threshold mais largo (±15% vs ±3% que
+ * problema na prática. Recriado com threshold mais largo (±8% vs ±3% que
  * o prompt pede) — só ataca casos egrégios, não calibra todo cap fora do
  * range estrito.
  *
- * Modelo: Opus (mantém voz Helô — Sonnet perde tom). Output: o capítulo
- * INTEIRO reescrito no formato canônico `## Capítulo N — Título`.
+ * Modelo: Sonnet. O ajuste é MECÂNICO (encurtar/expandir um cap já escrito
+ * mantendo cenas, cliffhanger e voz — travado nas "REGRAS RÍGIDAS" abaixo),
+ * não geração criativa do zero. Sonnet é mais rápido e tira carga da fila
+ * Opus, que numa assinatura compartilhada (equipe, mesma conta) disputa cota
+ * com os batches criativos. A escrita em si segue 100% Opus. Output: o
+ * capítulo INTEIRO reescrito no formato canônico `## Capítulo N — Título`.
  */
 
 import { NextRequest } from "next/server";
@@ -119,7 +123,9 @@ export async function POST(req: NextRequest) {
         for await (const chunk of streamClaudeText({
           systemPrompt: escritaSystemPrompt,
           userMessage,
-          model: MODELS.opus,
+          // Sonnet: ajuste mecânico de tamanho (não criação) — mais rápido e
+          // alivia a fila Opus compartilhada. Ver cabeçalho do arquivo.
+          model: MODELS.sonnet,
           thinking: "disabled",
           effort: "low",
           signal: req.signal,

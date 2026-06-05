@@ -9,9 +9,14 @@ import type {
   StepId,
   StepOutput,
 } from "@/types/roteiro";
-import { STEP_ORDER, REVISOR_STEPS } from "@/types/roteiro";
+import { STEP_ORDER, REVISOR_STEPS, isRevisorStep } from "@/types/roteiro";
 import { scheduleSave, flushPendingSave } from "@/lib/storage";
-import { applyCorrections, stripXmlCruft } from "@/lib/parse-revisor-output";
+import {
+  applyCorrections,
+  computeRevisorEval,
+  stripXmlCruft,
+} from "@/lib/parse-revisor-output";
+import { appendEvalSnapshot } from "@/lib/eval-log";
 import { dedupChapters } from "@/lib/dedup-chapters";
 import { concatenateChapters } from "@/lib/parse-escrita-output";
 import { normalizeEscritaOutput } from "@/lib/normalize-escrita";
@@ -42,6 +47,14 @@ interface WizardState {
   setRoteiro: (r: Roteiro) => void;
   setCurrentStep: (step: StepId) => void;
   setOutput: (step: StepId, output: StepOutput) => void;
+  /**
+   * Registra um eval de qualidade (conceito do Karpathy) no log append-only do
+   * roteiro, derivado do relatório de revisão recém-gerado. Chamar SÓ na
+   * conclusão de uma geração de revisão (não em refine/aplicar correção) — o log
+   * é uma trilha de gerações, não de toda mutação. Dedup interno: re-commit
+   * idêntico não anexa.
+   */
+  recordEval: (step: StepId, output: StepOutput) => void;
   updateOutputContent: (step: StepId, content: string) => void;
   /**
    * Salva o input/correção do step indicado. Cada step tem sua própria
@@ -226,6 +239,23 @@ export const useWizard = create<WizardState>((set, get) => ({
           outputs: { ...s.roteiro.outputs, [step]: finalOutput },
         }),
       };
+    }),
+
+  recordEval: (step, output) =>
+    set((s) => {
+      if (!s.roteiro) return s;
+      if (!isRevisorStep(step)) return s;
+      const data = computeRevisorEval(
+        step,
+        output.content ?? "",
+        output.metadata?.errors ?? [],
+        output.metadata?.escritaSnapshotHash,
+      );
+      if (!data) return s; // sentinela / step não-revisor — nada a registrar
+      const now = new Date().toISOString();
+      const evals = appendEvalSnapshot(s.roteiro.evals, data, now);
+      if (evals === s.roteiro.evals) return s; // dedup: nada novo
+      return { roteiro: persist({ ...s.roteiro, evals }) };
     }),
 
   updateOutputContent: (step, content) =>

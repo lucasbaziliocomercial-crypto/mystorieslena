@@ -126,10 +126,10 @@ export const estrutura1Agent: Agent = {
           `"${titulo}"`,
           ``,
           `⚠️ REGRA INEGOCIÁVEL:`,
-          `• O hook principal E as 3 versões alternativas DEVEM expandir este título literal.`,
+          `• O hook principal E a versão alternativa DEVEM expandir este título literal.`,
           `• A primeira frase de cada hook precisa ecoar/traduzir o título — não citar de forma decorativa, não trocar por sinônimos, não suavizar.`,
           `• É proibido inventar outro título, sugerir alternativas ou ignorar este.`,
-          `• Antes de fechar o hook, releia: a expansão do título está clara nas 4 versões? Se não, refaça.`,
+          `• Antes de fechar o hook, releia: a expansão do título está clara nas 2 versões? Se não, refaça.`,
         ].join("\n"),
       );
     } else if (premissa) {
@@ -141,7 +141,7 @@ export const estrutura1Agent: Agent = {
           ``,
           `⚠️ REGRA INEGOCIÁVEL:`,
           `• Defina o título logo no início da saída, no bloco "📖 TÍTULO DA HISTÓRIA".`,
-          `• O hook principal E as 3 versões alternativas DEVEM expandir esse título literal.`,
+          `• O hook principal E a versão alternativa DEVEM expandir esse título literal.`,
           `• A primeira frase de cada hook precisa ecoar o título.`,
           `• NÃO bloqueie, NÃO peça o título à roteirista, NÃO devolva mensagem de erro — gere a ESTRUTURA COMPLETA normalmente.`,
         ].join("\n"),

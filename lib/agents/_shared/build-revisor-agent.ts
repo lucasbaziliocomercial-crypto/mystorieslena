@@ -187,8 +187,9 @@ export function buildRevisorAgent({
       sections.push(baseMessage);
 
       // 6) Modo relatório enxuto (2ª passada em diante) — sobrescreve o formato
-      //    de saída do system prompt SÓ pra esta passada: entrega só o bloco de
-      //    erros (PRINCIPAIS ERROS + <erros_detalhados>), pulando o ensaio.
+      //    de saída do system prompt SÓ pra esta passada: entrega os erros
+      //    (PRINCIPAIS ERROS + <erros_detalhados>) + a NOTA FINAL e a avaliação
+      //    de hate (sempre — essenciais), pulando só o resto do ensaio.
       //    Vai por ÚLTIMO pra ter precedência sobre o "Mantenha o formato
       //    obrigatório" da seção de "Continuar revisão" (quando ambos coexistem).
       if (ctx.leanRevisorReport) {
@@ -201,25 +202,38 @@ export function buildRevisorAgent({
 }
 
 /**
- * Instrução de "relatório enxuto" — anexada na 2ª revisão em diante. A roteirista
- * já leu o relatório completo numa passada anterior; agora só quer os erros pra
- * corrigir. Como o OUTPUT domina o wall-clock, cortar o ensaio (Análise de
- * Leitor / Hater / Nota / Melhorias) ~corta o tempo da ação que elas mais
- * repetem (3×/parte). Mantém o bloco <erros_detalhados> intacto — é ele que
- * move os cards de correção de 1 clique — e a lista PRINCIPAIS ERROS (o
- * contador de erros do app usa ela pro fallback de extração).
+ * Instrução de "relatório enxuto" — agora anexada em TODAS as passadas, inclusive
+ * a 1ª (a roteirista optou por enxugar já na 1ª pra acelerar — ver MEMORY.md). A
+ * revisão foca nos erros pra corrigir + nota + hate. Como o OUTPUT domina o
+ * wall-clock, cortar o ensaio (Sugestões Práticas / Análise de Leitor / Melhorias)
+ * acelera a ação que elas mais repetem (3×/parte).
+ *
+ * TRAVA (pedido explícito da roteirista): a NOTA FINAL e a avaliação de hate
+ * (ANÁLISE DE HATER + NÍVEL DE RISCO DE HATE) são essenciais pra análise da
+ * revisão e entram SEMPRE — em qualquer passada, enxuta ou não. NÃO remover
+ * dessa lista sem combinar com ela.
+ *
+ * Mantém o bloco <erros_detalhados> intacto — é ele que move os cards de correção
+ * de 1 clique — e a lista PRINCIPAIS ERROS (o contador de erros do app usa ela
+ * pro fallback de extração).
  */
 function buildLeanReportInstruction(): string {
   return [
-    "━━━ MODO RELATÓRIO ENXUTO (re-revisão — PRIORIDADE sobre o formato do system prompt) ━━━",
+    "━━━ MODO RELATÓRIO ENXUTO (PRIORIDADE sobre o formato do system prompt) ━━━",
     "",
-    "Esta NÃO é a primeira revisão deste roteiro. A roteirista já leu o relatório completo numa passada anterior e agora só quer a lista de erros pra corrigir. Pra economizar tempo, entregue SOMENTE estas duas seções, NESTA ordem, e NADA MAIS:",
+    "Esta revisão foca nos erros pra corrigir — MAS a nota e a avaliação de hate são essenciais e entram SEMPRE. Entregue SOMENTE estas seções, NESTA ordem, e NADA MAIS:",
     "",
     "1. # ❌ PRINCIPAIS ERROS — lista numerada e classificada (🟢/🟡/🟠/🔴), UMA linha curta por erro (trecho citado + qual é o problema). Sem parágrafos de análise.",
     "",
     "2. O bloco <erros_detalhados>…</erros_detalhados> COMPLETO, no formato EXATO do system prompt — um <erro> por cada item de PRINCIPAIS ERROS, com trecho_original literal e trecho_corrigido plug-and-play.",
     "",
-    "NÃO gere nesta passada: SUGESTÕES PRÁTICAS, ANÁLISE COMO LEITOR REAL, ANÁLISE DE HATER, NÍVEL DE RISCO DE HATE, NOTA FINAL, MELHORIAS PRÁTICAS. Pule essas seções inteiras — elas não entram aqui.",
+    "3. ANÁLISE DE HATER — no formato do system prompt: liste TODOS os pontos que geram ódio/rejeição encontrados, onde estão e como resolver.",
+    "",
+    "4. NÍVEL DE RISCO DE HATE — 🟢 BAIXO / 🟡 MÉDIO / 🔴 ALTO, com justificativa curta.",
+    "",
+    "5. NOTA FINAL (0 a 10) — com justificativa honesta.",
+    "",
+    "NÃO gere nesta passada: SUGESTÕES PRÁTICAS, ANÁLISE COMO LEITOR REAL, MELHORIAS PRÁTICAS. Pule essas três seções inteiras — elas não entram aqui. (A ANÁLISE DE HATER, o NÍVEL DE RISCO DE HATE e a NOTA FINAL acima são obrigatórios mesmo nesta passada enxuta.)",
     "",
     "Comece direto pelo cabeçalho # ❌ PRINCIPAIS ERROS. Sem preâmbulo.",
   ].join("\n");

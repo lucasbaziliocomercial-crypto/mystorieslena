@@ -5,6 +5,29 @@ import {
 import fs from "node:fs";
 import path from "node:path";
 
+// Marcadores que cercam o raciocínio (thinking) no stream text/plain. DEVEM
+// casar byte-a-byte com lib/stream-markers.ts (onde `splitThinking` os consome
+// no cliente). Definidos inline aqui — e NÃO importados — porque claude.ts é
+// carregado direto pelo test (`node scripts/test-build-prompt-input.mjs`), que
+// não resolve o alias `@/` nem import relativo sem extensão. Ver stream-markers.ts.
+const SOH = String.fromCharCode(1);
+const THINKING_OPEN = `${SOH}T${SOH}`;
+const THINKING_CLOSE = `${SOH}/T${SOH}`;
+
+// Sentinela do prefixo cacheável. DEVE casar byte-a-byte com
+// lib/agents/_shared/prompt-cache.ts (CACHE_PREFIX_BOUNDARY) — replicado aqui
+// inline pelo mesmo motivo dos markers acima (o test roda em node puro e não
+// resolve o alias `@/`). Se mudar lá, mude aqui também. Quando a userMessage
+// contém este marcador, buildPromptInput a quebra em dois text blocks num
+// breakpoint de prompt caching (prefixo estático cacheável + sufixo variável).
+const STX = String.fromCharCode(2);
+const CACHE_PREFIX_BOUNDARY = `${STX}CACHE_BOUNDARY${STX}`;
+
+// Acumulador de uso por processo (Pilar C — medição do loop fechado). Somado a
+// cada `result` em streamClaudeText e logado como linha `cumulative:` pra tornar
+// o hit% de cache observável ao longo de uma geração.
+const usageTotals = { input: 0, cacheRead: 0, cacheWrite: 0, output: 0 };
+
 export type ClaudeImageMime =
   | "image/jpeg"
   | "image/png"
@@ -118,11 +141,42 @@ export function buildPromptInput(params: {
       },
     });
   }
-  userContent.push({
-    type: "text",
-    text: params.userMessage,
-    cache_control: { type: "ephemeral" },
-  });
+  // Se a mensagem traz o sentinela de prefixo cacheável, quebramos em DOIS
+  // text blocks: prefixo estável (cânone+premissa+estruturas, ~20k tokens) e
+  // sufixo variável (intro do batch+sinopses+alvos). Ambos levam cache_control
+  // ephemeral — o prefixo cria um breakpoint lido cross-batch (cache_read), o
+  // sufixo (último bloco) cobre re-runs idênticos. Sem o sentinela, mantém o
+  // comportamento de bloco único (Revisor, Estrutura, calibração, refine).
+  const boundaryIdx = params.userMessage.indexOf(CACHE_PREFIX_BOUNDARY);
+  if (boundaryIdx === -1) {
+    userContent.push({
+      type: "text",
+      text: params.userMessage,
+      cache_control: { type: "ephemeral" },
+    });
+  } else {
+    const prefix = params.userMessage.slice(0, boundaryIdx).trimEnd();
+    // Defensivo: remove qualquer sentinela remanescente do sufixo (os builders
+    // inserem exatamente um) pra garantir que o caractere de controle NUNCA
+    // vaze pro texto enviado ao modelo.
+    const suffix = params.userMessage
+      .slice(boundaryIdx + CACHE_PREFIX_BOUNDARY.length)
+      .split(CACHE_PREFIX_BOUNDARY)
+      .join("\n\n")
+      .trimStart();
+    if (prefix) {
+      userContent.push({
+        type: "text",
+        text: prefix,
+        cache_control: { type: "ephemeral" },
+      });
+    }
+    userContent.push({
+      type: "text",
+      text: suffix,
+      cache_control: { type: "ephemeral" },
+    });
+  }
   return (async function* () {
     yield {
       type: "user" as const,
@@ -239,14 +293,35 @@ export async function* streamClaudeText(
       },
     });
 
+    // Estado pra cercar o raciocínio (thinking) com marcadores no stream. Só
+    // os agentes de Estrutura (thinking adaptive) produzem thinking_delta; pros
+    // demais, nada disso dispara e a saída é texto puro. Os marcadores deixam o
+    // cliente exibir o raciocínio ao vivo (esmaecido) sem que ele contamine o
+    // conteúdo final salvo. Ver lib/stream-markers.ts.
+    let thinkingOpened = false;
+    let thinkingClosed = false;
+
     for await (const msg of iter) {
       if (msg.type === "stream_event") {
         const ev = msg.event;
-        if (
-          ev.type === "content_block_delta" &&
-          ev.delta.type === "text_delta"
-        ) {
-          yield ev.delta.text;
+        if (ev.type === "content_block_delta") {
+          if (ev.delta.type === "thinking_delta") {
+            // Ignora raciocínio que reapareça DEPOIS do texto começar (raro em
+            // maxTurns:1) — fechamos a região uma vez só pra não poluir o
+            // conteúdo com texto que não casa o split de faixa única.
+            if (thinkingClosed) continue;
+            if (!thinkingOpened) {
+              thinkingOpened = true;
+              yield THINKING_OPEN;
+            }
+            yield ev.delta.thinking;
+          } else if (ev.delta.type === "text_delta") {
+            if (thinkingOpened && !thinkingClosed) {
+              thinkingClosed = true;
+              yield THINKING_CLOSE;
+            }
+            yield ev.delta.text;
+          }
         }
       } else if (msg.type === "result") {
         // Loga usage stats — útil pra confirmar que prompt caching está
@@ -262,6 +337,24 @@ export async function* streamClaudeText(
           console.log(
             `[claude.ts] usage: input=${inp ?? "?"} output=${out ?? "?"} cache_write=${cw ?? 0} cache_read=${cr ?? 0}` +
               (typeof cr === "number" && cr > 0 ? "  ← CACHE HIT" : ""),
+          );
+
+          // Acumulado por processo (o módulo vive 1× no Next server) — torna o
+          // ganho do prefixo cacheável VISÍVEL: o hit% deve subir batch a batch
+          // (1º batch grava ~20k, os demais leem). Se um reorder quebrar o
+          // prefixo, cache_read despenca e o hit% cai — regressão fácil de
+          // pegar. Risco zero: só observabilidade.
+          if (typeof inp === "number") usageTotals.input += inp;
+          if (typeof out === "number") usageTotals.output += out;
+          if (typeof cw === "number") usageTotals.cacheWrite += cw;
+          if (typeof cr === "number") usageTotals.cacheRead += cr;
+          const cacheable = usageTotals.input + usageTotals.cacheRead;
+          const hitPct =
+            cacheable > 0
+              ? Math.round((usageTotals.cacheRead / cacheable) * 100)
+              : 0;
+          console.log(
+            `[claude.ts] cumulative: input=${usageTotals.input} cache_read=${usageTotals.cacheRead} cache_write=${usageTotals.cacheWrite} output=${usageTotals.output} hit=${hitPct}%`,
           );
         }
         if (msg.subtype !== "success") {

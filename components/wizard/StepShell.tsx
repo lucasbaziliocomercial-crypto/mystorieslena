@@ -40,7 +40,9 @@ import {
   type BatchMissingChapters,
   type EscritaChapter,
   type EscritaSynopsis,
+  type EvalSnapshot,
   type RevisorError,
+  type RevisorHateRisk,
   type StepId,
   type StepOutput,
 } from "@/types/roteiro";
@@ -57,9 +59,12 @@ import {
 } from "@/lib/parse-escrita-output";
 import {
   countMarkdownErrorNumbers,
+  gravityLabel,
   hashEscritaContent,
   parseMarkdownErrorList,
   parseRevisorErrors,
+  parseRevisorHateRisk,
+  parseRevisorNota,
   serializeRevisorErrors,
   stripErrosDetalhados,
 } from "@/lib/parse-revisor-output";
@@ -85,6 +90,7 @@ import {
   isWithinTarget,
 } from "@/lib/parse-estrutura-targets";
 import { normalizeEstruturaTargets } from "@/lib/normalize-estrutura-targets";
+import { splitThinking } from "@/lib/stream-markers";
 import { MemoryVivaCard } from "@/components/wizard/MemoryVivaCard";
 import { WordCountBadge } from "@/components/wizard/WordCountBadge";
 // countWords sempre da lib canônica — mesmo contador que a UI usa pra
@@ -130,11 +136,16 @@ async function readStreamThrottled(
   };
   let checkpointId: ReturnType<typeof setInterval> | null = null;
   let lastCheckpointed = "";
+  // O checkpoint persiste APENAS o conteúdo final (sem o raciocínio) — o
+  // partial salvo em localStorage não pode carregar marcadores nem thinking.
+  // O preview ao vivo (setLive) recebe o texto CRU com marcadores; a UI
+  // separa e mostra o raciocínio esmaecido. Ver lib/stream-markers.ts.
   if (onCheckpoint) {
     checkpointId = setInterval(() => {
-      if (acc.length > 0 && acc !== lastCheckpointed) {
-        lastCheckpointed = acc;
-        onCheckpoint(acc);
+      const clean = splitThinking(acc).content;
+      if (clean.length > 0 && clean !== lastCheckpointed) {
+        lastCheckpointed = clean;
+        onCheckpoint(clean);
       }
     }, checkpointMs);
   }
@@ -157,12 +168,229 @@ async function readStreamThrottled(
     // Último checkpoint garante que se o stream terminar entre dois ticks do
     // intervalo, o partial mais recente seja persistido (ainda como partial —
     // o callsite limpa o flag depois quando concluir o concat final).
-    if (onCheckpoint && acc.length > 0 && acc !== lastCheckpointed) {
-      onCheckpoint(acc);
+    if (onCheckpoint) {
+      const clean = splitThinking(acc).content;
+      if (clean.length > 0 && clean !== lastCheckpointed) {
+        onCheckpoint(clean);
+      }
     }
     setLive(acc);
   }
-  return acc;
+  // Retorna o conteúdo final SEM o raciocínio — todo callsite que finaliza
+  // (parse, setOutput, merge) consome texto limpo, sem precisar saber dos
+  // marcadores. Pros steps sem thinking, splitThinking é identidade.
+  return splitThinking(acc).content;
+}
+
+/**
+ * Preview ao vivo que separa o raciocínio (thinking) do conteúdo. Enquanto o
+ * modelo só pensa (Estrutura roda com thinking adaptive), mostra o raciocínio
+ * ESMAECIDO sob o rótulo "Pensando…"; assim que o texto real começa a fluir,
+ * troca pro conteúdo no estilo normal. Pros steps sem thinking, `raw` nunca tem
+ * marcadores e isto renderiza só o conteúdo (idêntico ao comportamento antigo).
+ * Ver lib/stream-markers.ts.
+ */
+function LiveStreamPreview({
+  raw,
+  contentClassName,
+  tail,
+}: {
+  raw: string;
+  contentClassName: string;
+  tail?: number;
+}) {
+  const { thinking, content } = splitThinking(raw);
+  // Clipa a CAUDA (proteção OOM: um output anômalo não pode inflar o <pre> e
+  // sufocar o renderer — ver MEMORY.md). Prefixa um aviso quando trunca.
+  const clip = (s: string) =>
+    tail && s.length > tail
+      ? `… (mostrando o trecho mais recente)\n\n${s.slice(-tail)}`
+      : s;
+  if (content) {
+    return <pre className={contentClassName}>{clip(content)}</pre>;
+  }
+  if (thinking) {
+    return (
+      <div className="flex flex-col gap-1.5 border-t border-primary/20 pt-3">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/70 flex items-center gap-1.5">
+          <Loader2 className="size-3 animate-spin" />
+          Pensando…
+        </span>
+        <pre className="whitespace-pre-wrap font-sans text-[12px] leading-relaxed italic text-muted-foreground/60 max-h-48 overflow-auto">
+          {clip(thinking)}
+        </pre>
+      </div>
+    );
+  }
+  return null;
+}
+
+/**
+ * Banner de veredito do Revisor (advisory — NUNCA bloqueia). Mostra a Nota e a
+ * contagem de erros por gravidade e sugere se a roteirista PODE FINALIZAR ou se
+ * VALE MAIS UMA RODADA. Critério (decisão do usuário): Nota ≥ 8 E zero erros
+ * gravíssimos. Computado no display a partir do relatório + metadata.errors —
+ * objetivo: cortar a 3ª revisão por hábito quando 2 já bastam (a 1ª geração é a
+ * mais lenta, então pular uma rodada economiza tempo real). Ver MEMORY.md.
+ */
+const HATE_RISK_LABEL: Record<
+  RevisorHateRisk,
+  { emoji: string; label: string }
+> = {
+  baixo: { emoji: "🟢", label: "hate baixo" },
+  medio: { emoji: "🟡", label: "hate médio" },
+  alto: { emoji: "🔴", label: "hate alto" },
+};
+
+/** Tempo relativo compacto pra trilha de qualidade ("agora", "há 5 min"…). */
+function evalRelTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const min = Math.round(diff / 60000);
+  if (min < 1) return "agora";
+  if (min < 60) return `há ${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `há ${h} h`;
+  return `há ${Math.round(h / 24)} d`;
+}
+
+function RevisorVerdictBanner({
+  content,
+  errors,
+  evals,
+  part,
+}: {
+  content: string;
+  errors: RevisorError[];
+  evals: EvalSnapshot[];
+  part: 1 | 2;
+}) {
+  const nota = parseRevisorNota(content);
+  const hateRisk = parseRevisorHateRisk(content);
+  const counts = { gravissimo: 0, interfere: 0, atencao: 0, naoInterfere: 0 };
+  for (const e of errors) counts[e.gravidade] += 1;
+
+  const order = ["gravissimo", "interfere", "atencao", "naoInterfere"] as const;
+  const countChips = order
+    .filter((g) => counts[g] > 0)
+    .map(
+      (g) =>
+        `${gravityLabel(g).emoji} ${counts[g]} ${gravityLabel(g).label.toLowerCase()}`,
+    )
+    .join(" · ");
+
+  const canFinish = nota !== null && nota >= 8 && counts.gravissimo === 0;
+  const reason =
+    nota === null
+      ? "nota não detectada — confira no relatório"
+      : counts.gravissimo > 0
+        ? `${counts.gravissimo} gravíssimo${counts.gravissimo > 1 ? "s" : ""} a resolver`
+        : nota < 8
+          ? "nota abaixo de 8"
+          : "";
+
+  // Trilha versionada desta Parte (mais antigo → mais recente). O eval da
+  // rodada atual já foi gravado quando a geração terminou, então o último item
+  // é o atual e o penúltimo é a rodada anterior (base do Δ).
+  const partEvals = evals.filter((e) => e.parte === part);
+  const prev =
+    partEvals.length >= 2 ? partEvals[partEvals.length - 2] : undefined;
+  const delta =
+    nota !== null && prev?.nota != null
+      ? Math.round((nota - prev.nota) * 10) / 10
+      : null;
+  // Últimas rodadas (mais recente primeiro), cap 6, pra o histórico de qualidade.
+  const recent = [...partEvals].reverse().slice(0, 6);
+
+  return (
+    <div
+      className={cn(
+        "rounded-lg border px-4 py-3 flex flex-col gap-2",
+        canFinish
+          ? "border-emerald-300 bg-emerald-50"
+          : "border-amber-300 bg-amber-50",
+      )}
+    >
+      <div className="flex items-center gap-3 flex-wrap">
+        <span className="text-sm font-semibold tabular-nums">
+          ⭐ Nota {nota !== null ? `${nota}/10` : "—"}
+        </span>
+        {delta !== null && delta !== 0 && (
+          <span
+            className={cn(
+              "text-xs font-semibold tabular-nums",
+              delta > 0 ? "text-emerald-700" : "text-rose-700",
+            )}
+            title="Variação vs a rodada de revisão anterior desta Parte"
+          >
+            {delta > 0 ? `▲ +${delta}` : `▼ ${delta}`}
+          </span>
+        )}
+        {hateRisk && (
+          <span className="text-xs font-medium tabular-nums">
+            {HATE_RISK_LABEL[hateRisk].emoji} {HATE_RISK_LABEL[hateRisk].label}
+          </span>
+        )}
+        <span
+          className={cn(
+            "text-sm font-semibold",
+            canFinish ? "text-emerald-800" : "text-amber-800",
+          )}
+        >
+          {canFinish ? "✅ Pode finalizar" : "⚠️ Vale mais uma rodada"}
+        </span>
+        {!canFinish && reason && (
+          <span className="text-xs text-muted-foreground">({reason})</span>
+        )}
+      </div>
+      <div className="text-xs text-muted-foreground">
+        {countChips || "Nenhum erro estruturado apontado."}
+      </div>
+
+      {recent.length >= 2 && (
+        <details className="text-xs">
+          <summary className="cursor-pointer text-muted-foreground hover:text-foreground select-none">
+            📈 Histórico de qualidade ({partEvals.length} rodada
+            {partEvals.length > 1 ? "s" : ""})
+          </summary>
+          <ul className="mt-1.5 flex flex-col gap-1">
+            {recent.map((ev, i) => {
+              const erros =
+                ev.counts.gravissimo +
+                ev.counts.interfere +
+                ev.counts.atencao +
+                ev.counts.naoInterfere;
+              return (
+                <li
+                  key={ev.id}
+                  className="flex items-center gap-2 tabular-nums text-muted-foreground"
+                >
+                  <span className="font-semibold text-foreground">
+                    {ev.nota !== null ? `${ev.nota}/10` : "—"}
+                  </span>
+                  {ev.hateRisk && (
+                    <span>{HATE_RISK_LABEL[ev.hateRisk].emoji}</span>
+                  )}
+                  <span>
+                    {erros} erro{erros === 1 ? "" : "s"}
+                  </span>
+                  {ev.canFinish && <span className="text-emerald-700">✅</span>}
+                  <span className="text-muted-foreground/60">
+                    {evalRelTime(ev.at)}
+                    {i === 0 ? " · atual" : ""}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </details>
+      )}
+
+      <p className="text-[10px] text-muted-foreground/70">
+        Sugestão automática (Nota ≥ 8 e sem gravíssimos) — você decide; não trava
+        nada. O histórico mostra se cada re-rodada melhorou ou piorou.
+      </p>
+    </div>
+  );
 }
 
 type WizardProgress =
@@ -240,6 +468,7 @@ export function StepShell({ step }: Props) {
   const setAutoAdvance = useWizard((s) => s.setAutoAdvance);
   const setIsGenerating = useWizard((s) => s.setIsGenerating);
   const setOutput = useWizard((s) => s.setOutput);
+  const recordEval = useWizard((s) => s.recordEval);
   const updateOutputContent = useWizard((s) => s.updateOutputContent);
   const setUserInput = useWizard((s) => s.setUserInput);
   const clearDraft = useWizard((s) => s.clearDraft);
@@ -271,6 +500,17 @@ export function StepShell({ step }: Props) {
             (j.status === "running" || j.status === "queued"),
         )
       : undefined;
+
+  // Algum job de Revisão (P1 ou P2) ativo neste roteiro — usado pelo botão
+  // "Revisar as duas Partes em paralelo" pra refletir estado e desabilitar.
+  const revisorJobActive =
+    !!roteiro &&
+    queueJobs.some(
+      (j) =>
+        j.roteiroId === roteiro.id &&
+        (j.step === "revisor1" || j.step === "revisor2") &&
+        (j.status === "running" || j.status === "queued"),
+    );
 
   // Último job com ERRO deste roteiro+step (Escrita) — pra mostrar a causa real
   // (login/cota/rede) no banner de "interrompida", em vez de só "interrompida".
@@ -474,6 +714,26 @@ export function StepShell({ step }: Props) {
     }
     return {};
   }, [step, category]);
+
+  // Conteúdo por Parte (só Escrita com chapters) pros selos de palavras
+  // separados. Agrupa por canonPart; a CONTAGEM fica a cargo do WordCountBadge
+  // (countWords — a junção por "\n\n" conta igual à soma por capítulo dos cards).
+  // `all` = só a prosa dos capítulos (sem cabeçalhos/markers do output.content),
+  // então Parte 1 + Parte 2 == Total EXATO — e bate com os alvos por-Parte (que
+  // são medidos na prosa) e com a contagem de cada ChapterCard.
+  const escritaPartContent = useMemo(() => {
+    if (step !== "escrita" || chapters.length === 0) return null;
+    const p1: string[] = [];
+    const p2: string[] = [];
+    for (const ch of chapters) {
+      (canonPart(ch.part) === "parte 2" ? p2 : p1).push(ch.content);
+    }
+    return {
+      p1: p1.join("\n\n"),
+      p2: p2.join("\n\n"),
+      all: [...p1, ...p2].join("\n\n"),
+    };
+  }, [step, chapters]);
 
   const generate = useCallback(async (
     /**
@@ -1335,6 +1595,13 @@ export function StepShell({ step }: Props) {
           },
           generatedAt: startedAt,
         });
+        // Eval de qualidade (Karpathy): registra nota+hate+erros no log
+        // versionado. Custo zero de cota — deriva do relatório recém-gerado.
+        recordEval(step, {
+          content: cleanContent,
+          metadata: { errors, escritaSnapshotHash },
+          generatedAt: startedAt,
+        });
         setDraft(cleanContent);
         setLiveStream("");
         setBatchProgress(null);
@@ -1532,6 +1799,18 @@ export function StepShell({ step }: Props) {
           },
           generatedAt: startedAt,
         });
+        // Eval de qualidade (Karpathy): registra no log versionado a cada
+        // re-geração de revisão — é o sinal de "melhorou ou piorou".
+        if (isRevisorStep(step)) {
+          recordEval(step, {
+            content: cleanContent,
+            metadata: {
+              errors,
+              ...(escritaSnapshotHash ? { escritaSnapshotHash } : {}),
+            },
+            generatedAt: startedAt,
+          });
+        }
         setDraft(cleanContent);
       } else if (
         isRefine &&
@@ -1839,6 +2118,7 @@ export function StepShell({ step }: Props) {
     autoAdvance,
     output,
     setOutput,
+    recordEval,
     setIsGenerating,
     setCurrentStep,
     pushOutputToHistory,
@@ -1885,6 +2165,42 @@ export function StepShell({ step }: Props) {
       draftInput || committedInput || undefined,
       true,
     );
+  }, [roteiro, enqueueStep, queueJobs, removeJob]);
+
+  // Revisão das duas Partes EM PARALELO: enfileira revisor1 E revisor2 de uma
+  // vez. O lock do QueueRunner é por `${roteiroId}:${step}`, então as duas rodam
+  // ao mesmo tempo na fila (cada uma grava sua própria chave de step; limitado
+  // por MAX_CONCURRENT). ~Corta pela metade o wall-clock da revisão (antes 7+7
+  // sequencial). A P2 roda SEM o relatório consolidado da P1 como contexto nesta
+  // 1ª passada — re-rodar a P2 depois (enxuta/rápida) pega inconsistências
+  // cruzadas. Snapshot do input "Ajustes opcionais" de cada step. `enqueue` é
+  // idempotente por (roteiro, step), então não duplica se uma Parte já estiver
+  // rodando. `setForceRevisor2Parallel` libera a tela do revisor2 pra ela mostrar
+  // o job rodando (sem isso o gate suave continua escondendo).
+  const reviseBothParts = useCallback(() => {
+    if (!roteiro) return;
+    for (const j of queueJobs) {
+      if (
+        j.roteiroId === roteiro.id &&
+        (j.step === "revisor1" || j.step === "revisor2") &&
+        (j.status === "error" || j.status === "done")
+      ) {
+        removeJob(j.id);
+      }
+    }
+    enqueueStep(
+      roteiro.id,
+      roteiro.title,
+      "revisor1",
+      roteiro.userInputs?.revisor1 || undefined,
+    );
+    enqueueStep(
+      roteiro.id,
+      roteiro.title,
+      "revisor2",
+      roteiro.userInputs?.revisor2 || undefined,
+    );
+    setForceRevisor2Parallel(true);
   }, [roteiro, enqueueStep, queueJobs, removeJob]);
 
   // Regerar UM capítulo individual no step Escrita. Reusa o pipeline 2-em-2
@@ -2276,7 +2592,7 @@ export function StepShell({ step }: Props) {
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
             <Button
-              onClick={() => setForceRevisor2Parallel(true)}
+              onClick={reviseBothParts}
               size="lg"
               className="gap-2"
             >
@@ -2446,7 +2762,35 @@ export function StepShell({ step }: Props) {
             )}
             {hasContent &&
               !isEditing &&
-              (step === "escrita" || step === "estrutura1" || step === "estrutura2") && (
+              (step === "escrita" || step === "estrutura1" || step === "estrutura2") &&
+              (step === "escrita" && escritaPartContent ? (
+                // Escrita: Parte 1 + Parte 2 separadas + Total (cada uma com seu
+                // alvo/cor). Pra saber onde estão as palavras de cada Parte.
+                <>
+                  <WordCountBadge
+                    content={escritaPartContent.p1}
+                    targetMin={CATEGORIES[category].wordCount.parte1.min}
+                    targetMax={CATEGORIES[category].wordCount.parte1.max}
+                    margin={300}
+                    label="Parte 1"
+                  />
+                  <WordCountBadge
+                    content={escritaPartContent.p2}
+                    targetMin={CATEGORIES[category].wordCount.parte2.min}
+                    targetMax={CATEGORIES[category].wordCount.parte2.max}
+                    margin={300}
+                    label="Parte 2"
+                  />
+                  <WordCountBadge
+                    content={escritaPartContent.all}
+                    targetMin={wordCountTarget.min}
+                    targetMax={wordCountTarget.max}
+                    margin={500}
+                    label="Total"
+                  />
+                </>
+              ) : (
+                // Estrutura, ou Escrita legada sem chapters: selo único de hoje.
                 <WordCountBadge
                   content={output?.content ?? ""}
                   targetMin={wordCountTarget.min}
@@ -2454,7 +2798,7 @@ export function StepShell({ step }: Props) {
                   margin={500}
                   label={wordCountTarget.label}
                 />
-              )}
+              ))}
           </div>
           <div className="flex items-center gap-2">
             {hasContent && !isEditing && (
@@ -2493,6 +2837,21 @@ export function StepShell({ step }: Props) {
             )}
           </div>
         </div>
+
+        {/* Veredito do Revisor (advisory): Nota + erros + "pode finalizar?" —
+            ajuda a parar em 2 rodadas quando já está bom. Não bloqueia. */}
+        {isRevisorStep(step) &&
+          hasContent &&
+          !isGenerating &&
+          !isEditing &&
+          !output?.content?.trim().startsWith("[") && (
+            <RevisorVerdictBanner
+              content={output?.content ?? ""}
+              errors={output?.metadata?.errors ?? []}
+              evals={roteiro?.evals ?? []}
+              part={partOfRevisorStep(step)}
+            />
+          )}
 
         {isEditing ? (
           <Textarea
@@ -2590,9 +2949,13 @@ export function StepShell({ step }: Props) {
               </span>
             </div>
             {liveStream ? (
-              <pre className="whitespace-pre-wrap font-sans text-[13px] leading-relaxed text-foreground/85 max-h-[55vh] overflow-auto border-t border-primary/20 pt-3">
-                {liveStream}
-              </pre>
+              // Renderiza só a CAUDA do stream (proteção OOM — ver MEMORY.md) e
+              // separa o raciocínio (esmaecido "Pensando…") do conteúdo.
+              <LiveStreamPreview
+                raw={liveStream}
+                tail={8000}
+                contentClassName="whitespace-pre-wrap font-sans text-[13px] leading-relaxed text-foreground/85 max-h-[55vh] overflow-auto border-t border-primary/20 pt-3"
+              />
             ) : (
               <p className="text-sm text-muted-foreground italic">
                 Conectando ao agente…
@@ -2673,45 +3036,85 @@ export function StepShell({ step }: Props) {
               Rodando em 2º plano — você pode trocar de guia ou fechar esta que a
               geração continua.
             </p>
-            {/* Preview ao vivo do texto sendo gerado (só o batch atual; a
-                calibração roda silenciosa). Vazio entre batches/ao calibrar. */}
+            {/* Preview ao vivo do texto sendo gerado. Na Escrita é o batch atual
+                (calibração roda silenciosa, vazio entre batches). Na Estrutura,
+                mostra o raciocínio esmaecido ("Pensando…") até o texto começar a
+                fluir — ver LiveStreamPreview/lib/stream-markers.ts. */}
             {queueLiveStream && (
-              <pre className="whitespace-pre-wrap font-sans text-[12px] leading-relaxed text-foreground/80 max-h-64 overflow-auto border-t border-primary/20 pt-3 mt-1">
-                {queueLiveStream.slice(-2000)}
-              </pre>
+              <LiveStreamPreview
+                raw={queueLiveStream}
+                tail={2000}
+                contentClassName="whitespace-pre-wrap font-sans text-[12px] leading-relaxed text-foreground/80 max-h-64 overflow-auto border-t border-primary/20 pt-3 mt-1"
+              />
             )}
           </div>
         )}
 
         <div className="flex items-center gap-2 flex-wrap pt-2">
           {!isGenerating ? (
-            isRevisorStep(step) && hasContent ? (
+            isRevisorStep(step) ? (
               <>
+                {hasContent ? (
+                  <>
+                    <Button
+                      onClick={() => generate("regenerate")}
+                      size="lg"
+                      variant="outline"
+                      className="gap-2"
+                      disabled={!!stepJob}
+                    >
+                      <RotateCcw className="size-4" />
+                      Gerar novamente
+                    </Button>
+                    <Button
+                      onClick={() =>
+                        generate(
+                          "regenerate",
+                          undefined,
+                          "Antes de continuar revisão",
+                          true,
+                        )
+                      }
+                      size="lg"
+                      className="gap-2"
+                      disabled={!!stepJob}
+                    >
+                      <Sparkles className="size-4" />
+                      Continuar revisão
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    onClick={() => generate("regenerate")}
+                    size="lg"
+                    className="gap-2"
+                    disabled={!!stepJob}
+                  >
+                    {stepJob ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="size-4" />
+                    )}
+                    {stepJob ? "Gerando em 2º plano…" : generateLabel}
+                  </Button>
+                )}
+                {/* Dispara revisor1 ‖ revisor2 juntos (cada um no seu step da
+                    fila) — ~metade do tempo da revisão. A P2 roda sem o
+                    relatório da P1; re-rode a P2 depois pra pegar cruzados. */}
                 <Button
-                  onClick={() => generate("regenerate")}
+                  onClick={reviseBothParts}
                   size="lg"
-                  variant="outline"
+                  variant="secondary"
                   className="gap-2"
-                  disabled={!!stepJob}
+                  disabled={revisorJobActive}
+                  title="Enfileira a revisão da Parte 1 e da Parte 2 ao mesmo tempo (mais rápido — a Parte 2 roda sem o relatório da Parte 1; re-rode a Parte 2 depois pra pegar inconsistências cruzadas)."
                 >
-                  <RotateCcw className="size-4" />
-                  Gerar novamente
-                </Button>
-                <Button
-                  onClick={() =>
-                    generate(
-                      "regenerate",
-                      undefined,
-                      "Antes de continuar revisão",
-                      true,
-                    )
-                  }
-                  size="lg"
-                  className="gap-2"
-                  disabled={!!stepJob}
-                >
-                  <Sparkles className="size-4" />
-                  Continuar revisão
+                  {revisorJobActive ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="size-4" />
+                  )}
+                  Revisar as duas Partes (paralelo)
                 </Button>
               </>
             ) : (

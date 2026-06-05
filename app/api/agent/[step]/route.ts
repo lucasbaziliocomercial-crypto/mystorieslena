@@ -35,6 +35,9 @@ interface Body {
   batch?: AgentBatchContext;
   /** Sinopses dos capítulos já gerados em batches anteriores. */
   previousSynopses?: EscritaSynopsis[];
+  /** Sinopses da OUTRA Parte já escritas (contexto cruzado P1 → P2 na Escrita
+   *  paralela). A P2 usa pra não contradizer fatos já narrados na P1. */
+  crossPartSynopses?: EscritaSynopsis[];
   /** Fase do agente Premissa: "resumo" (Bloco 0) ou "estrutura" (Blocos 1-8). */
   premissaPhase?: "resumo" | "estrutura";
   /** Resumo (Bloco 0) já aprovado pelo usuário — exigido na fase "estrutura". */
@@ -117,6 +120,9 @@ export async function POST(
     ...(body.batch ? { batch: body.batch } : {}),
     ...(body.previousSynopses
       ? { previousSynopses: body.previousSynopses }
+      : {}),
+    ...(body.crossPartSynopses && body.crossPartSynopses.length > 0
+      ? { crossPartSynopses: body.crossPartSynopses }
       : {}),
     ...(body.premissaPhase ? { premissaPhase: body.premissaPhase } : {}),
     ...(body.approvedResumo ? { approvedResumo: body.approvedResumo } : {}),

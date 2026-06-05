@@ -48,6 +48,16 @@ export interface AgentContext {
   /** Sinopses dos capítulos já gerados em batches anteriores (continuidade). */
   previousSynopses?: EscritaSynopsis[];
   /**
+   * Sinopses da OUTRA Parte já escritas até aqui (contexto cruzado P1 → P2).
+   * Como o motor headless gera P1 ‖ P2 em paralelo, a P2 recebe aqui os fatos
+   * que a P1 JÁ narrou (leitura best-effort, sem bloquear o paralelismo) pra não
+   * contradizer concepção/posições/relações estabelecidas — evita os GRAVES
+   * "personagem em dois lugares" e "contradição de concepção P1↔P2". Renderizado
+   * por `lib/agents/_shared/cross-part-block.ts`. Vazio na P1 e nos batches da
+   * P2 anteriores à 1ª sinopse da P1.
+   */
+  crossPartSynopses?: EscritaSynopsis[];
+  /**
    * Fase do agente Premissa. "resumo" pede só o Bloco 0 (dois resumos longos);
    * "estrutura" pede Blocos 1-8 com o resumo já aprovado em `approvedResumo`.
    * Outros agentes ignoram.
@@ -65,13 +75,14 @@ export interface AgentContext {
    */
   previousRevisorErrors?: string[];
   /**
-   * Modo "relatório enxuto" do Revisor — true a partir da 2ª passada (re-geração
-   * ou "Continuar revisão"). A 1ª revisão entrega o relatório completo (Análise
-   * de Leitor, Hater, Nota, Melhorias); as seguintes entregam SÓ o bloco de
-   * erros (PRINCIPAIS ERROS enxuto + <erros_detalhados>), que é o que move os
-   * cards de correção 1-clique. Como output domina o wall-clock, cortar o ensaio
-   * nas re-rodadas ~corta o tempo da ação que as roteiristas mais repetem.
-   * Só relevante pros steps "revisor1"/"revisor2". Injetado na factory
+   * Modo "relatório enxuto" do Revisor — true em TODAS as passadas, inclusive a
+   * 1ª (a roteirista optou por enxugar já na 1ª pra acelerar a revisão). Entrega
+   * SÓ o bloco de erros (PRINCIPAIS ERROS enxuto + <erros_detalhados>, que move os
+   * cards de correção 1-clique) + a NOTA FINAL + a ANÁLISE/NÍVEL DE RISCO DE HATE
+   * (travados — essenciais), pulando o ensaio (Análise de Leitor, Sugestões,
+   * Melhorias). Como output domina o wall-clock, cortar o ensaio ~corta o tempo da
+   * ação que as roteiristas mais repetem. Só relevante pros steps
+   * "revisor1"/"revisor2". Injetado na factory
    * `lib/agents/_shared/build-revisor-agent.ts`.
    */
   leanRevisorReport?: boolean;

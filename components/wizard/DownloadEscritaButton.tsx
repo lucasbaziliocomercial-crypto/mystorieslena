@@ -8,6 +8,7 @@ import {
   buildEscritaHtmlDocument,
   detectMaleLeadFromFullRoteiro,
   escritaContentToHtml,
+  extractFemaleLeadNameFromEstrutura,
   extractMaleLeadNameFromEstrutura,
 } from "@/lib/export-html";
 import { cn } from "@/lib/utils";
@@ -52,6 +53,11 @@ export function DownloadEscritaButton({
         extractMaleLeadNameFromEstrutura(roteiro.outputs.estrutura1?.content) ??
         extractMaleLeadNameFromEstrutura(roteiro.outputs.estrutura2?.content) ??
         detectMaleLeadFromFullRoteiro(escritaContent);
+      // Nome da FMC (heroína) da Estrutura — guarda dura: o POV dela NUNCA
+      // fica verde na Parte 2. Sem heurística (só Estrutura).
+      const femaleLeadName =
+        extractFemaleLeadNameFromEstrutura(roteiro.outputs.estrutura1?.content) ??
+        extractFemaleLeadNameFromEstrutura(roteiro.outputs.estrutura2?.content);
       // `chapters` vai pro export como source-of-truth da Parte (cada cap
       // sabe se é "Parte 1" ou "Parte 2"). Garante que a coloração verde
       // do MMC na Parte 2 sobreviva mesmo se o header `# PARTE 2` for
@@ -59,6 +65,7 @@ export function DownloadEscritaButton({
       const chapters = roteiro.outputs.escrita?.metadata?.chapters;
       const bodyHtml = escritaContentToHtml(escritaContent, {
         maleLeadName,
+        femaleLeadName,
         chapters,
       });
       const html = buildEscritaHtmlDocument(title, bodyHtml);

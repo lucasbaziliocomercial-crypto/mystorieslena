@@ -101,10 +101,10 @@ Crie um hook extremamente comercial, viciante e irresistível, com clima de roma
 
 **Regra inegociável do título e do hook:**
 - O título oficial da história chega como bloco "TÍTULO OFICIAL DA HISTÓRIA" no início da mensagem do usuário.
-- O hook principal E as 3 versões alternativas precisam expandir esse título literal — não um tema parecido, não uma reformulação, não uma "interpretação".
+- O hook principal E a versão alternativa precisam expandir esse título literal — não um tema parecido, não uma reformulação, não uma "interpretação".
 - A primeira frase de cada hook deve ecoar o título de forma reconhecível (palavras-chave do título aparecendo logo na abertura).
 - É proibido inventar outro título, sugerir variações ou ignorar o título por preferência estética.
-- Antes de fechar a etapa de Hook, releia as 4 versões e confirme: a expansão do título está clara em cada uma? Se não, refaça.
+- Antes de fechar a etapa de Hook, releia as 2 versões e confirme: a expansão do título está clara em cada uma? Se não, refaça.
 - Se o bloco "TÍTULO OFICIAL" NÃO chegou, CRIE um título provisório comercial a partir da premissa, anuncie-o no bloco "📖 TÍTULO DA HISTÓRIA" e expanda-o no hook — NUNCA bloqueie, NUNCA devolva mensagem de erro.
 
 **Diretrizes do hook:**
@@ -132,8 +132,8 @@ Crie um hook extremamente comercial, viciante e irresistível, com clima de roma
 
 **Entregue:**
 - 1 hook principal
-- 3 versões alternativas
-- Todos com forte apelo comercial, com cliffhanger, sem ser genéricos, sem parecer escritos por IA, com impacto de best-seller digital.
+- 1 versão alternativa
+- Ambos com forte apelo comercial, com cliffhanger, sem ser genéricos, sem parecer escritos por IA, com impacto de best-seller digital.
 
 ━━━ UNIVERSO DE PODER E RIQUEZA ━━━
 
@@ -397,10 +397,8 @@ Entregue exatamente neste formato, com estes cabeçalhos e nesta ordem:
 **Hook principal (90-120 palavras):**
 [texto]
 
-**3 versões alternativas:**
+**1 versão alternativa:**
 1. [texto]
-2. [texto]
-3. [texto]
 
 # 📚 CAPÍTULOS
 
@@ -425,67 +423,19 @@ Entregue exatamente neste formato, com estes cabeçalhos e nesta ordem:
 (Total deve fechar entre 11.300 e 11.700 palavras.)
 
 # ❓ QUESTIONAMENTO FINAL
-- O que a FMC questiona no final: [descrição]
-- Como aparece: [em pensamento / gesto / silêncio]
-- Tom: [sutil, leve, curioso — nunca dramático]
-
-# 🎭 TEMAS GERAIS
-- [Tema 1]
-- [Tema 2]
-- [Tema 3]
+- [O que a FMC questiona no final + como aparece (pensamento/gesto/silêncio) — sutil, leve, nunca dramático]
 
 # 📈 ARCOS EMOCIONAIS
-- MMC: de [X] para [Y]
-- FMC: de [X] para [Y]
-- O casal: de [X] para [Y]
+- MMC: de [X] para [Y] / FMC: de [X] para [Y] / O casal: de [X] para [Y]
 
-# 🔥 MOMENTOS-CHAVE
-- **Comédia:** [3 momentos com cena e justificativa]
-- **Drama:** [3 cenas de maior peso]
-- **Tensão sexual (quase lá):** [2 cenas]
-- **Noite juntos (apenas sugerida por elipse):** [Capítulo onde a sugestão acontece + posicionamento (início/meio/final) + função narrativa (consequência emocional ou fechamento) + como aparece a elipse (beijo, porta fechando, manhã seguinte) — JAMAIS descrever o ato]
-- **Momentos em que a FMC age ativamente:** [3 cenas com o que ela faz]
+# 🔥 CENA ÍNTIMA E FMC ATIVA
+- **Noite juntos (apenas sugerida por elipse):** [Capítulo + posicionamento (início/meio/final) + função narrativa (consequência emocional ou fechamento) + como aparece a elipse (beijo, porta fechando, manhã seguinte) — JAMAIS descrever o ato]
+- **FMC age ativamente:** [as cenas-chave em que ela decide/age]
 
-# ✅ CHECKLIST FINAL
-Marque ✓ ou explique:
-
-- [ ] O mapa da história foi montado ANTES da estrutura textual
-- [ ] O hook expande o título sem spoiler e mantém tom de mistério
-- [ ] Hook com 90-120 palavras
-- [ ] Nomes criativos, fora da lista proibida (Valentina, Camila, Isadora, Enzo, Rafael, Nico, Mateo, Rodrigo, e os do master)
-- [ ] Datas, horários e locais coerentes do início ao fim
-- [ ] Passagem de tempo marcada com clareza
-- [ ] Todos os conflitos da Parte 1 resolvidos
-- [ ] Nenhuma ponta solta sem intenção
-- [ ] Química crescente capítulo após capítulo
-- [ ] Tensão sexual implícita e constante
-- [ ] Noite juntos APENAS SUGERIDA por elipse — sem descrição corporal nem sensorial do ato em nenhum capítulo da Parte 1
-- [ ] NENHUMA cena na Parte 1 tem preliminares descritas, penetração ou clímax explicitado
-- [ ] A entrega do casal aparece como elipse narrativa (porta fechando, manhã seguinte, café compartilhado)
-- [ ] Se a sugestão da noite juntos é no início/meio, ela tem consequências emocionais reais (mais vulnerabilidade, dinâmica muda)
-- [ ] Se a sugestão é no final, funciona como fechamento emocional após resolução dos conflitos
-- [ ] Humor em pelo menos 3 momentos
-- [ ] Antagonista age ativamente
-- [ ] O casal termina junto e em paz
-- [ ] Sem casamento e sem filhos
-- [ ] Todos os personagens apresentados na primeira menção
-- [ ] Nenhum diálogo partido com reflexão interna no meio
-- [ ] **Exatamente 6 capítulos — nunca menos, nunca mais**
-- [ ] Total entre 11.300 e 11.700 palavras (rigoroso)
-- [ ] FMC tem papel ativo em todas as cenas importantes
-- [ ] FMC nunca é totalmente passiva
-- [ ] Início rápido e direto — sem excesso de descrição nos capítulos 1 e 2
-- [ ] Final desenvolvido — resolução e cena íntima com tempo para respirar
-- [ ] Questionamento final é sutil, leve, NÃO cria conflito novo
-- [ ] Questionamento final mantém o final satisfatório intacto
-- [ ] Toda cena começa com ancoragem de local
-- [ ] Toda mudança de ambiente tem transição explícita
-- [ ] Nenhum personagem teletransporta
-- [ ] Nenhum personagem ouve/vê algo impossível de sua posição
-- [ ] Objetos e cenários estabelecidos antes de serem usados
-- [ ] Toda passagem de tempo declarada
-- [ ] Dias da semana e horários consistentes
-- [ ] O mapa foi consultado antes de planejar cada capítulo
+# ✅ CONFIRME (1 linha cada, sem reproduzir as regras)
+- Narração 1ª pessoa FMC; nomes criativos fora da lista proibida; cidade da lista permitida.
+- Noite juntos só por elipse — sem descrição corporal/sensorial do ato em nenhum capítulo da Parte 1.
+- FMC ativa nas viradas; exatamente 6 capítulos; final fecha com questionamento sutil (sem conflito novo).
 
 ━━━ INSTRUÇÃO FINAL ━━━
 

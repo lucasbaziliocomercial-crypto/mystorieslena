@@ -182,6 +182,10 @@ Frases diretas e claras — sem rodeios. Sempre identificar quem está falando. 
 ❌ Mencionar no texto da história as palavras: "narrador", "autor", "escritor", "narração", "leitor", "quem lê", "quem escreve".
 ❌ Qualquer quebra de quarta parede — o narrador nunca se dirige ao leitor, nunca se anuncia, nunca comenta sobre a própria narrativa.
 ❌ Usar expressões como "como já foi contado", "como vimos", "voltando à história", "retornando aos nossos personagens", "o leitor lembra".
+❌ Personagem teletransportando entre locais sem transição; mudança de ambiente sem sinalização clara.
+❌ Personagem ouvindo/vendo algo fisicamente impossível da posição onde está (sentidos obedecem à física).
+❌ Objeto ou cenário aparecendo sem ter sido estabelecido antes.
+❌ Pular dias/horários sem declarar a passagem de tempo; datas, idades e prazos que não batem (o MAPA é a fonte de verdade).
 
 📄 LAYOUT DE SAÍDA — MODELO OBRIGATÓRIO
 
@@ -238,58 +242,10 @@ Conflito 1: [como foi resolvido]
 Conflito 2: [como foi resolvido]
 Conflito 3: [como foi resolvido]
 
-✅ CHECKLIST FINAL
-- [ ] A Parte 1 foi lida antes de qualquer escrita.
-- [ ] A Isca de Abertura tem entre 90 e 120 palavras.
-- [ ] A Isca é narrada em terceira pessoa pelo narrador externo onisciente.
-- [ ] A Isca não revela a resolução do conflito.
-- [ ] A Isca termina em cliffhanger absoluto.
-- [ ] O Capítulo 1 começa com o narrador focando em quem está alheio ao conflito (paz/rotina).
-- [ ] A segunda metade do Capítulo 1 foca em quem recebe a bomba.
-- [ ] O Capítulo 1 termina com cliffhanger fortíssimo.
-- [ ] Toda a narração é em terceira pessoa ONISCIENTE — narrador externo que acessa a mente da FMC E do MMC. Em NENHUM momento a FMC ou o MMC narram.
-- [ ] O narrador alterna o foco entre FMC e MMC de forma natural e fluida — sem que nenhum deles assuma a voz narrativa.
-- [ ] Nenhum marcador visual ✦ NOME (ou variantes ✧/♦/★/▲) e nenhum marcador de POV alternado apareceu em qualquer capítulo — o foco onisciente é fluido, sem blocos rotulados.
-- [ ] Nenhum trecho usa "eu/me/mim/meu/minha" fora de diálogos diretos.
-- [ ] Nenhum trecho usa "nós/nosso/nossa" como voz narrativa.
-- [ ] Em NENHUM momento aparecem as palavras "Parte 1", "Parte 2", "capítulo anterior", "livro anterior", "história anterior", "continuação".
-- [ ] Em NENHUM momento aparecem as palavras "narrador", "autor", "escritor", "narração", "leitor", "quem lê".
-- [ ] O narrador jamais se anuncia ou se refere a si mesmo.
-- [ ] Nomes e perfis coerentes com a Parte 1.
-- [ ] Datas, locais e tempo coerentes com a Parte 1.
-- [ ] Todos os conflitos pendentes foram resolvidos.
-- [ ] A cena erótica está posicionada de acordo com a regra flexível (química, clima e progressão construídos antes).
-- [ ] A pergunta "se eu remover esta cena, a evolução emocional do casal perde força?" foi respondida com SIM.
-- [ ] A cena erótica tem construção prévia de tensão, olhares, toques e/ou quase-acontece.
-- [ ] A cena erótica é narrada em terceira pessoa onisciente.
-- [ ] Nenhuma cena erótica usa vocabulário vulgar ou +18.
-- [ ] Há pelo menos 3 easter eggs — todos surgem de forma natural.
-- [ ] O humor aparece em pelo menos 3 momentos.
-- [ ] O antagonista teve consequências reais e finais.
-- [ ] O último capítulo entrega casamento + filhos / lua de mel / sonho realizado.
-- [ ] Todos os novos personagens foram apresentados na primeira menção.
-- [ ] Nenhum diálogo foi partido com reflexão interna no meio.
-- [ ] A história tem entre 5 e 6 capítulos.
-- [ ] A história tem no máximo 14.000 palavras.
-- [ ] A história tem no mínimo 13.000 palavras.
-
-📍 CONTINUIDADE ESPACIAL — REGRAS RIGOROSAS
-Toda cena começa com ancoragem de local. Nas primeiras linhas, o leitor precisa saber onde a personagem está.
-Toda mudança de ambiente exige uma transição explícita. Nunca "pule" de um lugar para outro sem avisar.
-Se dois personagens conversam, mantenha o cenário vivo. Insira pequenas referências ao ambiente entre as falas.
-Cuidado com cenas longas. Reforce o ambiente a cada página ou duas.
-Se a cena muda de local no meio, use quebra clara (espaço entre parágrafos, marcador *** ou frase de transição forte).
-Objetos e elementos do cenário precisam existir antes de serem usados. Nada aparece do nada.
-Personagens não teletransportam.
-Sentidos obedecem a física. Se a personagem está no andar de cima, ela NÃO ouve uma conversa em tom normal no andar de baixo sem justificativa.
-
-⏰ CONTINUIDADE TEMPORAL — REGRAS RIGOROSAS
-Toda passagem de tempo precisa ser declarada. Nunca pule dias silenciosamente.
-Referências cruzadas de tempo precisam ser consistentes.
-Horários mencionados precisam fazer sentido. Respeite o ritmo natural do dia.
-Viagens levam tempo.
-Idades e datas fixas não mudam.
-Dias da semana, se mencionados, precisam bater.
-O mapa da história é a fonte de verdade.
+✅ CONFIRME (1 linha cada, sem reproduzir as regras)
+- Isca 90–120 palavras, 3ª pessoa onisciente, cliffhanger absoluto; toda narração 3ª pessoa onisciente (acessa FMC e MMC), nenhum personagem narra, narrador nunca se anuncia.
+- Sem marcador ✦ NOME / POV rotulado; sem "eu/nós" na narração (só em diálogos); sem citar "Parte 1/narrador/leitor".
+- Cena erótica posicionada pela curva (nunca nos 1ºs caps nem no epílogo), narrada em 3ª onisciente, sem vocabulário vulgar; ≥3 easter eggs naturais; humor em ≥3 momentos.
+- Coerência total com a história anterior (nomes/datas/locais), todos os conflitos resolvidos; 5–6 capítulos; total 13.000–14.000; final entrega casamento + (filhos / lua de mel / sonho dela).
 
 Você receberá uma premissa narrativa que servirá como base obrigatória para a sua resposta. Siga rigorosamente todas as diretrizes acima.`;

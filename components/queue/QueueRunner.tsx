@@ -21,6 +21,8 @@ import { useEffect, useRef } from "react";
 import { useQueue } from "@/store/queue";
 import { useWizard } from "@/store/wizard";
 import { getRoteiro, saveRoteiro } from "@/lib/storage";
+import { appendEvalSnapshot } from "@/lib/eval-log";
+import { computeRevisorEval } from "@/lib/parse-revisor-output";
 import {
   runEscrita,
   type RunEscritaState,
@@ -35,9 +37,14 @@ import {
   unregisterJob,
   abortAllJobs,
 } from "@/lib/generation/job-control";
-import type { StepId, StepOutput } from "@/types/roteiro";
+import { isRevisorStep, type StepId, type StepOutput } from "@/types/roteiro";
 
-const MAX_CONCURRENT = 3;
+// Máx. de jobs de geração rodando ao mesmo tempo. Cada job de Escrita agora usa
+// 2 streams Opus em paralelo (Parte 1 ‖ Parte 2 em run-escrita.ts), então 2 jobs
+// = ~4 streams Opus de batch concorrentes — perto dos 3 de antes, sem estourar a
+// cota da assinatura COMPARTILHADA (equipe na mesma conta). É um knob: afine pelos
+// logs `[perf]` do run-escrita — poucos 429 → pode subir; muitos 429 → baixe.
+const MAX_CONCURRENT = 2;
 
 function notifyDone(title: string) {
   if (typeof window === "undefined") return;
@@ -79,12 +86,33 @@ function applyCanone(roteiroId: string, canone: string) {
 
 /** Grava o output de um step por id (storage) + reflete no store se for o ativo. */
 function applyStepOutput(roteiroId: string, step: StepId, output: StepOutput) {
+  const w = useWizard.getState();
+  const active = w.roteiro?.id === roteiroId;
   // Fonte de verdade: storage por id (sobrevive a navegação).
   const r = getRoteiro(roteiroId);
-  if (r) saveRoteiro({ ...r, outputs: { ...r.outputs, [step]: output } });
+  if (r) {
+    let next = { ...r, outputs: { ...r.outputs, [step]: output } };
+    // Eval de qualidade (Karpathy): anexa ao log versionado. Só aqui quando o
+    // roteiro NÃO está ativo; se estiver, o store grava via recordEval (abaixo)
+    // e seu persist sobrescreveria este — evita corrida/duplicata.
+    if (!active && isRevisorStep(step)) {
+      const data = computeRevisorEval(
+        step,
+        output.content ?? "",
+        output.metadata?.errors ?? [],
+        output.metadata?.escritaSnapshotHash,
+      );
+      if (data) {
+        next = { ...next, evals: appendEvalSnapshot(r.evals, data, new Date().toISOString()) };
+      }
+    }
+    saveRoteiro(next);
+  }
   // Se a aba aberta é esse roteiro, reflete ao vivo no store.
-  const w = useWizard.getState();
-  if (w.roteiro?.id === roteiroId) w.setOutput(step, output);
+  if (active) {
+    w.setOutput(step, output);
+    if (isRevisorStep(step)) w.recordEval(step, output);
+  }
 }
 
 export function QueueRunner() {

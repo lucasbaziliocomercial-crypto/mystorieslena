@@ -67,3 +67,7 @@ next-env.d.ts
 # nao-shippar no instalador e build-config separado (ver MAINTENANCE.md P1#3).
 /public/dev-roteiros.json
 /public/dev-seed.html
+
+# build/release logs
+release-build.log
+release-publish.log

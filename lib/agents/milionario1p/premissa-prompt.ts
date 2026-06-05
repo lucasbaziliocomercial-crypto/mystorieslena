@@ -485,8 +485,7 @@ PARA CADA ETAPA, escreva:
 - Título da etapa
 - Onde acontece
 - Tempo (em relação à etapa anterior)
-- O que a FMC acredita neste momento
-- O que a FMC ainda NÃO sabe
+- O que a FMC acredita / ainda NÃO sabe (só quando a etapa planta um segredo ou tem [REVELAÇÃO POSTERIOR])
 - Sequência numerada de acontecimentos (em ordem)
 - Tom da cena
 - ELEMENTO DE RITMO (pequena surpresa, gesto, encontro ou revelação secundária que não é parte do conflito principal — VER PARTE K)
@@ -518,23 +517,14 @@ PARA CADA ETAPA, escreva:
 - Tom da cena
 - ELEMENTO DE RITMO (pequena surpresa, gesto, encontro ou revelação secundária que não é parte do conflito principal — VER PARTE K)
 - [REVELAÇÃO POSTERIOR] quando aplicável
-- Função estrutural (o que essa etapa entrega à história como um todo)
 
 ━━━ BLOCO 7: REGRAS GLOBAIS DE ESCRITA ━━━
 
-Liste, no mínimo, estas 11 regras (adaptando o conteúdo à história gerada):
-1. POV travado em primeira pessoa, FMC, sempre — EXCETO pelas até 4 narrações em primeira pessoa do MMC permitidas na Parte 2 (VER PARTE M).
-2. Nunca cenas sem a FMC, salvo nas até 4 narrações masculinas autorizadas na Parte 2.
+Liste apenas os FATOS desta história (sem repetir as regras gerais já dadas acima):
+1. Nomes fixados — listar todos os nomes da história (proibido alterar depois).
+2. POV/narração: 1ª pessoa FMC sempre; na Parte 2, até 4 trechos em 1ª pessoa do MMC (VER PARTE M).
 3. Tempo verbal escolhido (recomendar passado reflexivo).
-4. Nada de pensar pelos outros — a FMC só deduz pelas ações dos outros.
-5. Revelações travadas — listar item por item o que só pode aparecer em qual etapa.
-6. FMC ativa em todas as decisões-chave — listar quais etapas exigem ação dela.
-7. Reconciliação acontece DO MEIO PARA O FINAL da Parte 2 (entre Etapas 14 e 18, conforme contexto), construída por toda a luta anterior. A LUTA pela reconciliação começa do meio para o final — não fica reservada à última etapa.
-8. Sem casamento, sem filhos, sem gravidez na Parte 1. Cena íntima da Parte 1 apenas SUGERIDA por elipse (sem descrição do ato).
-9. Parte 1 fecha com o casal junto e bem, com QUESTIONAMENTO SUTIL da FMC nas últimas linhas (curiosidade leve, não cliffhanger).
-10. Cena íntima OBRIGATÓRIA na Parte 2 — completa, alvo 1.000 a 1.200 palavras, com preliminares + sexo oral recíproco + penetração + clímax. Vocabulário direto e sensual permitido; palavrões/gírias chulas proibidos.
-11. Diferença estrutural Parte 1 vs Parte 2 — descrever em uma frase cada.
-12. Nomes fixados — listar todos os nomes da história e proibir alteração.
+4. Diferença estrutural Parte 1 × Parte 2 — uma frase cada.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PARTE H — MAPA DE PLANTIO E PAGAMENTO OBRIGATÓRIO
@@ -953,4 +943,4 @@ INSTRUÇÕES FINAIS DE ENTREGA
 - Indique tempo entre etapas ("semanas depois", "meses depois").
 - Use negrito para nomes de personagens e termos técnicos da estrutura.
 - Não escreva trechos do livro. Não dê exemplos de diálogo. Apenas estruture a história em ordem.
-- Antes de finalizar a entrega, verifique mentalmente: nomes contra a lista proibida, cidade contra a lista permitida, mapa de plantio e pagamento completo, ROMANCE EM PRIMEIRO PLANO em todas as 20 etapas, DESENVOLVIMENTO DA PAIXÃO concreto em cada etapa da Parte 1, FMC ATIVA em TODAS as 20 etapas (especialmente nas etapas-chave 1, 4, 10, 11, 13, 18, 20), ELEMENTO DE RITMO presente em CADA uma das 20 etapas, alternância entre tensão/leveza/surpresa/ternura ao longo da história, CONSTRUÇÃO ROMÂNTICA respeitando o cronograma (primeiro beijo não antes da Etapa 4, intimidade física não antes da Etapa 6, "eu te amo" não antes da Etapa 6), até 4 POVs masculinos distribuídos na Parte 2 com função clara, RESUMO INICIAL com linguagem clara e didática (apresentando cada personagem pelo nome, profissão, idade e situação — sem termos técnicos sem explicação), Parte 1 fechando com final SATISFATÓRIO mas SEM entrega total e SEM dúvida pairando, Parte 2 abrindo com BOMBA, RECONCILIAÇÃO entre as Etapas 14 e 18 (não apressada, construída por toda a tensão anterior), fechamento da Parte 2 com FINAL FELIZ obrigatório (casamento OU pedido OU gravidez OU filho OU realização de sonho da FMC OU viagem OU mudança de vida juntos), arco da Parte 2 diferente do arco da Parte 1.`;
+- Antes de finalizar, verifique mentalmente (NÃO escreva a verificação): nomes/cidade contra as listas, mapa de plantio e pagamento completo, FMC ativa e romance em primeiro plano nas 20 etapas, cronograma romântico respeitado (beijo não antes da Etapa 4; intimidade e "eu te amo" não antes da Etapa 6), Parte 1 satisfatória sem entrega total, Parte 2 abrindo com bomba e fechando em final feliz com arco diferente da Parte 1.`;

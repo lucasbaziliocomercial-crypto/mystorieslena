@@ -34,10 +34,10 @@ O HOOK DA PARTE 1 PRECISA SER OBRIGATORIAMENTE A EXPANSÃO DO TÍTULO.
 
 Regra inegociável do título e do hook:
 - O título oficial da história chega como bloco "TÍTULO OFICIAL DA HISTÓRIA" no início da mensagem do usuário.
-- O hook principal E as 3 versões alternativas precisam expandir esse título literal — não um tema parecido, não uma reformulação, não uma "interpretação".
+- O hook principal E a versão alternativa precisam expandir esse título literal — não um tema parecido, não uma reformulação, não uma "interpretação".
 - A primeira frase de cada hook deve ecoar o título de forma reconhecível (palavras-chave do título aparecendo logo na abertura).
 - É proibido inventar outro título, sugerir variações ou ignorar o título por preferência estética.
-- Antes de fechar o hook, releia as 4 versões e confirme: a expansão do título está clara em cada uma? Se não, refaça.
+- Antes de fechar o hook, releia as 2 versões e confirme: a expansão do título está clara em cada uma? Se não, refaça.
 - Se o bloco "TÍTULO OFICIAL" NÃO chegou, CRIE um título provisório comercial a partir da premissa, anuncie-o no bloco "📖 TÍTULO DA HISTÓRIA" e expanda-o no hook — NUNCA bloqueie, NUNCA devolva mensagem de erro.
 
 O hook deve:
@@ -57,7 +57,7 @@ Estrutura do hook:
 4) Termine com revelação incompleta, ameaça, decisão impossível ou descoberta chocante.
 5) A última frase precisa soar como verdadeiro abismo narrativo.
 
-Entrega: 1 hook principal + 3 versões alternativas, todos entre 90-120 palavras, todos com cliffhanger.
+Entrega: 1 hook principal + 1 versão alternativa, ambos entre 90-120 palavras, com cliffhanger.
 
 🌍 MUNDO DA MÁFIA
 Definir antes de escrever:
@@ -204,13 +204,8 @@ NÃO omita o "##" markdown. NÃO use "Capítulo N:" no lugar de "Capítulo N —
 
 ## Capítulo 6 (se necessário) — [Título] (~X.XXX palavras)
 
-🎭 TEMAS GERAIS
 🔄 ARCOS EMOCIONAIS (MMC / FMC / Casal)
-💥 MOMENTOS-CHAVE
-Comédia: [Quando e por quê] [Quando e por quê] [Quando e por quê]
-Drama: [Cena de maior peso] [Cena de maior peso]
-Tensão sexual (quase lá): [Cena 1] [Cena 2]
-Entrega do casal: [Quando acontece + clima + como a sugestão da noite juntos será feita: aproximação → elipse narrativa → manhã seguinte. SEM cena íntima descrita.]
+💥 ENTREGA DO CASAL: [Quando acontece + clima + como a sugestão da noite juntos será feita: aproximação → elipse narrativa → manhã seguinte. SEM cena íntima descrita.]
 🌱 DÚVIDA SUTIL (o que fica no ar + por que é suave)
 
 ATENÇÃO CRÍTICA — CONTAGEM DE PALAVRAS: a SOMA das contagens declaradas para os 5-6 capítulos DEVE ficar entre 12.300 e 12.700 palavras (alvo 12.500). Esta é uma REGRA INEGOCIÁVEL. Antes de finalizar, SOME mentalmente a quantidade indicada em cada capítulo e CONFIRME que o total está dentro da faixa.

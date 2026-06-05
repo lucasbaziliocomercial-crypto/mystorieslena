@@ -22,6 +22,7 @@ import {
   parseRevisorErrors,
   stripErrosDetalhados,
 } from "@/lib/parse-revisor-output";
+import { splitThinking } from "@/lib/stream-markers";
 import { normalizeEstruturaTargets } from "@/lib/normalize-estrutura-targets";
 
 /** Steps que o motor genérico de chamada única sabe rodar. */
@@ -74,12 +75,16 @@ async function readResponseText(
       const now = Date.now();
       if (now - lastEmit > 80) {
         lastEmit = now;
+        // CRU (com marcadores) pro preview ao vivo — a UI separa o raciocínio
+        // esmaecido. O retorno limpo abaixo é o que vira conteúdo salvo.
         onLive(acc);
       }
     }
   }
   if (onLive) onLive(acc);
-  return acc;
+  // Retorna o conteúdo final SEM o raciocínio (thinking). Pros steps sem
+  // thinking (Revisor/Premissa/Overview), splitThinking é identidade.
+  return splitThinking(acc).content;
 }
 
 /**
@@ -335,15 +340,16 @@ async function runRevisorStep(
   const escritaContent = concatenateChapters(accChapters);
   const escritaSnapshotHash = hashEscritaContent(escritaContent);
 
-  // Relatório enxuto a partir da 2ª passada: se já existe um relatório anterior
-  // deste step (output corrente não-sentinela OU entrada no histórico), pede só
-  // o bloco de erros — a 1ª passada já entregou o relatório completo. Espelha o
-  // branch "Continuar revisão" do StepShell (mantenha os dois em sincronia).
-  const priorContent = r.outputs[step]?.content?.trim() ?? "";
-  const hadPriorReport =
-    (priorContent.length > 0 && !priorContent.startsWith("[")) ||
-    (r.history?.[step]?.length ?? 0) > 0;
-
+  // Relatório enxuto SEMPRE — inclusive na 1ª passada. Como OUTPUT domina o
+  // wall-clock e só 3 coisas do relatório são consumidas por código (o bloco
+  // <erros_detalhados>, a NOTA FINAL e a lista PRINCIPAIS ERROS — ver
+  // lib/parse-revisor-output.ts), o ensaio (Sugestões Práticas / Análise como
+  // Leitor / Melhorias) é texto só pra leitura e custa caro. O modo enxuto já
+  // preserva o que importa (erros + NOTA + ANÁLISE/RISCO DE HATER, travados em
+  // buildLeanReportInstruction). Antes só ligava da 2ª passada em diante; a
+  // roteirista optou por enxugar já na 1ª pra acelerar a revisão (ver MEMORY.md
+  // / CLAUDE.md). Espelha o branch "Continuar revisão" do StepShell, que também
+  // manda leanRevisorReport: true (mantenha os dois em sincronia).
   const res = await fetch(`/api/agent/${step}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -353,7 +359,7 @@ async function runRevisorStep(
       userInput,
       referenceImage: r.referenceImage,
       ...(r.canone?.trim() ? { canone: r.canone } : {}),
-      ...(hadPriorReport ? { leanRevisorReport: true } : {}),
+      leanRevisorReport: true,
     }),
     signal: hooks.signal,
   });

@@ -1,16 +1,25 @@
 /**
- * Motor headless da Escrita (loop 2-em-2) — extraído pra rodar FORA do
- * `StepShell` (ex.: fila de geração em 2º plano). Espelha fielmente o branch
- * Escrita do `components/wizard/StepShell.tsx` (geração + retries + dedup +
- * calibração deferida/paralela), reusando os MESMOS helpers puros (parseEscritaBatch,
- * planBatches, dedupChaptersLast, concatenateChapters, parseEscritaChaptersDirect,
- * countWords) — a lógica que define a QUALIDADE do output é compartilhada, então
- * o resultado é equivalente ao foreground. Só o "encanamento" (React/store) é
- * que difere: aqui ele vira callbacks.
+ * Motor headless da Escrita — gera o roteiro completo (Parte 1 + Parte 2) em
+ * batches 2-em-2. É a FONTE ÚNICA do full-gen da Escrita: o branch do
+ * `StepShell.tsx` enfileira no QueueRunner e dá `return` antes do seu loop
+ * (caminho morto pra full-gen), então toda geração "do zero" passa por aqui.
+ * Reusa os MESMOS helpers puros (parseEscritaBatch, planBatches,
+ * dedupChaptersLast, concatenateChapters, parseEscritaChaptersDirect,
+ * countWords) — a lógica que define a QUALIDADE do output é compartilhada.
  *
- * IMPORTANTE: o foreground (StepShell) NÃO foi refatorado pra usar este motor —
- * pra não arriscar a produção principal. Se um dia unificar, este é o ponto de
- * partida. Mantenha os dois em sincronia ao mexer no loop da Escrita.
+ * PARALELIZAÇÃO P1 ‖ P2: as duas Partes rodam em paralelo (`Promise.all` de dois
+ * loops independentes), cada uma acumulando nos seus próprios arrays. A
+ * continuidade intra-Parte vem das sinopses da própria Parte. ALÉM disso, a P2
+ * recebe a cada batch um snapshot BEST-EFFORT das sinopses que a P1 JÁ escreveu
+ * naquele instante (`crossSynopsesRef` → `crossPartSynopses` no body) — leitura
+ * sem bloqueio: como as duas Partes avançam no mesmo ritmo, a P2 costuma já ter
+ * os fatos da P1 até o cap que está escrevendo. Isso costura a continuidade
+ * cruzada NA ORIGEM (evita os GRAVES "personagem em dois lugares" / "contradição
+ * de concepção P1↔P2" que a ponte só-pela-Estrutura deixava passar), mantendo o
+ * paralelismo que ~corta pela metade a fase de batches quando há cota ociosa. A
+ * P1 é a fundação e não recebe contexto cruzado; o Revisor (que também roda
+ * P1‖P2) ainda pega resíduos. ⚠️ O branch morto do `StepShell` NÃO tem essa
+ * paralelização — não o reanime pra full-gen.
  *
  * Roda no renderer (browser): usa `fetch` pros endpoints /api/agent/escrita e
  * /api/escrita-fix-wordcount, e `Date`/`TextDecoder` normalmente.
@@ -29,6 +38,7 @@ import { CATEGORIES } from "@/lib/categories";
 import {
   countChaptersInEstrutura,
   planBatches,
+  type BatchPlan,
 } from "@/lib/parse-estrutura-chapters";
 import { extractChapterTargets } from "@/lib/parse-estrutura-targets";
 import { parseEscritaBatch } from "@/lib/parse-escrita-batch";
@@ -38,7 +48,7 @@ import {
 } from "@/lib/parse-escrita-output";
 import { canonPart, dedupChaptersLast } from "@/lib/dedup-chapters";
 import { countWords } from "@/lib/word-count";
-import { mapWithConcurrency } from "@/lib/concurrency";
+import { createLimiter } from "@/lib/concurrency";
 import {
   CALIBRATION_THRESHOLD,
   CALIBRATION_CONCURRENCY,
@@ -186,6 +196,7 @@ async function readResponseText(
   res: Response,
   signal: AbortSignal,
   onLive?: (text: string) => void,
+  onFirstChunk?: () => void,
 ): Promise<string> {
   const reader = res.body!.getReader();
   const decoder = new TextDecoder();
@@ -194,11 +205,16 @@ async function readResponseText(
   // a aba fica oculta — aqui queremos emitir mesmo assim. ~80ms ≈ 12 updates/s,
   // suficiente pra UI e leve no store. Sempre faz um flush final.
   let lastEmit = 0;
+  let sawFirst = false;
   for (;;) {
     if (signal.aborted) break;
     const { done, value } = await reader.read();
     if (done) break;
     acc += decoder.decode(value, { stream: true });
+    if (!sawFirst) {
+      sawFirst = true;
+      onFirstChunk?.(); // [perf] marca o TTFT (1º byte do stream)
+    }
     if (onLive) {
       const now = Date.now();
       if (now - lastEmit > 80) {
@@ -249,317 +265,460 @@ export async function runEscrita(
       Math.round(targetP2Total / totalP2),
   );
 
-  const plan = planBatches(totalP1, totalP2, targetsP1, targetsP2, category);
-  const accChapters: EscritaChapter[] = [];
-  const accSynopses: EscritaSynopsis[] = [];
+  // Planos POR PARTE — cada um roda num loop independente (paralelizados via
+  // `Promise.all`). planBatches com a outra Parte zerada gera só os batches
+  // daquela Parte, com batchIndex local 1-based e `part` correto.
+  const planP1 = planBatches(totalP1, 0, targetsP1, undefined, category);
+  const planP2 = planBatches(0, totalP2, undefined, targetsP2, category);
+  const totalBatches = planP1.length + planP2.length;
+
+  // Acumuladores POR PARTE — sem estado compartilhado entre os dois loops (e o
+  // JS é single-thread), então não há race. O snapshot mescla os dois pra
+  // persistir o roteiro inteiro a cada batch de qualquer Parte.
+  const p1Chapters: EscritaChapter[] = [];
+  const p1Synopses: EscritaSynopsis[] = [];
+  const p2Chapters: EscritaChapter[] = [];
+  const p2Synopses: EscritaSynopsis[] = [];
   const accWarnings: BatchMissingChapters[] = [];
 
-  // ═══ Retomada: semeia o que já foi gerado numa rodada anterior ══════════
+  // ═══ Retomada: semeia CADA Parte com o que já foi gerado ════════════════
   // Os capítulos/sinopses prontos já foram persistidos via `onPartial` no
-  // `outputs.escrita.metadata`. Semear aqui permite: (a) pular os batches já
-  // concluídos no loop abaixo; (b) manter as sinopses como contexto pros
-  // próximos batches (a "ponte" P1→P2). Dedup `last` resolve qualquer overlap.
+  // `outputs.escrita.metadata`. Separar por Parte permite pular os batches já
+  // concluídos em cada loop. Dedup `last` resolve qualquer overlap.
   if (input.resume) {
     const prev = previousOutputs.escrita?.metadata;
-    if (prev?.chapters?.length) accChapters.push(...prev.chapters);
-    if (prev?.synopses?.length) accSynopses.push(...prev.synopses);
+    // canonPart normaliza pra lowercase ("parte 2") — comparar nesse case.
+    if (prev?.chapters?.length) {
+      for (const c of prev.chapters) {
+        (canonPart(c.part) === "parte 2" ? p2Chapters : p1Chapters).push(c);
+      }
+    }
+    if (prev?.synopses?.length) {
+      for (const s of prev.synopses) {
+        (canonPart(s.part) === "parte 2" ? p2Synopses : p1Synopses).push(s);
+      }
+    }
   }
 
-  const snapshot = (): RunEscritaState => ({
-    chapters: [...accChapters],
-    synopses: [...accSynopses],
-    warnings: [...accWarnings],
-    content: concatenateChapters(accChapters),
-  });
+  // Snapshot MESCLADO das duas Partes. A calibração muta os capítulos IN-PLACE
+  // dentro de p1Chapters/p2Chapters, então mergedChapters() já reflete o texto
+  // calibrado — não há array materializado separado. dedup last-wins resolve
+  // overlap de retomada/retry. (JS single-thread → P1-calib e P2-geração
+  // emitindo partials ao mesmo tempo não dão race.)
+  const mergedChapters = (): EscritaChapter[] =>
+    dedupChaptersLast([...p1Chapters, ...p2Chapters]).chapters;
+  const snapshot = (): RunEscritaState => {
+    const chapters = mergedChapters();
+    return {
+      chapters: [...chapters],
+      synopses: [...p1Synopses, ...p2Synopses],
+      warnings: [...accWarnings],
+      content: concatenateChapters(chapters),
+    };
+  };
   const emitPartial = () => hooks.onPartial?.(snapshot());
 
-  // ═══ Loop 2-em-2 com retry automático (espelha StepShell) ════════════
-  // Tentativas por batch: cobre tanto falha de FORMATO (modelo não emitiu os
-  // cabeçalhos) quanto falha TRANSIENTE (rede caiu, 429 de rate-limit, 5xx).
-  // Sem isso, o batch 3 falhar uma vez derrubava os capítulos 5–12 inteiros.
+  // [perf] contadores compartilhados entre os dois loops.
+  let batchesDone = 0; // progresso agregado (display)
+  let transientRetries = 0; // 408/429/5xx — sinal de saturação de cota
+  let backoffMs = 0;
+
+  // ═══ Loop de UMA Parte (retry/dedup por batch) — roda 1× por Parte ════════
+  // Tentativas por batch: cobre falha de FORMATO (modelo não emitiu os
+  // cabeçalhos) e TRANSIENTE (rede caiu, 429 de rate-limit, 5xx). Sem isso, o
+  // batch 3 falhar uma vez derrubava os capítulos 5–12 inteiros. Cada loop
+  // escreve SÓ nos seus arrays (localChapters/localSynopses) — nunca cruza Partes.
   const MAX_RETRIES_PER_BATCH = 4;
-  for (const b of plan) {
-    if (signal.aborted) break;
+  // Sinaliza o outro loop a parar quando uma Parte bate em erro fatal
+  // (login/cota/binário) — sem isso a outra Parte seguiria gerando órfã enquanto
+  // o `Promise.all` já rejeitou.
+  let fatalRaised = false;
+  const runPartLoop = async (
+    plan: BatchPlan[],
+    localChapters: EscritaChapter[],
+    localSynopses: EscritaSynopsis[],
+    onLive?: (text: string) => void,
+    // Contexto cruzado da OUTRA Parte (continuidade P1 → P2). Lido a cada batch
+    // de forma BEST-EFFORT (snapshot do que a outra Parte já produziu naquele
+    // instante) — NÃO bloqueia: como P1 e P2 avançam no mesmo ritmo, a P2 já
+    // costuma ter os fatos da P1 até o cap que está escrevendo. Sem isso a P2
+    // fica cega ao texto real da P1 e gera os GRAVES "personagem em dois lugares"
+    // / "contradição de concepção P1↔P2". Só a P2 recebe (a P1 é a fundação).
+    crossSynopsesRef?: () => EscritaSynopsis[],
+  ): Promise<void> => {
+    for (const b of plan) {
+      if (signal.aborted || fatalRaised) break;
 
-    // Retomada: se TODOS os capítulos deste batch já existem (rodada anterior),
-    // pula — não regera o que já está pronto. Se o batch ficou pela metade
-    // (parcial), `allPresent` é falso → regera o batch inteiro e o
-    // `dedupChaptersLast` (last-wins) resolve a duplicata do cap já feito.
-    if (input.resume) {
-      const have = new Set(
-        accChapters.map((c) => `${canonPart(c.part)}|${c.number}`),
-      );
-      const allPresent = b.chapters.every((n) =>
-        have.has(`${canonPart(b.part)}|${n}`),
-      );
-      if (allPresent) continue;
-    }
+      // Retomada: se TODOS os capítulos deste batch já existem (rodada
+      // anterior), pula. Se ficou pela metade, `allPresent` é falso → regera o
+      // batch e o `dedupChaptersLast` (last-wins) resolve a duplicata.
+      if (input.resume) {
+        const have = new Set(
+          localChapters.map((c) => `${canonPart(c.part)}|${c.number}`),
+        );
+        const allPresent = b.chapters.every((n) =>
+          have.has(`${canonPart(b.part)}|${n}`),
+        );
+        if (allPresent) {
+          batchesDone += 1;
+          continue;
+        }
+      }
 
-    if (hooks.beforeUnit) await hooks.beforeUnit();
-    if (signal.aborted) break;
+      if (hooks.beforeUnit) await hooks.beforeUnit();
+      if (signal.aborted || fatalRaised) break;
 
-    let chaptersToRequest = [...b.chapters];
-    let targetsToRequest = [...b.targets];
-    let attempt = 0;
-    let finalMissing: number[] = chaptersToRequest;
-    let batchFatalError: string | null = null;
+      let chaptersToRequest = [...b.chapters];
+      let targetsToRequest = [...b.targets];
+      let attempt = 0;
+      let finalMissing: number[] = chaptersToRequest;
+      let batchFatalError: string | null = null;
+      const batchStart = Date.now();
+      let ttftMs = 0;
 
-    while (chaptersToRequest.length > 0 && attempt <= MAX_RETRIES_PER_BATCH) {
-      if (signal.aborted) break;
-      attempt += 1;
-      hooks.onProgress?.({
-        kind: "writing",
-        batchIndex: b.batchIndex,
-        totalBatches: plan.length,
-        part: b.part,
-        chapters: chaptersToRequest,
-      });
-
-      let res: Response;
-      try {
-        res = await fetch(`/api/agent/escrita`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            category,
-            previousOutputs,
-            userInput: input.userInput,
-            referenceImage: input.referenceImage,
-            ...(input.canone?.trim() ? { canone: input.canone } : {}),
-            batch: {
-              part: b.part,
-              chapters: chaptersToRequest,
-              totalInPart: b.totalInPart,
-              batchIndex: b.batchIndex,
-              totalBatches: plan.length,
-              chapterTargets: targetsToRequest,
-            },
-            previousSynopses: accSynopses,
-          }),
-          signal,
-        });
-      } catch (e) {
-        // Erro de rede (conexão caiu, DNS, fetch abortado por timeout do SO).
+      while (chaptersToRequest.length > 0 && attempt <= MAX_RETRIES_PER_BATCH) {
         if (signal.aborted) break;
-        if (attempt <= MAX_RETRIES_PER_BATCH) {
-          await sleep(backoffDelay(attempt), signal);
-          if (signal.aborted) break;
-          continue;
-        }
-        batchFatalError = `Falha de rede ao gerar o lote: ${(e as Error).message}`;
-        break;
-      }
-
-      if (!res.ok || !res.body) {
-        const errText =
-          (await res.text().catch(() => "")) || res.statusText;
-        // 408/429/5xx são transientes (rate-limit, servidor ocupado) — retenta
-        // com backoff antes de desistir, em vez de perder o lote pra sempre.
-        const transient =
-          res.status === 408 || res.status === 429 || res.status >= 500;
-        if (transient && attempt <= MAX_RETRIES_PER_BATCH) {
-          await sleep(backoffDelay(attempt), signal);
-          if (signal.aborted) break;
-          continue;
-        }
-        batchFatalError = errText;
-        break;
-      }
-
-      const acc = await readResponseText(res, signal, hooks.onLiveText);
-      if (signal.aborted) break;
-
-      // A rota injeta marcadores login/binário quando a SDK falha COM
-      // res.ok=true — o "lote" é só uma mensagem de erro. Detecta e ABORTA a run
-      // inteira com a causa real, em vez de truncar o roteiro em silêncio.
-      const hardReason = detectHardMarker(acc);
-      if (hardReason) throw new EscritaFatalError(hardReason);
-
-      const parsed = parseEscritaBatch(acc, b.part);
-
-      const fallbackOnly =
-        parsed.chapters.length > 0 &&
-        parsed.chapters.every((c) => c.number === 0);
-      const noRealChapters = parsed.chapters.length === 0 || fallbackOnly;
-
-      // Lote sem capítulo de verdade. Três caminhos:
-      if (noRealChapters) {
-        // 1) Erro real da SDK (cota/servidor) injetado como `[ERRO]` → aborta a
-        //    run inteira com a causa (não adianta seguir, vai falhar igual).
-        const erroReason = detectErroMarker(acc);
-        if (erroReason) throw new EscritaFatalError(erroReason);
-        // 2) Só formato inválido / resposta vazia → retenta com backoff.
-        if (attempt <= MAX_RETRIES_PER_BATCH) {
-          await sleep(backoffDelay(attempt), signal);
-          if (signal.aborted) break;
-          continue;
-        }
-        // 3) Esgotou as tentativas → registra o motivo e pula este lote.
-        batchFatalError = fallbackOnly
-          ? `O modelo não seguiu o formato esperado (sem cabeçalhos "## Capítulo N — Título") após ${MAX_RETRIES_PER_BATCH + 1} tentativas.`
-          : `O modelo retornou resposta vazia para o lote após ${MAX_RETRIES_PER_BATCH + 1} tentativas.`;
-        break;
-      }
-
-      if (signal.aborted) break;
-
-      accChapters.push(...parsed.chapters);
-      accSynopses.push(...parsed.synopses);
-
-      const gotNumbers = new Set(
-        parsed.chapters.map((c) => c.number).filter((n) => n > 0),
-      );
-      const stillMissing = chaptersToRequest.filter((n) => !gotNumbers.has(n));
-      if (stillMissing.length === 0) {
-        finalMissing = [];
-        break;
-      }
-
-      const stillMissingTargets = stillMissing.map((n) => {
-        const idx = b.chapters.indexOf(n);
-        return idx >= 0 ? b.targets[idx]! : 0;
-      });
-      chaptersToRequest = stillMissing;
-      targetsToRequest = stillMissingTargets;
-      finalMissing = stillMissing;
-    }
-
-    if (batchFatalError) {
-      accWarnings.push({
-        batchIndex: b.batchIndex,
-        part: b.part,
-        expected: b.chapters,
-        missing: b.chapters,
-        fatalError: batchFatalError,
-      });
-      emitPartial();
-      continue;
-    }
-
-    if (finalMissing.length > 0) {
-      accWarnings.push({
-        batchIndex: b.batchIndex,
-        part: b.part,
-        expected: b.chapters,
-        missing: finalMissing,
-      });
-    }
-
-    const dedupResult = dedupChaptersLast(accChapters);
-    if (dedupResult.removed > 0) {
-      accChapters.length = 0;
-      accChapters.push(...dedupResult.chapters);
-      accWarnings.push({
-        batchIndex: b.batchIndex,
-        part: b.part,
-        expected: [],
-        missing: [],
-        duplicatesRemoved: dedupResult.removed,
-      });
-    }
-
-    emitPartial();
-  }
-
-  if (signal.aborted) return snapshot();
-
-  // ═══ Calibração (deferida + PARALELA, cedendo ao foreground) ══════════
-  // Calibração só muda o TAMANHO de cada cap (independente entre caps) e NÃO
-  // alimenta batches seguintes (eles só recebem accSynopses), então adiar pro
-  // fim é equivalente ao loop por-batch do StepShell, com menos churn. Cada
-  // candidato escreve num índice distinto de accChapters e só LÊ accSynopses
-  // (já completas neste ponto) → rodar em paralelo dá o MESMO resultado, só mais
-  // rápido. Threshold/concorrência em @/lib/escrita-calibration (compartilhado
-  // com o StepShell pra não divergir).
-  const targetFor = (ch: EscritaChapter): number | null => {
-    if (!ch.number || ch.number < 1) return null;
-    const arr =
-      ch.part === "Parte 2"
-        ? targetsP2
-        : ch.part === "Parte 1"
-          ? targetsP1
-          : null;
-    return arr ? (arr[ch.number - 1] ?? null) : null;
-  };
-  const candidates = accChapters
-    .map((ch, arrIndex) => ({ ch, arrIndex, target: targetFor(ch) }))
-    .filter((c) => {
-      if (!c.target) return false;
-      const cur = countWords(c.ch.content);
-      return Math.abs(cur - c.target) / c.target > CALIBRATION_THRESHOLD;
-    });
-
-  // [perf] quantos capítulos saíram fora do alvo (±8%) e vão ser recalibrados
-  // (cada um é uma reescrita Opus de capítulo inteiro). Menos = Escrita mais
-  // rápida — é o ganho indireto da trava de soma da Estrutura.
-  console.info(
-    `[perf] escrita: ${candidates.length} de ${accChapters.length} capítulo(s) fora do alvo → recalibração`,
-  );
-
-  let calibrationDone = 0;
-  await mapWithConcurrency(
-    candidates,
-    CALIBRATION_CONCURRENCY,
-    async (cand) => {
-      const current = countWords(cand.ch.content);
-      calibrationDone += 1;
-      hooks.onProgress?.({
-        kind: "calibrating",
-        currentIndex: calibrationDone,
-        totalToCalibrate: candidates.length,
-        part: cand.ch.part as "Parte 1" | "Parte 2",
-        chapter: cand.ch.number,
-      });
-
-      const neighborSynopses = accSynopses
-        .filter(
-          (s) =>
-            s.part === cand.ch.part && Math.abs(s.number - cand.ch.number) <= 1,
-        )
-        .map((s) => ({ number: s.number, part: s.part, synopsis: s.synopsis }));
-
-      try {
-        const fixRes = await fetch(`/api/escrita-fix-wordcount`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            category,
-            chapter: {
-              number: cand.ch.number,
-              title: cand.ch.title,
-              part: cand.ch.part as "Parte 1" | "Parte 2",
-              content: cand.ch.content,
-            },
-            currentWords: current,
-            targetWords: cand.target,
-            premissa: previousOutputs.premissa?.content,
-            neighborSynopses,
-          }),
-          signal,
+        attempt += 1;
+        hooks.onProgress?.({
+          kind: "writing",
+          batchIndex: Math.min(batchesDone + 1, totalBatches),
+          totalBatches,
+          part: b.part,
+          chapters: chaptersToRequest,
         });
-        if (!fixRes.ok || !fixRes.body) return;
-        const fixAcc = await readResponseText(fixRes, signal);
-        if (signal.aborted) return;
-        const parsedFix = parseEscritaChaptersDirect(fixAcc);
-        const newCh = parsedFix.find((p) => p.number === cand.ch.number);
-        if (newCh?.content) {
-          accChapters[cand.arrIndex] = {
-            ...cand.ch,
-            content: newCh.content,
-            title: newCh.title ?? cand.ch.title,
-            generatedAt: new Date().toISOString(),
-          };
-          emitPartial();
+
+        // Snapshot best-effort das sinopses da OUTRA Parte (P1) NESTE instante —
+        // re-lido a cada tentativa pra pegar o que a P1 escreveu enquanto isso.
+        const crossSnap = crossSynopsesRef ? crossSynopsesRef() : [];
+
+        let res: Response;
+        try {
+          res = await fetch(`/api/agent/escrita`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              category,
+              previousOutputs,
+              userInput: input.userInput,
+              referenceImage: input.referenceImage,
+              ...(input.canone?.trim() ? { canone: input.canone } : {}),
+              batch: {
+                part: b.part,
+                chapters: chaptersToRequest,
+                totalInPart: b.totalInPart,
+                batchIndex: b.batchIndex,
+                totalBatches,
+                chapterTargets: targetsToRequest,
+              },
+              // Sinopses DESTA Parte (continuidade intra-Parte).
+              previousSynopses: localSynopses,
+              // Sinopses já prontas da OUTRA Parte (continuidade cruzada P1→P2).
+              // Best-effort: o que a P1 produziu até agora, sem bloquear o
+              // paralelismo. Costura os GRAVES de continuidade cruzada na origem
+              // (a Escrita), em vez de deixar tudo pro Revisor.
+              ...(crossSnap.length > 0
+                ? { crossPartSynopses: crossSnap }
+                : {}),
+            }),
+            signal,
+          });
+        } catch (e) {
+          // Erro de rede (conexão caiu, DNS, fetch abortado por timeout do SO).
+          if (signal.aborted) break;
+          if (attempt <= MAX_RETRIES_PER_BATCH) {
+            const delay = backoffDelay(attempt);
+            backoffMs += delay;
+            await sleep(delay, signal);
+            if (signal.aborted) break;
+            continue;
+          }
+          batchFatalError = `Falha de rede ao gerar o lote: ${(e as Error).message}`;
+          break;
         }
-      } catch (e) {
-        if ((e as Error).name === "AbortError") return;
-        // mantém o capítulo original — calibração é best-effort
+
+        if (!res.ok || !res.body) {
+          const errText =
+            (await res.text().catch(() => "")) || res.statusText;
+          // 408/429/5xx são transientes (rate-limit, servidor ocupado) —
+          // retenta com backoff. Conta como sinal de saturação de cota.
+          const transient =
+            res.status === 408 || res.status === 429 || res.status >= 500;
+          if (transient && attempt <= MAX_RETRIES_PER_BATCH) {
+            transientRetries += 1;
+            const delay = backoffDelay(attempt);
+            backoffMs += delay;
+            await sleep(delay, signal);
+            if (signal.aborted) break;
+            continue;
+          }
+          batchFatalError = errText;
+          break;
+        }
+
+        const acc = await readResponseText(res, signal, onLive, () => {
+          if (ttftMs === 0) ttftMs = Date.now() - batchStart;
+        });
+        if (signal.aborted) break;
+
+        // A rota injeta marcadores login/binário quando a SDK falha COM
+        // res.ok=true — o "lote" é só uma mensagem de erro. Detecta e ABORTA a
+        // run inteira com a causa real, em vez de truncar o roteiro em silêncio.
+        const hardReason = detectHardMarker(acc);
+        if (hardReason) {
+          fatalRaised = true;
+          throw new EscritaFatalError(hardReason);
+        }
+
+        const parsed = parseEscritaBatch(acc, b.part);
+
+        const fallbackOnly =
+          parsed.chapters.length > 0 &&
+          parsed.chapters.every((c) => c.number === 0);
+        const noRealChapters = parsed.chapters.length === 0 || fallbackOnly;
+
+        // Lote sem capítulo de verdade. Três caminhos:
+        if (noRealChapters) {
+          // 1) Erro real da SDK (cota/servidor) injetado como `[ERRO]` → aborta
+          //    a run inteira com a causa (não adianta seguir, vai falhar igual).
+          const erroReason = detectErroMarker(acc);
+          if (erroReason) {
+            fatalRaised = true;
+            throw new EscritaFatalError(erroReason);
+          }
+          // 2) Só formato inválido / resposta vazia → retenta com backoff.
+          if (attempt <= MAX_RETRIES_PER_BATCH) {
+            const delay = backoffDelay(attempt);
+            backoffMs += delay;
+            await sleep(delay, signal);
+            if (signal.aborted) break;
+            continue;
+          }
+          // 3) Esgotou as tentativas → registra o motivo e pula este lote.
+          batchFatalError = fallbackOnly
+            ? `O modelo não seguiu o formato esperado (sem cabeçalhos "## Capítulo N — Título") após ${MAX_RETRIES_PER_BATCH + 1} tentativas.`
+            : `O modelo retornou resposta vazia para o lote após ${MAX_RETRIES_PER_BATCH + 1} tentativas.`;
+          break;
+        }
+
+        if (signal.aborted) break;
+
+        localChapters.push(...parsed.chapters);
+        localSynopses.push(...parsed.synopses);
+
+        const gotNumbers = new Set(
+          parsed.chapters.map((c) => c.number).filter((n) => n > 0),
+        );
+        const stillMissing = chaptersToRequest.filter(
+          (n) => !gotNumbers.has(n),
+        );
+        if (stillMissing.length === 0) {
+          finalMissing = [];
+          break;
+        }
+
+        const stillMissingTargets = stillMissing.map((n) => {
+          const idx = b.chapters.indexOf(n);
+          return idx >= 0 ? b.targets[idx]! : 0;
+        });
+        chaptersToRequest = stillMissing;
+        targetsToRequest = stillMissingTargets;
+        finalMissing = stillMissing;
       }
-    },
-    {
-      signal,
-      beforeEach: hooks.beforeUnit ? () => hooks.beforeUnit!() : undefined,
-    },
+
+      batchesDone += 1;
+
+      if (batchFatalError) {
+        accWarnings.push({
+          batchIndex: b.batchIndex,
+          part: b.part,
+          expected: b.chapters,
+          missing: b.chapters,
+          fatalError: batchFatalError,
+        });
+        emitPartial();
+        continue;
+      }
+
+      if (finalMissing.length > 0) {
+        accWarnings.push({
+          batchIndex: b.batchIndex,
+          part: b.part,
+          expected: b.chapters,
+          missing: finalMissing,
+        });
+      }
+
+      // Dedup LOCAL desta Parte (last-wins) — resolve cap parcial reentregue num
+      // retry. Cada loop só mexe no seu array, então não cruza Partes.
+      const dedupResult = dedupChaptersLast(localChapters);
+      if (dedupResult.removed > 0) {
+        localChapters.length = 0;
+        localChapters.push(...dedupResult.chapters);
+        accWarnings.push({
+          batchIndex: b.batchIndex,
+          part: b.part,
+          expected: [],
+          missing: [],
+          duplicatesRemoved: dedupResult.removed,
+        });
+      }
+
+      // [perf] tempo + palavras deste batch. TTFT alto vs total alto separa
+      // espera de cota (fila do servidor) de geração de output.
+      const batchWords = b.chapters.reduce((sum, n) => {
+        const ch = localChapters.find(
+          (c) => canonPart(c.part) === canonPart(b.part) && c.number === n,
+        );
+        return sum + (ch ? countWords(ch.content) : 0);
+      }, 0);
+      console.info(
+        `[perf] escrita batch ${b.part} #${b.batchIndex}: TTFT ${(ttftMs / 1000).toFixed(1)}s, total ${((Date.now() - batchStart) / 1000).toFixed(1)}s, ${batchWords}p, ${attempt} tentativa(s)`,
+      );
+
+      emitPartial();
+    }
+  };
+
+  // ═══ Calibração de word-count (Sonnet) — SOBREPOSTA à geração ═════════════
+  // Cada Parte calibra assim que SUA geração termina (via `.then` no loop), e
+  // NÃO no fim das duas. Como a P1 acaba antes da P2, a calibração da P1 roda em
+  // paralelo com a cauda de geração da P2 — aproveita a cota que ficava ociosa e
+  // tira a calibração do caminho crítico do "fim". Lossless: a vizinhança de
+  // sinopses já é por-Parte (`partSynopses` é só desta Parte), então calibrar a
+  // P1 antes da P2 ficar pronta não perde contexto nenhum. O limitador
+  // COMPARTILHADO (`createLimiter`) garante o teto único `CALIBRATION_CONCURRENCY`
+  // mesmo com as duas Partes alimentando o mesmo pool. Reescrita em Sonnet
+  // (ajuste mecânico de tamanho — ver /api/escrita-fix-wordcount). Threshold/
+  // concorrência em @/lib/escrita-calibration.
+  const calibLimiter = createLimiter(CALIBRATION_CONCURRENCY, { signal });
+  const calibratePart = async (
+    partLabel: "Parte 1" | "Parte 2",
+    partChapters: EscritaChapter[],
+    partSynopses: EscritaSynopsis[],
+    targets: number[],
+  ): Promise<void> => {
+    if (signal.aborted || fatalRaised) return;
+
+    const candidates = partChapters
+      .map((ch) => ({
+        ch,
+        target: ch.number >= 1 ? (targets[ch.number - 1] ?? null) : null,
+      }))
+      .filter((c) => {
+        if (!c.target) return false;
+        const cur = countWords(c.ch.content);
+        return Math.abs(cur - c.target) / c.target > CALIBRATION_THRESHOLD;
+      });
+    if (candidates.length === 0) return;
+
+    // [perf] quantos caps DESTA Parte saíram fora do alvo (±8%) → reescrita
+    // Sonnet de cap inteiro. Distingue EXPANDIR (cap curto) de ENCURTAR (longo):
+    // muitos "expandir" = o prompt da Escrita está enviesado pra escrever curto.
+    const toExpand = candidates.filter(
+      (c) => countWords(c.ch.content) < c.target!,
+    ).length;
+    console.info(
+      `[perf] escrita: ${partLabel} — ${candidates.length} cap(s) fora do alvo → recalibração (${toExpand} expandir, ${candidates.length - toExpand} encurtar)`,
+    );
+
+    const calibStart = Date.now();
+    let done = 0;
+    await Promise.all(
+      candidates.map((cand) =>
+        calibLimiter(async () => {
+          if (signal.aborted || fatalRaised) return;
+          if (hooks.beforeUnit) await hooks.beforeUnit();
+          if (signal.aborted || fatalRaised) return;
+
+          const current = countWords(cand.ch.content);
+          done += 1;
+          hooks.onProgress?.({
+            kind: "calibrating",
+            currentIndex: done,
+            totalToCalibrate: candidates.length,
+            part: partLabel,
+            chapter: cand.ch.number,
+          });
+
+          // Vizinhança ±1 cap DESTA Parte (`partSynopses` já é só dela).
+          const neighborSynopses = partSynopses
+            .filter((s) => Math.abs(s.number - cand.ch.number) <= 1)
+            .map((s) => ({
+              number: s.number,
+              part: s.part,
+              synopsis: s.synopsis,
+            }));
+
+          try {
+            const fixRes = await fetch(`/api/escrita-fix-wordcount`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                category,
+                chapter: {
+                  number: cand.ch.number,
+                  title: cand.ch.title,
+                  part: partLabel,
+                  content: cand.ch.content,
+                },
+                currentWords: current,
+                targetWords: cand.target,
+                premissa: previousOutputs.premissa?.content,
+                neighborSynopses,
+              }),
+              signal,
+            });
+            if (!fixRes.ok || !fixRes.body) return;
+            const fixAcc = await readResponseText(fixRes, signal);
+            if (signal.aborted) return;
+            const parsedFix = parseEscritaChaptersDirect(fixAcc);
+            const newCh = parsedFix.find((p) => p.number === cand.ch.number);
+            if (newCh?.content) {
+              // Muta o capítulo NO LUGAR no array desta Parte — mergedChapters()
+              // / snapshot() já reflete (não há array materializado separado).
+              const idx = partChapters.findIndex(
+                (c) => c.number === cand.ch.number,
+              );
+              if (idx >= 0) {
+                partChapters[idx] = {
+                  ...partChapters[idx]!,
+                  content: newCh.content,
+                  title: newCh.title ?? partChapters[idx]!.title,
+                  generatedAt: new Date().toISOString(),
+                };
+                emitPartial();
+              }
+            }
+          } catch (e) {
+            if ((e as Error).name === "AbortError") return;
+            // mantém o capítulo original — calibração é best-effort
+          }
+        }),
+      ),
+    );
+
+    console.info(
+      `[perf] escrita: ${partLabel} — calibração de ${candidates.length} cap(s) levou ${((Date.now() - calibStart) / 1000).toFixed(1)}s`,
+    );
+  };
+
+  // ═══ Roda as duas Partes EM PARALELO; cada uma CALIBRA ao terminar ════════
+  // onLiveText só na Parte 1 (um stream coerente; dois embaralhariam o preview).
+  // O `.then(calibratePart)` faz a calibração da P1 sobrepor a cauda da P2.
+  const batchesPhaseStart = Date.now();
+  await Promise.all([
+    // P1 é a fundação — não recebe contexto cruzado (5º arg ausente).
+    runPartLoop(planP1, p1Chapters, p1Synopses, hooks.onLiveText).then(() =>
+      calibratePart("Parte 1", p1Chapters, p1Synopses, targetsP1),
+    ),
+    // P2 recebe, a cada batch, as sinopses da P1 já prontas naquele instante
+    // (best-effort, sem bloquear) — costura a continuidade cruzada na origem.
+    runPartLoop(planP2, p2Chapters, p2Synopses, undefined, () => [
+      ...p1Synopses,
+    ]).then(() => calibratePart("Parte 2", p2Chapters, p2Synopses, targetsP2)),
+  ]);
+  console.info(
+    `[perf] escrita: geração+calibração levou ${((Date.now() - batchesPhaseStart) / 1000).toFixed(1)}s — ${transientRetries} retry transiente (429/5xx), ~${(backoffMs / 1000).toFixed(0)}s em backoff`,
   );
 
   const result = snapshot();

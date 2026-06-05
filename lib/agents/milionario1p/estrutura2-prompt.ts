@@ -167,8 +167,8 @@ Crie um hook EXTREMAMENTE comercial, intenso e viciante para a Parte 2, com fort
 
 **Entregue:**
 - 1 hook principal
-- 3 versões alternativas
-- Todos com forte apelo comercial, cliffhanger real, sensação de continuação MAIS intensa que a Parte 1.
+- 1 versão alternativa
+- Ambos com forte apelo comercial, cliffhanger real, sensação de continuação MAIS intensa que a Parte 1.
 
 ━━━ ESTRUTURA DOS CAPÍTULOS ━━━
 
@@ -357,10 +357,8 @@ Continuação de: [Título da Parte 1]
 # 🎣 ISCA DE ABERTURA / HOOK
 [hook principal — 90 a 140 palavras — narrado em 1ª pessoa pela FMC]
 
-**3 versões alternativas:**
+**1 versão alternativa:**
 1. [texto]
-2. [texto]
-3. [texto]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -399,77 +397,22 @@ Continuação de: [Título da Parte 1]
 (Soma total: entre 13.000 e 13.500 palavras — RIGOROSO)
 
 # 💋 CENA ÍNTIMA
-- Capítulo onde acontece: [definido pela curva emocional — informar qual e justificar com base na regra flexível]
-- Justificativa de posicionamento: [responder à pergunta "se eu remover esta cena, a evolução emocional do casal perde força?" e explicar por que a cena está naquele ponto]
-- Construção de química prévia: [descrever os momentos de tensão, olhares, toques e quase-acontece que antecedem a cena]
-- Narrada por: FMC — primeira pessoa (OBRIGATÓRIO)
-- Contexto emocional: [descrição — incluir se acontece em paz, em meio a conflito, após ferimento, durante fuga, etc.]
-- O que a cena revela emocionalmente: [descrição]
-- Segunda cena (se houver): Capítulo [número] — resumida, subentendida
+- Capítulo + posicionamento (justificado pela curva emocional / regra flexível); narrada pela FMC em 1ª pessoa (OBRIGATÓRIO); contexto emocional + química prévia construída (olhares, toques, quase-acontece); o que revela emocionalmente. Segunda cena (se houver): Capítulo [N] — subentendida.
 
 # 🥚 EASTER EGGS (mínimo 3)
-- Capítulo [X] — referencia: [momento da Parte 1] — como aparece: [descrição]
-- Capítulo [X] — referencia: [momento da Parte 1] — como aparece: [descrição]
-- Capítulo [X] — referencia: [momento da Parte 1] — como aparece: [descrição]
+- [Cap X — referência da Parte 1 — como aparece] (≥3, uma linha cada)
 
 # 🎉 ENTREGA FINAL
-- [ ] Casamento + filhos
-- [ ] Casamento + lua de mel em [destino]
-- [ ] Casamento + sonho dela realizado: [qual sonho]
-- Última cena: [descrição]
-- Narrada por: [FMC ou MMC]
-- É EPÍLOGO? [Sim/Não — se houver salto temporal, é EPÍLOGO; senão, é capítulo numerado]
+- Tipo: [casamento + filhos / + lua de mel em [destino] / + sonho dela realizado]; última cena + narrador(a); é EPÍLOGO? [Sim se houver salto temporal; senão capítulo numerado].
 
 # ✅ RESOLUÇÃO DOS CONFLITOS
-- Conflito 1: [como foi resolvido]
-- Conflito 2: [como foi resolvido]
-- Conflito 3: [como foi resolvido]
+- [Cada conflito herdado da Parte 1 + como foi resolvido — uma linha cada]
 
-# ✅ CHECKLIST FINAL
-Marque ✓ ou explique:
-
-- [ ] A Parte 1 foi lida antes de qualquer planejamento
-- [ ] O mapa da história foi montado ANTES da estrutura textual
-- [ ] A Isca de Abertura tem entre 90 e 140 palavras
-- [ ] A Isca é narrada em 1ª pessoa pela FMC
-- [ ] A Isca não revela a resolução do conflito
-- [ ] A Isca termina em cliffhanger absoluto
-- [ ] O Capítulo 1 começa com o narrador identificado pelo nome
-- [ ] A segunda metade do Capítulo 1 foca em quem recebe a bomba
-- [ ] O Capítulo 1 termina com cliffhanger fortíssimo
-- [ ] Toda a narração é em 1ª pessoa
-- [ ] Cada trecho de POV é identificado com o nome do narrador
-- [ ] Há entre 2 e 4 trechos com POV do MMC
-- [ ] Nenhum POV do MMC repete informação já narrada pela FMC
-- [ ] Cada POV do MMC traz informação nova e relevante
-- [ ] Não há dois trechos do MMC consecutivos sem FMC entre eles
-- [ ] A cena íntima é narrada pela FMC — SEMPRE
-- [ ] A cena íntima está posicionada de acordo com a regra flexível (química, clima e progressão construídos antes)
-- [ ] A pergunta "se eu remover esta cena, a evolução emocional do casal perde força?" foi respondida com SIM
-- [ ] A cena íntima tem construção prévia de tensão, olhares, toques e/ou quase-acontece
-- [ ] Nomes e perfis coerentes com a Parte 1
-- [ ] Datas, locais e tempo coerentes com a Parte 1
-- [ ] Todos os conflitos da Parte 1 foram resolvidos
-- [ ] Nenhuma cena íntima usa vocabulário vulgar ou +18
-- [ ] Há pelo menos 3 easter eggs da Parte 1
-- [ ] O humor aparece em pelo menos 3 momentos
-- [ ] O antagonista teve consequências reais e finais
-- [ ] O último capítulo entrega casamento + filhos / lua de mel / sonho realizado
-- [ ] Se o último capítulo tem salto temporal, está identificado como EPÍLOGO
-- [ ] Todos os novos personagens foram apresentados na primeira menção
-- [ ] Nenhum diálogo foi partido com reflexão interna no meio
-- [ ] **A história tem entre 5 e 6 capítulos**
-- [ ] **A história tem entre 13.000 e 13.500 palavras (rigorosamente)**
-- [ ] As vozes do MMC e da FMC têm tons distintos e reconhecíveis
-- [ ] Toda cena começa com ancoragem de local
-- [ ] Toda mudança de ambiente tem transição explícita
-- [ ] Nenhum personagem teletransporta entre locais
-- [ ] Nenhum personagem ouve/vê algo impossível de sua posição
-- [ ] Objetos e cenários estabelecidos antes de serem usados
-- [ ] Toda passagem de tempo declarada
-- [ ] Dias da semana e horários consistentes
-- [ ] Datas/horários batem entre os POVs da FMC e do MMC
-- [ ] O mapa foi consultado antes de planejar cada capítulo
+# ✅ CONFIRME (1 linha cada, sem reproduzir as regras)
+- Isca 90-140 palavras, 1ª pessoa FMC, cliffhanger absoluto; toda narração 1ª pessoa, cada POV identificado pelo nome.
+- 2-4 trechos do MMC (sem dois consecutivos, cada um com info nova); cena íntima narrada pela FMC, sem vocabulário vulgar.
+- Coerência total com a Parte 1 (nomes/datas/locais) e todos os conflitos resolvidos; 5-6 capítulos; ≥3 easter eggs.
+- Final entrega casamento + (filhos / lua de mel / sonho dela), com EPÍLOGO marcado se houver salto temporal.
 
 ━━━ INSTRUÇÃO FINAL ━━━
 

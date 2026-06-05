@@ -8,6 +8,8 @@ import {
   buildEscritaHtmlDocument,
   detectMaleLeadFromFullRoteiro,
   escritaContentToHtml,
+  escritaContentToPlainText,
+  extractFemaleLeadNameFromEstrutura,
   extractMaleLeadNameFromEstrutura,
   splitRoteiroByParts,
 } from "@/lib/export-html";
@@ -75,6 +77,17 @@ export function CopyPartButton({
             ) ??
             detectMaleLeadFromFullRoteiro(escritaContent)
           : null;
+      // Nome da FMC (heroína) da Estrutura — guarda dura: o POV dela NUNCA
+      // fica verde na Parte 2. Sem heurística (só Estrutura). Parte 1 não usa.
+      const femaleLeadName =
+        part === 2
+          ? extractFemaleLeadNameFromEstrutura(
+              roteiro.outputs.estrutura1?.content,
+            ) ??
+            extractFemaleLeadNameFromEstrutura(
+              roteiro.outputs.estrutura2?.content,
+            )
+          : null;
       // Chapters filtrados pela parte — passa pro export como source-of-truth
       // do `chapter.part`, garantindo que o walker mantenha `inParte2` certo
       // mesmo se o texto bruto tiver perdido o header `# PARTE 2` (ele já é
@@ -85,11 +98,16 @@ export function CopyPartButton({
       );
       const bodyHtml = escritaContentToHtml(partContent, {
         maleLeadName,
+        femaleLeadName,
         forceParte2: part === 2,
         chapters: partChapters,
       });
       const html = buildEscritaHtmlDocument("", bodyHtml);
-      const text = partContent;
+      // Fallback de texto puro: markdown LIMPO (sem `#`, `**`, contagem de
+      // palavras nem marcador de PARTE). Usado quando o destino cola só texto
+      // ou quando o write de `text/html` falha — evita despejar o markdown cru
+      // (`# Capítulo 1`…) no documento da roteirista.
+      const text = escritaContentToPlainText(partContent);
 
       const clipboard = navigator.clipboard;
       if (

@@ -1,6 +1,6 @@
 import type { EscritaChapter } from "@/types/roteiro";
 import { countWords } from "./word-count.ts";
-import { stripChapterTitleAnnotation } from "./strip-chapter-annotations";
+import { stripChapterTitleAnnotation } from "./strip-chapter-annotations.ts";
 
 /**
  * Helpers de exportação HTML do roteiro.
@@ -59,6 +59,27 @@ const POV_PREFIX_STRIP_RE = new RegExp(`^${POV_SYMBOL_CLASS}\\s*`);
 
 function nomeCanonico(s: string): string {
   return s.replace(POV_PREFIX_STRIP_RE, "").trim().toLowerCase();
+}
+
+/**
+ * Casa o POV atual com o nome canônico de um protagonista (MMC ou FMC), por
+ * nome completo OU por primeiro token — tolera "Saverio" vs "Saverio
+ * Aldobrandini" (Estrutura usa nome completo, Escrita usa só o primeiro no
+ * `### ✦`, ou vice-versa). `false` se qualquer lado for null.
+ */
+function matchesLead(
+  povCanonical: string | null,
+  povFirstToken: string | null,
+  leadCanonical: string | null,
+  leadFirstToken: string | null,
+): boolean {
+  if (povCanonical === null || leadCanonical === null) return false;
+  if (povCanonical === leadCanonical) return true;
+  return (
+    povFirstToken !== null &&
+    leadFirstToken !== null &&
+    povFirstToken === leadFirstToken
+  );
 }
 
 function preprocessRoteiro(raw: string): string {
@@ -174,40 +195,83 @@ function isWordCountLine(rawLine: string): boolean {
 }
 
 /**
- * Extrai o PRIMEIRO NOME do MMC do output da Estrutura1 (ou Estrutura2).
- *
- * Em todas as 3 categorias (`milionario-1p`, `milionario-3p`, `mafia`) os
- * prompts da Estrutura têm uma seção rotulada `PROTAGONISTA MASCULINO (MMC)`
- * seguida de um campo `Nome: <nome>` (ou `- Nome: <nome>`, com bullet
- * markdown opcional, e cabeçalho podendo vir com `#` ou emoji 👤/🤵 antes).
- *
- * Esta é a fonte CONFIÁVEL — não depende de heurística de palavras (que
- * quebra em máfia, onde MMC pode ter mais palavras que FMC).
- *
- * Retorna só o PRIMEIRO nome ("Saverio" de "Saverio Aldobrandini") porque
- * é assim que o `✦ NOME` aparece no roteiro da Escrita.
- *
- * Retorna `null` se a estrutura não foi gerada, foi editada quebrando o
- * padrão, ou não é parseável.
+ * Valida/normaliza um valor cru de "nome" extraído da Estrutura. Rejeita
+ * avisos/disclaimers do LLM (⚠️, "ATENÇÃO", "(a definir)", "sem nome", etc.) e
+ * retorna só o PRIMEIRO token nome-like (capitalizado). Módulo-level porque é
+ * compartilhado pela extração do MMC e da FMC.
  */
-export function extractMaleLeadNameFromEstrutura(
+function isPlausibleName(raw: string): string | null {
+  let cleaned = raw.replace(/^\*+|\*+$/g, "").trim();
+  cleaned = cleaned.replace(/^\*+|\*+$/g, "").trim(); // remove ** wrapping again se sobrar
+  if (!cleaned) return null;
+  // Rejeita avisos/disclaimers do LLM. Não basta cortar `^\*+|\*+$` — o
+  // valor pode começar com ⚠️, "ATENÇÃO", "ATTENTION", "ATTENTION!",
+  // "Sem nome", "(a definir)", etc.
+  const lc = cleaned.toLowerCase();
+  if (
+    /^[⚠️❗❌🚫]/.test(cleaned) ||
+    /\b(aten[cç][aã]o|proibido|substitu[ií]d|disclaimer|n[aã]o\s+definido|sem\s+nome|a\s+definir|placeholder)\b/i.test(
+      cleaned,
+    ) ||
+    lc.startsWith("(") ||
+    lc.length < 2
+  ) {
+    return null;
+  }
+  // Exige pelo menos uma letra (caso o LLM tenha colocado só símbolos).
+  if (!/[A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç]/.test(cleaned)) return null;
+  // Pega o primeiro token "nome-like" (letras/acentos/hífen, sem aspas/vírgula).
+  const firstToken = cleaned
+    .split(/[\s,;()"'—\-]+/)
+    .find((t) => /^[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç]+$/.test(t));
+  if (firstToken) return firstToken;
+  // Fallback: primeiro token simples (já passou validação básica).
+  const fallback = cleaned.split(/\s+/)[0];
+  return /^[A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç]/.test(fallback) ? fallback : null;
+}
+
+/**
+ * Extrai o PRIMEIRO NOME do protagonista (MMC ou FMC) do output da Estrutura.
+ *
+ * Category-agnostic: ancora pela TAG `(MMC)`/`(FMC)` em qualquer linha de
+ * cabeçalho — cobre `PROTAGONISTA MASCULINO (MMC)` (milionário/máfia),
+ * `ALPHA KING (MMC)` / `HEROÍNA (FMC)` (alpha-king), com `#`/emoji opcionais.
+ *
+ * Dois formatos de nome:
+ *   1. INLINE no cabeçalho — `👤 ALPHA KING (MMC) — Cael Ashford; 34…` →
+ *      pega o nome logo após a tag (separador — / - / : / ;).
+ *   2. LINHA `Nome:` própria abaixo do cabeçalho — `Nome: Saverio Aldobrandini`
+ *      (com bullet/negrito opcional; prioriza "Nome corrigido"/"Nome real"
+ *      sobre um primeiro `Nome:` que contenha aviso ⚠️).
+ *
+ * Fonte CONFIÁVEL — não depende de heurística de palavras (que inverte quando
+ * o trecho do MMC é longo). Retorna só o PRIMEIRO nome (é assim que `✦ NOME`
+ * aparece na Escrita). `null` se a estrutura não foi gerada/é inparseável.
+ */
+function extractLeadName(
   estruturaContent: string | undefined | null,
+  tag: "MMC" | "FMC",
 ): string | null {
   if (!estruturaContent) return null;
 
-  // Captura a SEÇÃO "PROTAGONISTA MASCULINO (MMC)" — do header dela até a
-  // próxima seção em caixa alta (ex.: "PROTAGONISTA FEMININA", "ANTAGONISTA",
-  // "TRAMA") ou fim de string. Sem delimitar a seção, varremos Nome:s de
-  // outros personagens. Limitado a 2000 chars pra não pegar a estrutura toda.
-  const headerMatch = estruturaContent.match(
-    /PROTAGONISTA\s+MASCULINO\s*\(MMC\)[^\n]*\n/i,
-  );
+  // Cabeçalho da seção: QUALQUER linha que contenha "(MMC)"/"(FMC)". Captura o
+  // que vem DEPOIS da tag na mesma linha (group 1) pra tentar o nome inline.
+  const headerRe = new RegExp(`^[^\\n]*\\(${tag}\\)([^\\n]*)$`, "im");
+  const headerMatch = estruturaContent.match(headerRe);
   if (!headerMatch || headerMatch.index === undefined) return null;
+
+  // 1) Nome inline no próprio cabeçalho (formato alpha-king). O texto após a
+  //    tag começa com um separador (— / - / : / ;) seguido do nome.
+  const inlineRaw = headerMatch[1].replace(/^[\s—\-:;]+/, "").trim();
+  const inlineName = isPlausibleName(inlineRaw);
+  if (inlineName) return inlineName;
+
+  // 2) Senão, varre linhas "Nome:" na SEÇÃO — do header até a próxima seção em
+  //    caixa alta (ex.: "PROTAGONISTA FEMININA", "ANTAGONISTA") ou fim. Limita
+  //    a 2000 chars pra não pegar a estrutura toda. Tolerante a markdown
+  //    header (`##`/`#`) e bullets emoji antes do próximo título.
   const sectionStart = headerMatch.index + headerMatch[0].length;
   const rest = estruturaContent.slice(sectionStart, sectionStart + 2000);
-  // Procura a próxima linha "ALL CAPS de pelo menos 5 letras" (próxima seção).
-  // Se não achar, usa o fim do slice. Tolerante a markdown header (`##`/`#`)
-  // e bullets emoji antes do título.
   const nextSectionRe = /\n(?:#{1,3}\s+)?[^\n]{0,4}\b[A-ZÁÉÍÓÚÂÊÔÃÕÇ]{4,}/;
   const nextMatch = rest.match(nextSectionRe);
   const section = nextMatch && nextMatch.index !== undefined
@@ -226,37 +290,6 @@ export function extractMaleLeadNameFromEstrutura(
   while ((m = nameLineRe.exec(section)) !== null) {
     candidates.push(m[1].trim());
   }
-  if (candidates.length === 0) return null;
-
-  const isPlausibleName = (raw: string): string | null => {
-    let cleaned = raw.replace(/^\*+|\*+$/g, "").trim();
-    cleaned = cleaned.replace(/^\*+|\*+$/g, "").trim(); // remove ** wrapping again se sobrar
-    if (!cleaned) return null;
-    // Rejeita avisos/disclaimers do LLM. Não basta cortar `^\*+|\*+$` — o
-    // valor pode começar com ⚠️, "ATENÇÃO", "ATTENTION", "ATTENTION!",
-    // "Sem nome", "(a definir)", etc.
-    const lc = cleaned.toLowerCase();
-    if (
-      /^[⚠️❗❌🚫]/.test(cleaned) ||
-      /\b(aten[cç][aã]o|proibido|substitu[ií]d|disclaimer|n[aã]o\s+definido|sem\s+nome|a\s+definir|placeholder)\b/i.test(
-        cleaned,
-      ) ||
-      lc.startsWith("(") ||
-      lc.length < 2
-    ) {
-      return null;
-    }
-    // Exige pelo menos uma letra (caso o LLM tenha colocado só símbolos).
-    if (!/[A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç]/.test(cleaned)) return null;
-    // Pega o primeiro token "nome-like" (letras/acentos/hífen, sem aspas/vírgula).
-    const firstToken = cleaned
-      .split(/[\s,()"'—\-]+/)
-      .find((t) => /^[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç]+$/.test(t));
-    if (firstToken) return firstToken;
-    // Fallback: primeiro token simples (já passou validação básica).
-    const fallback = cleaned.split(/\s+/)[0];
-    return /^[A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç]/.test(fallback) ? fallback : null;
-  };
 
   // Prioridade: último candidato plausível (correções vêm DEPOIS do original
   // — "Nome corrigido", "Nome real" etc. ficam abaixo de "Nome").
@@ -265,6 +298,26 @@ export function extractMaleLeadNameFromEstrutura(
     if (name) return name;
   }
   return null;
+}
+
+/**
+ * Extrai o PRIMEIRO NOME do MMC (protagonista masculino) da Estrutura.
+ * Ver `extractLeadName`. Fonte primária pro destaque verde do POV masculino.
+ */
+export function extractMaleLeadNameFromEstrutura(
+  estruturaContent: string | undefined | null,
+): string | null {
+  return extractLeadName(estruturaContent, "MMC");
+}
+
+/**
+ * Extrai o PRIMEIRO NOME da FMC (protagonista feminina/heroína) da Estrutura.
+ * Usado como GUARDA: o POV da FMC nunca recebe o destaque verde na Parte 2.
+ */
+export function extractFemaleLeadNameFromEstrutura(
+  estruturaContent: string | undefined | null,
+): string | null {
+  return extractLeadName(estruturaContent, "FMC");
 }
 
 /**
@@ -378,6 +431,16 @@ export function escritaContentToHtml(
   options?: {
     maleLeadName?: string | null;
     /**
+     * Nome da FMC (heroína), tipicamente vindo de
+     * `extractFemaleLeadNameFromEstrutura`. GUARDA DURA: o POV da FMC NUNCA
+     * recebe o destaque verde na Parte 2. Além disso, quando conhecido, faz o
+     * walker pintar todo POV nomeado da Parte 2 que NÃO seja a FMC (tudo que
+     * não é a heroína na P2 é o MMC) — robusto mesmo se o nome do MMC falhar.
+     * Sem fallback heurístico: se não vier da Estrutura, fica `null` e o
+     * destaque recai só sobre o `maleLeadName` (comportamento legado).
+     */
+    femaleLeadName?: string | null;
+    /**
      * Quando o `raw` é só Parte 2 (sem o header `# PARTE 2` no início, caso do
      * `CopyPartButton` exportando "Parte 2"), passar `forceParte2: true` pra
      * aplicar o destaque do MMC desde o começo. Default `false`: o walker
@@ -412,6 +475,13 @@ export function escritaContentToHtml(
   // completo e a Escrita usa só primeiro nome (ou vice-versa) no `### ✦`.
   const maleLeadFirstToken = maleLeadCanonical?.split(/\s+/)[0] ?? null;
 
+  // FMC (heroína) — SEM auto-detecção heurística: só vale o nome explícito da
+  // Estrutura. Usado como guarda (a FMC nunca fica verde) e pra pintar todo
+  // POV não-FMC da Parte 2 como MMC.
+  const femaleLeadName = options?.femaleLeadName ?? null;
+  const femaleLeadCanonical = femaleLeadName ? nomeCanonico(femaleLeadName) : null;
+  const femaleLeadFirstToken = femaleLeadCanonical?.split(/\s+/)[0] ?? null;
+
   const chapters = options?.chapters;
   // Cursor que avança a cada `## Capítulo N — Título` encontrado no texto.
   // Aponta pro próximo chapter esperado em `chapters[]`. Quando o cap atual
@@ -421,20 +491,58 @@ export function escritaContentToHtml(
 
   const preprocessed = preprocessRoteiro(raw);
 
+  // Renderiza um cabeçalho de capítulo (<h2> = Heading 2 no Docs). Compartilhado
+  // pelo formato novo `## Capítulo` e pelo legado `# Capítulo` (alpha-king e
+  // roteiros antigos emitem capítulo com UM `#` só — ver detecção no branch h1).
+  const emitChapter = (titleRaw: string) => {
+    flushPara();
+    currentPov = null;
+    // Quando `chapters[]` é fornecido, usa o `chapter.part` desse cap como
+    // fonte da verdade pra `inParte2`. Sobrevive a roteiros que perderam
+    // o header `# PARTE 2` por uma reescrita/edição.
+    if (chapters && chapterCursor < chapters.length) {
+      const cap = chapters[chapterCursor]!;
+      if (cap.part === "Parte 2") inParte2 = true;
+      else if (cap.part === "Parte 1") inParte2 = false;
+      chapterCursor++;
+    }
+    // Safety net: remove a anotação `(~X palavras — ritmo Y)` que possa ter
+    // sobrado no cabeçalho (ex.: roteiro editado à mão cujo content não
+    // passou pelo heal de storage).
+    const chapterTitle = stripChapterTitleAnnotation(titleRaw);
+    out.push(`<h2 style="${STYLE_H_CHAPTER}">${escapeHtml(chapterTitle)}</h2>`);
+  };
+
   const flushPara = () => {
     if (paraBuffer.length === 0) return;
     const text = paraBuffer.join(" ").trim();
     if (text) {
       const inner = inlineFormat(text);
       const povFirstToken = currentPov?.split(/\s+/)[0] ?? null;
+      const matchesFmc = matchesLead(
+        currentPov,
+        povFirstToken,
+        femaleLeadCanonical,
+        femaleLeadFirstToken,
+      );
+      const matchesMmc = matchesLead(
+        currentPov,
+        povFirstToken,
+        maleLeadCanonical,
+        maleLeadFirstToken,
+      );
+      // Destaque verde = POV MASCULINO (MMC) na Parte 2, travado:
+      //  • TRAVA: o POV da FMC (heroína) NUNCA é pintado.
+      //  • senão pinta se casa com o MMC, OU — quando sabemos quem é a FMC
+      //    (nome veio da Estrutura) — se é um POV nomeado da P2 que não é a
+      //    FMC (tudo que não é a heroína na P2 é o MMC, mesmo se o nome do MMC
+      //    não foi detectado).
+      //  • sem nenhum sinal de FMC/MMC: só casa com o MMC (legado).
       const isMmcPov =
         inParte2 &&
-        maleLeadCanonical !== null &&
         currentPov !== null &&
-        (currentPov === maleLeadCanonical ||
-          (povFirstToken !== null &&
-            maleLeadFirstToken !== null &&
-            povFirstToken === maleLeadFirstToken));
+        !matchesFmc &&
+        (matchesMmc || femaleLeadCanonical !== null);
       const content = isMmcPov
         ? `<span style="${STYLE_HIGHLIGHT_MMC}">${inner}</span>`
         : inner;
@@ -489,31 +597,26 @@ export function escritaContentToHtml(
     if (h2) {
       // Capítulo — sai como <h2> pra virar Heading 2 no Google Docs e aninhar
       // embaixo da PARTE (h1) na árvore de Guias / Estrutura do documento.
-      flushPara();
-      currentPov = null;
-      // Quando `chapters[]` é fornecido, usa o `chapter.part` desse cap como
-      // fonte da verdade pra `inParte2`. Sobrevive a roteiros que perderam
-      // o header `# PARTE 2` por uma reescrita/edição.
-      if (chapters && chapterCursor < chapters.length) {
-        const cap = chapters[chapterCursor]!;
-        if (cap.part === "Parte 2") inParte2 = true;
-        else if (cap.part === "Parte 1") inParte2 = false;
-        chapterCursor++;
-      }
-      // Safety net: remove a anotação `(~X palavras — ritmo Y)` que possa ter
-      // sobrado no cabeçalho (ex.: roteiro editado à mão cujo content não
-      // passou pelo heal de storage).
-      const chapterTitle = stripChapterTitleAnnotation(h2[1]);
-      out.push(`<h2 style="${STYLE_H_CHAPTER}">${escapeHtml(chapterTitle)}</h2>`);
+      emitChapter(h2[1]);
       continue;
     }
     if (h1) {
+      // Um `#` só pode ser PARTE (divisor) OU capítulo legado. Alguns prompts
+      // (alpha-king) e roteiros antigos emitem `# Capítulo N — Título` com um
+      // único `#`. Sem este desvio, o capítulo virava <h1> centralizado (cara
+      // de PARTE) e ainda forçava page-break antes de cada cap. Só `PARTE 1/2`
+      // é divisor de fato; "Capítulo …" segue o caminho do <h2>.
+      const headingText = h1[1].trim();
+      if (/^\*{0,2}\s*Cap[íi]tulo\b/i.test(headingText)) {
+        emitChapter(headingText.replace(/^\*+|\*+$/g, "").trim());
+        continue;
+      }
       // Separador de PARTE — sai como <h1> pra virar Heading 1 no Google Docs
       // (raiz da árvore de Guias). Mantém centralizado via style inline e
       // adiciona page-break antes da PARTE 2+.
       flushPara();
       currentPov = null;
-      const partLabel = h1[1].trim().toUpperCase();
+      const partLabel = headingText.toUpperCase();
       if (/^PARTE\s+2\b/.test(partLabel)) {
         inParte2 = true;
       } else if (/^PARTE\s+1\b/.test(partLabel)) {
@@ -548,6 +651,65 @@ export function escritaContentToHtml(
   }
   flushPara();
   return out.join("\n");
+}
+
+/**
+ * Versão TEXTO LIMPO do roteiro pro fallback do clipboard.
+ *
+ * O `CopyPartButton` escreve dois flavors no clipboard: `text/html` (rico, com
+ * headings e o destaque verde do MMC) e `text/plain`. Quando o destino aceita
+ * HTML (Google Docs, Word), o `text/html` ganha. Mas em ambientes onde o
+ * `clipboard.write([ClipboardItem])` falha (cai no `writeText`) ou o usuário
+ * cola como "somente texto", o que vai pro doc é o `text/plain`. Se esse plain
+ * for o markdown CRU, a roteirista vê `# Capítulo 1`, `**`, contagens de
+ * palavras e marcadores de PARTE no documento — a "formatação toda errada".
+ *
+ * Esta função entrega o mesmo conteúdo SEM ruído de markdown: cabeçalhos viram
+ * linhas limpas (sem `#`, sem anotação de palavras), `**`/`*` somem, marcadores
+ * de POV ficam como `✦ Nome`, linhas de contagem de palavras e divisores são
+ * removidos. O destaque verde só existe no flavor HTML — texto puro não carrega
+ * cor —, então isso é o melhor degradê possível pro caminho de fallback.
+ */
+export function escritaContentToPlainText(raw: string): string {
+  const preprocessed = preprocessRoteiro(raw);
+  const lines: string[] = [];
+
+  for (const rawLine of preprocessed.split("\n")) {
+    const line = rawLine.trim();
+
+    if (!line) {
+      // Colapsa múltiplas linhas em branco numa só.
+      if (lines.length > 0 && lines[lines.length - 1] !== "") lines.push("");
+      continue;
+    }
+
+    if (isWordCountLine(line)) continue;
+
+    // Divisor decorativo solto vira linha em branco.
+    if (/^[═━─]{5,}/.test(line)) {
+      if (lines.length > 0 && lines[lines.length - 1] !== "") lines.push("");
+      continue;
+    }
+
+    const h3 = line.match(/^###\s+(.+)$/);
+    if (h3) {
+      lines.push(h3[1].replace(/\*\*/g, "").trim());
+      continue;
+    }
+    const headingText = line.match(/^#{1,2}\s+(.+)$/);
+    if (headingText) {
+      const text = headingText[1].replace(/\*\*/g, "").trim();
+      // Pula o marcador de PARTE (vira nome de aba no Docs, não vai no corpo).
+      if (/^PARTE\s+\d/i.test(text)) continue;
+      lines.push(stripChapterTitleAnnotation(text));
+      continue;
+    }
+
+    // Parágrafo de prosa — tira só os marcadores de ênfase markdown.
+    lines.push(line.replace(/\*\*/g, "").replace(/\*(.+?)\*/g, "$1"));
+  }
+
+  return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 /**

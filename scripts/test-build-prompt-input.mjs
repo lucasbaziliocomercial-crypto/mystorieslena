@@ -86,5 +86,89 @@ function check(name, condition, detail = "") {
   );
 }
 
+// Sentinela do prefixo cacheável — DEVE casar com lib/agents/_shared/prompt-cache.ts
+// e a réplica inline de lib/claude.ts (U+0002 STX).
+const STX = String.fromCharCode(2);
+const BOUNDARY = `${STX}CACHE_BOUNDARY${STX}`;
+
+// CASE 4: sem sentinela → 1 bloco de texto (guard de regressão do split)
+{
+  const iter = buildPromptInput({ userMessage: "Sem boundary aqui." });
+  const yields = [];
+  for await (const m of iter) yields.push(m);
+  const content = yields[0]?.message?.content ?? [];
+  check("CASE 4: sem sentinela = 1 bloco de texto", content.length === 1);
+  check(
+    "CASE 4: bloco único mantém cache_control",
+    content[0]?.cache_control?.type === "ephemeral",
+  );
+}
+
+// CASE 5: com sentinela → 2 text blocks, ambos com cache_control, sem vazamento
+{
+  const iter = buildPromptInput({
+    userMessage: `PREFIXO ESTÁVEL${BOUNDARY}SUFIXO VARIÁVEL`,
+  });
+  const yields = [];
+  for await (const m of iter) yields.push(m);
+  const content = yields[0]?.message?.content ?? [];
+  check("CASE 5: 2 blocks de texto (prefixo + sufixo)", content.length === 2);
+  check("CASE 5: bloco 1 é text", content[0]?.type === "text");
+  check("CASE 5: bloco 2 é text", content[1]?.type === "text");
+  check(
+    "CASE 5: prefixo tem cache_control (breakpoint cacheável)",
+    content[0]?.cache_control?.type === "ephemeral",
+  );
+  check(
+    "CASE 5: sufixo tem cache_control (último bloco)",
+    content[1]?.cache_control?.type === "ephemeral",
+  );
+  check(
+    "CASE 5: prefixo = texto antes do sentinela (trim)",
+    content[0]?.text === "PREFIXO ESTÁVEL",
+    `prefixo real: ${JSON.stringify(content[0]?.text)}`,
+  );
+  check(
+    "CASE 5: sufixo = texto depois do sentinela (trim)",
+    content[1]?.text === "SUFIXO VARIÁVEL",
+    `sufixo real: ${JSON.stringify(content[1]?.text)}`,
+  );
+  check(
+    "CASE 5: NENHUM bloco retém o caractere de controle U+0002 ✨",
+    content.every((b) => (b.text ?? "").indexOf(STX) === -1),
+  );
+}
+
+// CASE 6: imagem + sentinela → 3 blocks [image, text, text]; imagem sem cache_control
+{
+  const iter = buildPromptInput({
+    userMessage: `PREFIXO${BOUNDARY}SUFIXO`,
+    image: { base64Data: "FAKE", mimeType: "image/png" },
+  });
+  const yields = [];
+  for await (const m of iter) yields.push(m);
+  const content = yields[0]?.message?.content ?? [];
+  check("CASE 6: 3 blocks (imagem + prefixo + sufixo)", content.length === 3);
+  check("CASE 6: bloco 1 é image", content[0]?.type === "image");
+  check(
+    "CASE 6: imagem NÃO tem cache_control",
+    content[0]?.cache_control === undefined,
+  );
+  check(
+    "CASE 6: prefixo (bloco 2) tem cache_control",
+    content[1]?.cache_control?.type === "ephemeral",
+  );
+  check(
+    "CASE 6: sufixo (bloco 3) tem cache_control",
+    content[2]?.cache_control?.type === "ephemeral",
+  );
+  check(
+    "CASE 6: nenhum text block retém o sentinela",
+    content
+      .filter((b) => b.type === "text")
+      .every((b) => (b.text ?? "").indexOf(STX) === -1),
+  );
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail > 0 ? 1 : 0);

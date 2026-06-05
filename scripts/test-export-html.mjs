@@ -15,6 +15,8 @@ import {
   detectMaleLeadFromFullRoteiro,
   detectMaleLeadName,
   escritaContentToHtml,
+  escritaContentToPlainText,
+  extractFemaleLeadNameFromEstrutura,
   extractMaleLeadNameFromEstrutura,
   splitRoteiroByParts,
 } from "../lib/export-html.ts";
@@ -239,6 +241,40 @@ Eu acordei antes do despertador.
 Eu já estava na cozinha quando ele apareceu.
 
 — Bom dia — respondi.
+`;
+
+// alpha-king: Estrutura no formato INLINE do guia (rótulo "ALPHA KING (MMC)" /
+// "HEROÍNA (FMC)", nome logo após a tag, SEM linha "Nome:" separada).
+const ESTRUTURA_ALPHAKING = `🙋 HEROÍNA (FMC) — Lyra Nightshade; 22 anos; ômega rejeitada; forte e sarcástica quando ferida; segredo: lobo raro adormecido.
+👤 ALPHA KING (MMC) — Cael Ashford; 34 anos; Alpha King da alcateia do Norte; passado de traição; ciúmes territorial absoluto.
+`;
+
+// alpha-king: P1 implícita (heroína, sem ✦). P2 alterna ✦ LYRA (FMC) e ✦ CAEL
+// (MMC/Alpha) — e o trecho do Alpha é MAIS LONGO que o da heroína. É o caso que
+// INVERTE a heurística "menos palavras = MMC" (ela retornaria a FMC). Com os
+// nomes vindos da Estrutura, o verde tem que cair no Cael e a fala da Lyra
+// NUNCA pode ficar verde.
+const ROTEIRO_ALPHAKING_MMC_LONGO = `# PARTE 1
+
+## Capítulo 1 — A Clareira
+
+${prose(1500)}
+
+# PARTE 2
+
+## Capítulo 7 — A Lua Cheia
+
+✦ LYRA
+
+${prose(300)}
+
+— Eu não vou fugir — eu disse.
+
+✦ CAEL
+
+${prose(900)}
+
+— Você é minha — rosnei.
 `;
 
 // ============================================================================
@@ -521,6 +557,66 @@ Quem ele é: Mafioso italiano.
     }
   }
 
+  console.log("\n— alpha-king: extração inline 'ALPHA KING (MMC) — Nome' / 'HEROÍNA (FMC) — Nome' —");
+  {
+    allOk = assertEq(
+      "Extrai MMC 'Cael' do formato inline alpha-king",
+      extractMaleLeadNameFromEstrutura(ESTRUTURA_ALPHAKING),
+      "Cael",
+    ) && allOk;
+    allOk = assertEq(
+      "Extrai FMC 'Lyra' do formato inline alpha-king",
+      extractFemaleLeadNameFromEstrutura(ESTRUTURA_ALPHAKING),
+      "Lyra",
+    ) && allOk;
+  }
+
+  console.log("\n— alpha-king: MMC com trecho MAIS LONGO que a FMC (heurística inverteria) —");
+  {
+    // A heurística de contagem retornaria a FMC (Lyra), pois o Alpha tem MAIS
+    // palavras na P2 — exatamente o bug reportado (verde no POV feminino).
+    const mmcHeuristic = detectMaleLeadFromFullRoteiro(ROTEIRO_ALPHAKING_MMC_LONGO);
+    allOk = assertEq(
+      "Heurística de palavras INVERTE (retorna 'LYRA', a FMC) — por isso usamos a Estrutura",
+      mmcHeuristic,
+      "LYRA",
+    ) && allOk;
+
+    // Com os nomes vindos da Estrutura, o destaque cai no Cael (MMC) e a fala
+    // da Lyra (FMC) fica de fora — travado.
+    const maleLeadName = extractMaleLeadNameFromEstrutura(ESTRUTURA_ALPHAKING);
+    const femaleLeadName = extractFemaleLeadNameFromEstrutura(ESTRUTURA_ALPHAKING);
+    const { parte2 } = splitRoteiroByParts(ROTEIRO_ALPHAKING_MMC_LONGO);
+    const html = escritaContentToHtml(parte2, {
+      maleLeadName,
+      femaleLeadName,
+      forceParte2: true,
+    });
+
+    allOk = assertContains("HTML da P2 contém destaque verde (no Cael)", html, GREEN_SPAN) && allOk;
+    const mmcGreenHit = html.includes(`${GREEN_SPAN}— Você é minha — rosnei.`);
+    allOk = assertEq("Fala do MMC (Cael) ESTÁ destacada", mmcGreenHit, true) && allOk;
+    const fmcGreenHit = html.includes(`${GREEN_SPAN}— Eu não vou fugir — eu disse.`);
+    allOk = assertEq("Fala da FMC (Lyra) NÃO está destacada", fmcGreenHit, false) && allOk;
+  }
+
+  console.log("\n— alpha-king: trava da FMC vale mesmo se o nome do MMC falhar —");
+  {
+    // Sem maleLeadName (detecção do MMC falhou), mas com femaleLeadName da
+    // Estrutura: todo POV nomeado da P2 que NÃO é a FMC vira verde (= o MMC).
+    const femaleLeadName = extractFemaleLeadNameFromEstrutura(ESTRUTURA_ALPHAKING);
+    const { parte2 } = splitRoteiroByParts(ROTEIRO_ALPHAKING_MMC_LONGO);
+    const html = escritaContentToHtml(parte2, {
+      maleLeadName: null,
+      femaleLeadName,
+      forceParte2: true,
+    });
+    const mmcGreenHit = html.includes(`${GREEN_SPAN}— Você é minha — rosnei.`);
+    allOk = assertEq("Cael fica verde por exclusão (não é a FMC)", mmcGreenHit, true) && allOk;
+    const fmcGreenHit = html.includes(`${GREEN_SPAN}— Eu não vou fugir — eu disse.`);
+    allOk = assertEq("Lyra (FMC) continua sem destaque", fmcGreenHit, false) && allOk;
+  }
+
   console.log("\n— Filtro: linha de contagem '(N palavras)' não vai pra exportação —");
   {
     const variantes = [
@@ -561,6 +657,34 @@ Quem ele é: Mafioso italiano.
       htmlProsa,
       "Ela escreveu 200 palavras antes de parar de chorar.",
     ) && allOk;
+  }
+
+  console.log("\n— alpha-king: capítulo com UM '#' só (legado) vira <h2>, não divisor de PARTE —");
+  {
+    // Alpha-king e roteiros antigos emitem `# Capítulo N — …` com um único `#`.
+    // Antes, o walker tratava como <h1 part-divider> (centralizado + page-break
+    // por cap). Deve virar <h2> de capítulo, sem nenhum part-divider.
+    const raw = `# PARTE 1\n\n# Capítulo 1 — A sombra do salão (~1.900 palavras — ritmo rápido)\n\nAcordei antes do sol.\n\n# Capítulo 2 — O baile lunar\n\nA porta estava aberta.`;
+    const { parte1 } = splitRoteiroByParts(raw);
+    const html = escritaContentToHtml(parte1, { maleLeadName: null });
+    allOk = assertContains("Capítulo 1 vira <h2>", html, ">Capítulo 1 — A sombra do salão</h2>") && allOk;
+    allOk = assertContains("Capítulo 2 vira <h2>", html, ">Capítulo 2 — O baile lunar</h2>") && allOk;
+    allOk = assertNotContains("Nenhum part-divider em capítulo de '#' só", html, "part-divider") && allOk;
+    allOk = assertNotContains("Nenhum page-break forçado entre capítulos", html, "page-break-before") && allOk;
+    allOk = assertNotContains("Anotação de palavras some do título", html, "1.900 palavras") && allOk;
+  }
+
+  console.log("\n— escritaContentToPlainText: fallback de clipboard sem ruído markdown —");
+  {
+    const raw = `# PARTE 1\n\n# Capítulo 1 — A sombra do salão (~1.900 palavras — ritmo rápido)\n\n**Levantei.** O chão mordia meus *pés* descalços.\n\n(1.901 palavras)\n\n# Capítulo 2 — O baile`;
+    const { parte1 } = splitRoteiroByParts(raw);
+    const txt = escritaContentToPlainText(parte1);
+    allOk = assertNotContains("Sem '#' no texto puro", txt, "#") && allOk;
+    allOk = assertNotContains("Sem '**' no texto puro", txt, "**") && allOk;
+    allOk = assertNotContains("Sem linha de contagem de palavras", txt, "1.901 palavras") && allOk;
+    allOk = assertNotContains("Sem anotação de planejamento no título", txt, "1.900 palavras") && allOk;
+    allOk = assertContains("Título do capítulo preservado limpo", txt, "Capítulo 1 — A sombra do salão") && allOk;
+    allOk = assertContains("Prosa preservada sem marcadores", txt, "Levantei. O chão mordia meus pés descalços.") && allOk;
   }
 
   console.log("\n— Resultado final —");

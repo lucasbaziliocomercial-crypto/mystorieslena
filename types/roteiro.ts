@@ -97,6 +97,45 @@ export interface RevisorError {
   appliedAt?: string;
 }
 
+/** Nível de risco de hate classificado pelo Revisor (🟢/🟡/🔴). */
+export type RevisorHateRisk = "baixo" | "medio" | "alto";
+
+/**
+ * Snapshot de qualidade da história — o "eval" (conceito do Karpathy: nota
+ * objetiva, automatizada e versionada, pra iterar com confiança). Derivado do
+ * que o Revisor JÁ julga (Nota 0–10 + Risco de Hate + erros por gravidade) —
+ * **custo zero de cota**, nenhuma chamada extra ao modelo. Gravado num log
+ * append-only em `Roteiro.evals` a cada geração de revisão, pra medir se uma
+ * re-rodada melhorou ou piorou (Δ nota, tendência de erros).
+ */
+export interface EvalSnapshot {
+  /** ID estável (`${step}-${at}`). */
+  id: string;
+  /** ISO timestamp da geração da revisão que produziu este eval. */
+  at: string;
+  /** Step que gerou o eval. */
+  step: RevisorStepId;
+  /** Parte do roteiro avaliada (1 ou 2). */
+  parte: 1 | 2;
+  /** Nota 0–10 parseada do relatório (null se não detectada). */
+  nota: number | null;
+  /** Nível de risco de hate classificado (null se não detectado). */
+  hateRisk: RevisorHateRisk | null;
+  /** Contagem de erros por gravidade. */
+  counts: {
+    gravissimo: number;
+    interfere: number;
+    atencao: number;
+    naoInterfere: number;
+  };
+  /** Total de erros apontados (= soma das contagens). */
+  errorTotal: number;
+  /** Veredito advisory (mesma regra do banner: Nota ≥ 8 e zero gravíssimos). */
+  canFinish: boolean;
+  /** Hash da Escrita revisada — liga o eval à versão de texto avaliada. */
+  escritaHash?: string;
+}
+
 /**
  * Sinopse curta de um capítulo gerado em batch — vira contexto pro próximo
  * batch (continuidade) e ponte Parte 1 → Parte 2.
@@ -334,6 +373,16 @@ export interface Roteiro {
    * mostra um banner "Gerar cânone agora" mas não bloqueia o fluxo.
    */
   canone?: string;
+  /**
+   * Log append-only de evals de qualidade (conceito do Karpathy). Cada geração
+   * de revisão (revisor1/revisor2) anexa um [EvalSnapshot] derivado do relatório
+   * — nota, risco de hate, contagem de erros — pra a roteirista ver a curva de
+   * qualidade ao longo das re-rodadas e decidir com confiança. Cresce ao longo
+   * de todas as gerações (além do cap de 5 do histórico de step); soft-cap em
+   * `EVAL_LOG_CAP` (lib/eval-log.ts) só pra proteger o localStorage. Roteiros
+   * legados ficam undefined — o painel de qualidade só aparece quando há evals.
+   */
+  evals?: EvalSnapshot[];
   /** True quando a roteirista clicou "Aprovar cânone" — destrava avanço pra
    *  Estrutura P1 em roteiros novos. Roteiros legados sem cânone seguem
    *  funcionando mesmo com este flag false/undefined. */

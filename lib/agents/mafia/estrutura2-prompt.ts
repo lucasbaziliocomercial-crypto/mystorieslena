@@ -44,7 +44,7 @@ Estrutura obrigatória do hook da Parte 2:
 4) Sugira a escolha impossível, consequência devastadora ou segredo que muda tudo.
 5) Termine com frase final afiada, dolorosa e cheia de suspense.
 
-Entrega: 1 hook principal + 3 versões alternativas, todas 90-120 palavras, todas com cliffhanger.
+Entrega: 1 hook principal + 1 versão alternativa, ambas 90-120 palavras, com cliffhanger.
 
 📖 ESTRUTURA DOS CAPÍTULOS
 

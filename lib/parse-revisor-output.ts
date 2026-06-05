@@ -1,4 +1,10 @@
-import type { RevisorError, RevisorErrorGravity } from "@/types/roteiro";
+import type {
+  EvalSnapshot,
+  RevisorError,
+  RevisorErrorGravity,
+  RevisorHateRisk,
+  StepId,
+} from "@/types/roteiro";
 
 /**
  * Parser do bloco <erros_detalhados> emitido pelo Revisor (Step 5).
@@ -359,6 +365,95 @@ export function gravityLabel(g: RevisorErrorGravity): {
     case "gravissimo":
       return { emoji: "🔴", label: "Gravíssimo" };
   }
+}
+
+/**
+ * Extrai a Nota (0 a 10) do markdown do relatório do Revisor. Formato canônico:
+ * `**Nota: X/10**` (vem em TODA passada — completa e enxuta; está travado). Aceita
+ * decimal (8,5 / 8.5) e variações de bold/espaço. Retorna null se não achar.
+ * Usado pelo banner de veredito ("pode finalizar?"), computado no display — sem
+ * persistir nada no metadata, sem sincronizar trilhas de gravação.
+ */
+export function parseRevisorNota(content: string): number | null {
+  const m = content.match(
+    /nota\s*:?\s*\*{0,2}\s*(\d+(?:[.,]\d+)?)\s*\/\s*10/i,
+  );
+  if (!m) return null;
+  const n = parseFloat(m[1].replace(",", "."));
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.min(10, n));
+}
+
+/**
+ * Extrai o NÍVEL DE RISCO DE HATE (🟢 baixo / 🟡 médio / 🔴 alto) do relatório
+ * do Revisor. Formato canônico (vem em TODA passada — completa e enxuta):
+ *   `# 🎯 NÍVEL DE RISCO DE HATE`
+ *   `🔴 ALTO — [justificativa]`
+ *
+ * Heurística: isola a seção do nível e pega o nível seguido de travessão/`:`
+ * (o marcador da justificativa) — isso desambigua de um eventual eco do
+ * template "🟢 BAIXO / 🟡 MÉDIO / 🔴 ALTO". Fallback por emoji se nenhum nível
+ * justificado for achado. Retorna null se não detectar. Advisory (alimenta o
+ * eval e o banner) — a roteirista sempre vê o relatório completo.
+ */
+export function parseRevisorHateRisk(content: string): RevisorHateRisk | null {
+  if (!content) return null;
+  const secRe = /N[IÍ]VEL\s+DE\s+RISCO\s+DE\s+HATE([\s\S]{0,400})/i;
+  const sec = secRe.exec(content);
+  const scope = sec?.[1] ?? content;
+
+  // Nível seguido de — / – / - / : (o nível escolhido leva justificativa).
+  const chosen = /(BAIXO|M[EÉ]DIO|ALTO)\s*[—–:-]/i.exec(scope);
+  const word = (chosen?.[1] ?? "").toUpperCase();
+  if (word.startsWith("ALT")) return "alto";
+  if (word.startsWith("M")) return "medio";
+  if (word.startsWith("BAI")) return "baixo";
+
+  // Fallback por emoji (pessimista: 🔴 antes de 🟡 antes de 🟢).
+  if (scope.includes("🔴")) return "alto";
+  if (scope.includes("🟡")) return "medio";
+  if (scope.includes("🟢")) return "baixo";
+  return null;
+}
+
+/** Texto sentinela (erro/login) — não é um relatório real, não vira eval. */
+function isSentinelReport(content: string): boolean {
+  return !content.trim() || content.trim().startsWith("[");
+}
+
+/**
+ * Constrói o eval de qualidade (sem `id`/`at` — adicionados pelo log append-only
+ * em lib/eval-log.ts) a partir de um relatório de revisão + erros parseados.
+ * Deriva 100% do que o Revisor já produziu — custo zero de cota. Retorna null
+ * pra steps não-revisor ou relatórios sentinela (geração falhou).
+ */
+export function computeRevisorEval(
+  step: StepId,
+  content: string,
+  errors: RevisorError[],
+  escritaHash?: string,
+): Omit<EvalSnapshot, "id" | "at"> | null {
+  // Inline (sem importar isRevisorStep/partOfRevisorStep como VALOR) pra este
+  // módulo manter só imports de TIPO de @/types/roteiro — assim os testes node
+  // (--experimental-strip-types, que não resolve o alias `@/`) seguem rodando.
+  if (step !== "revisor1" && step !== "revisor2") return null;
+  if (isSentinelReport(content)) return null;
+
+  const counts = { gravissimo: 0, interfere: 0, atencao: 0, naoInterfere: 0 };
+  for (const e of errors) counts[e.gravidade] += 1;
+  const nota = parseRevisorNota(content);
+
+  return {
+    step,
+    parte: step === "revisor1" ? 1 : 2,
+    nota,
+    hateRisk: parseRevisorHateRisk(content),
+    counts,
+    errorTotal: errors.length,
+    // Mesma regra do banner de veredito (decisão do usuário).
+    canFinish: nota !== null && nota >= 8 && counts.gravissimo === 0,
+    ...(escritaHash ? { escritaHash } : {}),
+  };
 }
 
 /**
