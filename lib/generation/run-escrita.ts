@@ -682,6 +682,10 @@ export async function runEscrita(
                   },
                   currentWords: current,
                   targetWords: target,
+                  // Faixa larga (±8%) pro Sonnet convergir num passe sem mirar o
+                  // número exato (o que o fazia atravessar pro lado oposto e
+                  // oscilar). O Revisor não passa isso → segue ±3%.
+                  tolerancePct: CALIBRATION_THRESHOLD,
                   premissa: previousOutputs.premissa?.content,
                   neighborSynopses,
                 }),
@@ -694,12 +698,29 @@ export async function runEscrita(
               const newCh = parsedFix.find((p) => p.number === cand.ch.number);
               if (!newCh?.content) continue;
 
-              // Só aceita se o novo tamanho ficou MAIS PERTO do alvo — evita que
-              // um passe ruim (que não encurtou ou piorou) substitua um capítulo
-              // melhor. Muta NO LUGAR; mergedChapters()/snapshot() já refletem.
+              // Aceita NO LUGAR (mergedChapters()/snapshot() já refletem), mas com
+              // duas travas anti-oscilação:
+              //  (1) se o novo já está DENTRO da faixa ±threshold, aceita sempre
+              //      (próxima iteração encerra cedo) — é o caso bom, não descarta.
+              //  (2) se ainda está FORA da faixa, só aceita um passe que APROXIMA
+              //      do alvo SEM atravessar pro lado oposto. Um corte/expansão que
+              //      cruza o alvo e continua fora (+12% → −10%) era aceito pelo
+              //      gate antigo ("mais perto") e disparava o ping-pong que queima
+              //      os 3 passes. Rejeitar o cruzamento mantém o melhor mesmo-lado
+              //      e tenta de novo conservador.
               const newWords = countWords(newCh.content);
-              if (Math.abs(newWords - target) >= Math.abs(current - target)) {
-                continue;
+              const newDev = newWords - target;
+              const curDev = current - target;
+              const inBand =
+                Math.abs(newDev) / target <= CALIBRATION_THRESHOLD;
+              if (!inBand) {
+                const crossed =
+                  newDev !== 0 &&
+                  curDev !== 0 &&
+                  Math.sign(newDev) !== Math.sign(curDev);
+                if (crossed || Math.abs(newDev) >= Math.abs(curDev)) {
+                  continue;
+                }
               }
               const idx2 = partChapters.findIndex(
                 (c) => c.number === cand.ch.number,
