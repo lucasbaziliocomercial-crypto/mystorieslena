@@ -52,6 +52,7 @@ import { createLimiter } from "@/lib/concurrency";
 import {
   CALIBRATION_THRESHOLD,
   CALIBRATION_CONCURRENCY,
+  CALIBRATION_MAX_PASSES,
 } from "@/lib/escrita-calibration";
 
 export type EscritaProgress =
@@ -630,7 +631,7 @@ export async function runEscrita(
           if (hooks.beforeUnit) await hooks.beforeUnit();
           if (signal.aborted || fatalRaised) return;
 
-          const current = countWords(cand.ch.content);
+          const target = cand.target!;
           done += 1;
           hooks.onProgress?.({
             kind: "calibrating",
@@ -649,49 +650,73 @@ export async function runEscrita(
               synopsis: s.synopsis,
             }));
 
-          try {
-            const fixRes = await fetch(`/api/escrita-fix-wordcount`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                category,
-                chapter: {
-                  number: cand.ch.number,
-                  title: cand.ch.title,
-                  part: partLabel,
-                  content: cand.ch.content,
-                },
-                currentWords: current,
-                targetWords: cand.target,
-                premissa: previousOutputs.premissa?.content,
-                neighborSynopses,
-              }),
-              signal,
-            });
-            if (!fixRes.ok || !fixRes.body) return;
-            const fixAcc = await readResponseText(fixRes, signal);
-            if (signal.aborted) return;
-            const parsedFix = parseEscritaChaptersDirect(fixAcc);
-            const newCh = parsedFix.find((p) => p.number === cand.ch.number);
-            if (newCh?.content) {
-              // Muta o capítulo NO LUGAR no array desta Parte — mergedChapters()
-              // / snapshot() já reflete (não há array materializado separado).
-              const idx = partChapters.findIndex(
+          // Loop limitado: 1 passe do Sonnet raramente cobre desvios grandes
+          // (+38%). Reconta o tamanho ATUAL a cada passe e reescreve de novo até
+          // entrar na faixa ±threshold ou esgotar CALIBRATION_MAX_PASSES. Só
+          // aceita resultado que APROXIMA do alvo (nunca piora); um passe que
+          // falha (rede/cota/parse) vira retry no próximo. Ver CALIBRATION_MAX_PASSES.
+          for (let pass = 0; pass < CALIBRATION_MAX_PASSES; pass++) {
+            if (signal.aborted || fatalRaised) return;
+
+            const idx = partChapters.findIndex(
+              (c) => c.number === cand.ch.number,
+            );
+            if (idx < 0) return;
+            const current = countWords(partChapters[idx]!.content);
+            // Já dentro da faixa → nada a fazer (encerra cedo).
+            if (Math.abs(current - target) / target <= CALIBRATION_THRESHOLD) {
+              break;
+            }
+
+            try {
+              const fixRes = await fetch(`/api/escrita-fix-wordcount`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  category,
+                  chapter: {
+                    number: cand.ch.number,
+                    title: partChapters[idx]!.title,
+                    part: partLabel,
+                    content: partChapters[idx]!.content,
+                  },
+                  currentWords: current,
+                  targetWords: target,
+                  premissa: previousOutputs.premissa?.content,
+                  neighborSynopses,
+                }),
+                signal,
+              });
+              if (!fixRes.ok || !fixRes.body) continue;
+              const fixAcc = await readResponseText(fixRes, signal);
+              if (signal.aborted) return;
+              const parsedFix = parseEscritaChaptersDirect(fixAcc);
+              const newCh = parsedFix.find((p) => p.number === cand.ch.number);
+              if (!newCh?.content) continue;
+
+              // Só aceita se o novo tamanho ficou MAIS PERTO do alvo — evita que
+              // um passe ruim (que não encurtou ou piorou) substitua um capítulo
+              // melhor. Muta NO LUGAR; mergedChapters()/snapshot() já refletem.
+              const newWords = countWords(newCh.content);
+              if (Math.abs(newWords - target) >= Math.abs(current - target)) {
+                continue;
+              }
+              const idx2 = partChapters.findIndex(
                 (c) => c.number === cand.ch.number,
               );
-              if (idx >= 0) {
-                partChapters[idx] = {
-                  ...partChapters[idx]!,
+              if (idx2 >= 0) {
+                partChapters[idx2] = {
+                  ...partChapters[idx2]!,
                   content: newCh.content,
-                  title: newCh.title ?? partChapters[idx]!.title,
+                  title: newCh.title ?? partChapters[idx2]!.title,
                   generatedAt: new Date().toISOString(),
                 };
                 emitPartial();
               }
+            } catch (e) {
+              if ((e as Error).name === "AbortError") return;
+              // best-effort: o próximo passe reconta e tenta de novo
             }
-          } catch (e) {
-            if ((e as Error).name === "AbortError") return;
-            // mantém o capítulo original — calibração é best-effort
           }
         }),
       ),
