@@ -83,7 +83,10 @@
           "**/*",
           "!node_modules/@anthropic-ai/**",
           "!public/dev-roteiros.json",
-          "!public/dev-seed.html"
+          "!public/dev-seed.html",
+          "!dist-electron*/**",
+          "!*.png",
+          "!*.log"
         ]
       },
       {

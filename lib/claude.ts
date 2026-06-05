@@ -141,12 +141,22 @@ export function buildPromptInput(params: {
       },
     });
   }
-  // Se a mensagem traz o sentinela de prefixo cacheável, quebramos em DOIS
-  // text blocks: prefixo estável (cânone+premissa+estruturas, ~20k tokens) e
-  // sufixo variável (intro do batch+sinopses+alvos). Ambos levam cache_control
-  // ephemeral — o prefixo cria um breakpoint lido cross-batch (cache_read), o
-  // sufixo (último bloco) cobre re-runs idênticos. Sem o sentinela, mantém o
-  // comportamento de bloco único (Revisor, Estrutura, calibração, refine).
+  // Se a mensagem traz o sentinela, quebramos em DOIS text blocks só pra PODER
+  // remover o caractere de controle do meio (prefixo estável | sufixo variável).
+  // O cache_control vai SÓ no ÚLTIMO bloco (o sufixo) — NUNCA num bloco anterior.
+  //
+  // ⚠️ POR QUÊ (aprendido na marra): o Claude CLI injeta SOZINHO um cache_control
+  // ttl='1h' no ÚLTIMO bloco da mensagem, independente do que a gente manda.
+  // Qualquer cache_control NOSSO num bloco anterior vira ttl='5m' e fica ANTES
+  // desse 1h → a API rejeita com 400 ("a ttl='1h' cache_control block must not
+  // come after a ttl='5m' cache_control block", apontando o último bloco). Foi o
+  // que quebrou a Escrita na 1.0.74: o breakpoint no prefixo (5m) vinha antes do
+  // 1h que o CLI põe no fim. A geração single-block (1.0.73) sempre funcionou
+  // justamente porque tem UM bloco só, e o cache cai nele (= último) → o 1h do
+  // CLI não tem nenhum 5m antes. Aqui replicamos isso: cache_control só no fim.
+  // Trade-off: perdemos o cache de prefixo cross-batch — reativá-lo exigiria
+  // marcar o prefixo com ttl='1h' EXPLÍCITO (pra empatar com o 1h do fim), não
+  // com ephemeral default; só fazer depois de validar que o CLI honra o ttl.
   const boundaryIdx = params.userMessage.indexOf(CACHE_PREFIX_BOUNDARY);
   if (boundaryIdx === -1) {
     userContent.push({
@@ -164,13 +174,14 @@ export function buildPromptInput(params: {
       .split(CACHE_PREFIX_BOUNDARY)
       .join("\n\n")
       .trimStart();
+    // Prefixo SEM cache_control (não pode haver breakpoint antes do último bloco).
     if (prefix) {
       userContent.push({
         type: "text",
         text: prefix,
-        cache_control: { type: "ephemeral" },
       });
     }
+    // Cache_control SÓ no último bloco (sufixo) — espelha a 1.0.73 que funciona.
     userContent.push({
       type: "text",
       text: suffix,

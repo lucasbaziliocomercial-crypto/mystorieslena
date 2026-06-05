@@ -21,7 +21,9 @@
 /build
 
 # Electron build artifacts (instaladores, app empacotado)
-/dist-electron/
+# Glob cobre variantes de build (dist-electron-teste, -out, etc.) — sem isso o
+# Tailwind v4 varre o app empacotado como "content source" e estoura a memória.
+/dist-electron*/
 /electron/dist/
 /electron/icons/icon.png
 /electron/icons/icon.ico
