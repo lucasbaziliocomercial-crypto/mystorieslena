@@ -30,3 +30,17 @@ export const CALIBRATION_THRESHOLD = 0.08;
  * estritamente sequencial.
  */
 export const CALIBRATION_CONCURRENCY = 5;
+
+/**
+ * Máximo de passes de reescrita POR CAPÍTULO na calibração. Um passe só do Sonnet
+ * raramente cobre desvios grandes (ex.: +38% acima do alvo — o Opus tende a
+ * escrever longo em prosa criativa por mais que o prompt grite "TETO RÍGIDO"), e
+ * um passe que falha por cota/rede na janela de sobreposição P1‖P2 era engolido
+ * como best-effort, deixando o capítulo no tamanho cru. Com até **3** passes,
+ * cada um reconta o tamanho ATUAL e encurta/expande de novo até entrar na faixa
+ * ±CALIBRATION_THRESHOLD — encurtamentos parciais compõem (2.847→2.500→2.250→…)
+ * e falhas viram retry. O loop só aceita resultado que APROXIMA do alvo (nunca
+ * piora) e para assim que entra na faixa, então o custo extra só acontece nos
+ * capítulos realmente fora — não desacelera o caso comum.
+ */
+export const CALIBRATION_MAX_PASSES = 3;

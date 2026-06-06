@@ -104,7 +104,7 @@ const BOUNDARY = `${STX}CACHE_BOUNDARY${STX}`;
   );
 }
 
-// CASE 5: com sentinela → 2 text blocks, ambos com cache_control, sem vazamento
+// CASE 5: com sentinela → 2 text blocks, SÓ o prefixo com cache_control, sem vazamento
 {
   const iter = buildPromptInput({
     userMessage: `PREFIXO ESTÁVEL${BOUNDARY}SUFIXO VARIÁVEL`,
@@ -116,11 +116,11 @@ const BOUNDARY = `${STX}CACHE_BOUNDARY${STX}`;
   check("CASE 5: bloco 1 é text", content[0]?.type === "text");
   check("CASE 5: bloco 2 é text", content[1]?.type === "text");
   check(
-    "CASE 5: prefixo tem cache_control (breakpoint cacheável)",
-    content[0]?.cache_control?.type === "ephemeral",
+    "CASE 5: prefixo NÃO tem cache_control (nenhum breakpoint antes do último)",
+    content[0]?.cache_control === undefined,
   );
   check(
-    "CASE 5: sufixo tem cache_control (último bloco)",
+    "CASE 5: sufixo (último bloco) TEM cache_control — evita conflito TTL 1h/5m",
     content[1]?.cache_control?.type === "ephemeral",
   );
   check(
@@ -139,7 +139,7 @@ const BOUNDARY = `${STX}CACHE_BOUNDARY${STX}`;
   );
 }
 
-// CASE 6: imagem + sentinela → 3 blocks [image, text, text]; imagem sem cache_control
+// CASE 6: imagem + sentinela → 3 blocks [image, text, text]; só o prefixo com cache_control
 {
   const iter = buildPromptInput({
     userMessage: `PREFIXO${BOUNDARY}SUFIXO`,
@@ -155,11 +155,11 @@ const BOUNDARY = `${STX}CACHE_BOUNDARY${STX}`;
     content[0]?.cache_control === undefined,
   );
   check(
-    "CASE 6: prefixo (bloco 2) tem cache_control",
-    content[1]?.cache_control?.type === "ephemeral",
+    "CASE 6: prefixo (bloco 2) NÃO tem cache_control",
+    content[1]?.cache_control === undefined,
   );
   check(
-    "CASE 6: sufixo (bloco 3) tem cache_control",
+    "CASE 6: sufixo (bloco 3, último) TEM cache_control — evita conflito TTL 1h/5m",
     content[2]?.cache_control?.type === "ephemeral",
   );
   check(

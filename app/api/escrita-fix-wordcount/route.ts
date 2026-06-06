@@ -41,6 +41,13 @@ interface Body {
   };
   currentWords: number;
   targetWords: number;
+  /**
+   * Tolerância relativa da faixa aceita (ex.: 0.08 = ±8%). Default 0.03 (±3%).
+   * A calibração da Escrita passa ±8% (faixa larga → o Sonnet converge em 1
+   * passe sem precisar acertar o número exato, o que causava overshoot pro lado
+   * oposto). O Revisor não passa nada → fica no ±3% rigoroso de sempre.
+   */
+  tolerancePct?: number;
   premissa?: string;
   neighborSynopses?: Array<{
     number: number;
@@ -64,9 +71,15 @@ export async function POST(req: NextRequest) {
 
   const diff = targetWords - currentWords;
   const absDiff = Math.abs(diff);
-  // Range estrito do prompt mestre: ±3%. Mínimo absoluto de 30 palavras pra
-  // alvos pequenos. Mesma fórmula de `lib/parse-estrutura-targets.ts#targetRange`.
-  const margin = Math.max(30, Math.round(targetWords * 0.03));
+  // Faixa aceita: ±tolerancePct (default ±3% — range estrito do prompt mestre,
+  // usado pelo Revisor). A calibração da Escrita passa ±8% pra dar margem ao
+  // Sonnet convergir sem atravessar pro lado oposto. Mínimo absoluto de 30
+  // palavras pra alvos pequenos. Mesma base de `parse-estrutura-targets#targetRange`.
+  const tolerance =
+    typeof body.tolerancePct === "number" && body.tolerancePct > 0
+      ? body.tolerancePct
+      : 0.03;
+  const margin = Math.max(30, Math.round(targetWords * tolerance));
   const min = targetWords - margin;
   const max = targetWords + margin;
 
@@ -78,11 +91,11 @@ export async function POST(req: NextRequest) {
 
   if (diff > 0) {
     sections.push(
-      `━━━ AÇÃO: EXPANDIR ━━━\n\nEXPANDA cenas existentes para adicionar cerca de ${absDiff.toLocaleString("pt-BR")} palavras. Use:\n• Mais detalhe sensorial (cheiro, textura, temperatura, som)\n• Mais descrição de ambiente (móveis, luz, atmosfera)\n• Fluxo de pensamento da narradora entre falas\n• Ampliação dos diálogos JÁ presentes (mais beats, mais subtexto)\n• Pausas, silêncios e gestos que carregam tensão\n\nREGRAS RÍGIDAS — qualquer violação invalida o output:\n• NÃO acrescente eventos novos. Mesmas cenas, mais densas.\n• NÃO altere o cliffhanger final.\n• NÃO mude a ordem das cenas.\n• NÃO altere falas-chave (revelações, decisões, frases marcantes).\n• NÃO adicione personagens novos.\n• MANTENHA o tom Helô Stories (sedutor, intenso).\n• NUNCA copie texto deste briefing pro corpo do capítulo. Estas instruções são ORDENS pra você executar — não fazem parte do roteiro. Se você começar o capítulo com "Expandir...", "(a)...(b)...", ou "conforme cravado", PARE: está copiando o briefing.`,
+      `━━━ AÇÃO: EXPANDIR (ajuste CONSERVADOR) ━━━\n\nO capítulo está CURTO. Adicione palavras pra chegar PERTO de ${targetWords.toLocaleString("pt-BR")} — faixa aceita ${min.toLocaleString("pt-BR")}–${max.toLocaleString("pt-BR")}.\n\n⚠️ REGRA ANTI-OSCILAÇÃO (a mais importante): NÃO EXAGERE no ajuste. É MUITO melhor adicionar de MENOS e parar perto do alvo do que adicionar demais e ESTOURAR pro outro lado. NUNCA ultrapasse ${max.toLocaleString("pt-BR")} palavras. Na dúvida, adicione menos — pode até parar um pouco ABAIXO de ${targetWords.toLocaleString("pt-BR")} (desde que ≥ ${min.toLocaleString("pt-BR")}), isso é seguro e aceito. Acrescente no MÁXIMO ~${absDiff.toLocaleString("pt-BR")} palavras.\n\nComo expandir:\n• Mais detalhe sensorial (cheiro, textura, temperatura, som)\n• Mais descrição de ambiente (móveis, luz, atmosfera)\n• Fluxo de pensamento da narradora entre falas\n• Ampliação dos diálogos JÁ presentes (mais beats, mais subtexto)\n• Pausas, silêncios e gestos que carregam tensão\n\nREGRAS RÍGIDAS — qualquer violação invalida o output:\n• NÃO acrescente eventos novos. Mesmas cenas, mais densas.\n• NÃO altere o cliffhanger final.\n• NÃO mude a ordem das cenas.\n• NÃO altere falas-chave (revelações, decisões, frases marcantes).\n• NÃO adicione personagens novos.\n• MANTENHA o tom do canal (conforme o system prompt acima).\n• NUNCA copie texto deste briefing pro corpo do capítulo. Estas instruções são ORDENS pra você executar — não fazem parte do roteiro. Se você começar o capítulo com "Expandir...", "(a)...(b)...", ou "conforme cravado", PARE: está copiando o briefing.`,
     );
   } else {
     sections.push(
-      `━━━ AÇÃO: ENCURTAR ━━━\n\nENCURTE removendo cerca de ${absDiff.toLocaleString("pt-BR")} palavras. Use:\n• Cortar redundâncias (frases que repetem ideias)\n• Reduzir descrições excessivas que não carregam tensão\n• Eliminar advérbios desnecessários\n• Compactar parágrafos sem perder ritmo\n• Encurtar pensamentos internos longos da narradora — manter os essenciais, cortar os redundantes\n\nREGRAS RÍGIDAS — qualquer violação invalida o output:\n• NÃO remova cenas inteiras.\n• NÃO altere o cliffhanger final.\n• NÃO altere falas-chave (revelações, decisões, frases marcantes).\n• NÃO mude a ordem das cenas.\n• MANTENHA o tom Helô Stories.\n• NUNCA copie texto deste briefing pro corpo do capítulo. Estas instruções são ORDENS pra você executar — não fazem parte do roteiro.`,
+      `━━━ AÇÃO: ENCURTAR (ajuste CONSERVADOR) ━━━\n\nO capítulo está LONGO. Corte palavras pra chegar PERTO de ${targetWords.toLocaleString("pt-BR")} — faixa aceita ${min.toLocaleString("pt-BR")}–${max.toLocaleString("pt-BR")}.\n\n⚠️ REGRA ANTI-OSCILAÇÃO (a mais importante): NÃO EXAGERE no corte. É MUITO melhor cortar de MENOS e parar perto do alvo do que cortar demais e ficar CURTO demais. NUNCA desça abaixo de ${min.toLocaleString("pt-BR")} palavras. Na dúvida, corte menos — pode até parar um pouco ACIMA de ${targetWords.toLocaleString("pt-BR")} (desde que ≤ ${max.toLocaleString("pt-BR")}), isso é seguro e aceito. Remova no MÁXIMO ~${absDiff.toLocaleString("pt-BR")} palavras.\n\nComo encurtar:\n• Cortar redundâncias (frases que repetem ideias)\n• Reduzir descrições excessivas que não carregam tensão\n• Eliminar advérbios desnecessários\n• Compactar parágrafos sem perder ritmo\n• Encurtar pensamentos internos longos da narradora — manter os essenciais, cortar os redundantes\n\nREGRAS RÍGIDAS — qualquer violação invalida o output:\n• NÃO remova cenas inteiras.\n• NÃO altere o cliffhanger final.\n• NÃO altere falas-chave (revelações, decisões, frases marcantes).\n• NÃO mude a ordem das cenas.\n• MANTENHA o tom do canal (conforme o system prompt acima).\n• NUNCA copie texto deste briefing pro corpo do capítulo. Estas instruções são ORDENS pra você executar — não fazem parte do roteiro.`,
     );
   }
 
@@ -108,7 +121,7 @@ export async function POST(req: NextRequest) {
   );
 
   sections.push(
-    `━━━ FORMATO DE SAÍDA ━━━\n\nDevolva o capítulo INTEIRO reescrito, começando pelo header EXATAMENTE neste formato:\n\n${headerLine}\n\n[texto inteiro do capítulo, ${diff > 0 ? "com cerca de " + absDiff.toLocaleString("pt-BR") + " palavras a mais" : "com cerca de " + absDiff.toLocaleString("pt-BR") + " palavras a menos"}, respeitando todas as regras acima]\n\nNada além disso. Sem comentários, sem ═══, sem sinopses, sem contagem de palavras no corpo.`,
+    `━━━ FORMATO DE SAÍDA ━━━\n\nDevolva o capítulo INTEIRO reescrito, começando pelo header EXATAMENTE neste formato:\n\n${headerLine}\n\n[texto inteiro do capítulo, ajustado pra ficar DENTRO da faixa ${min.toLocaleString("pt-BR")}–${max.toLocaleString("pt-BR")} palavras (sem atravessar pro outro lado), respeitando todas as regras acima]\n\nNada além disso. Sem comentários, sem ═══, sem sinopses, sem contagem de palavras no corpo.`,
   );
 
   const userMessage = sections.join("\n\n");
