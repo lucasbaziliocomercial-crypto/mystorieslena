@@ -33,6 +33,7 @@ import {
 import {
   STEP_LABELS,
   STEP_ORDER,
+  displayNodeIndex,
   isRevisorStep,
   nextStep,
   partOfRevisorStep,
@@ -75,7 +76,7 @@ import {
 import { mergeContinuation } from "@/lib/parse-continuation-overlap";
 import { aggregatePreviousRevisorErrors } from "@/lib/revisor-continuation";
 import { RevisorErrorsView } from "@/components/wizard/RevisorErrorsView";
-import { RevisorPartsOverview } from "@/components/wizard/RevisorPartsOverview";
+import { RevisorPartTabs } from "@/components/wizard/RevisorPartTabs";
 import {
   countChaptersInEstrutura,
   planBatches,
@@ -2185,12 +2186,6 @@ export function StepShell({ step }: Props) {
     [roteiro, enqueueStep, queueJobs, removeJob, pushOutputToHistory],
   );
 
-  // "Continuar as duas Partes" — continua revisor1 E revisor2 em paralelo.
-  const continueBothParts = useCallback(() => {
-    continueRevisorPart("revisor1");
-    continueRevisorPart("revisor2");
-  }, [continueRevisorPart]);
-
   // Regerar UM capítulo individual no step Escrita. Reusa o pipeline 2-em-2
   // disparando um batch de 1 capítulo + sinopses dos vizinhos (todas
   // disponíveis em metadata.synopses) pra preservar continuidade.
@@ -2542,9 +2537,8 @@ export function StepShell({ step }: Props) {
 
   // (Antes havia aqui uma PAREDE de bloqueio do revisor2 — escondia a tela
   // inteira até a Parte 1 ser revisada. Removida: as duas Partes geram em
-  // paralelo pelo seu próprio "Gerar"; o estado da P1 aparece (sem bloquear) no
-  // RevisorPartsOverview no topo. A re-rodada cruzada continua possível pelo
-  // "Continuar" depois de consolidar a P1.)
+  // paralelo; o estado de cada Parte (nota/hate/pendências) aparece nas abas
+  // do RevisorPartTabs, no topo, e clicar troca de Parte sem sair do step.)
 
   return (
     <div className="flex flex-col gap-6">
@@ -2552,7 +2546,7 @@ export function StepShell({ step }: Props) {
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="font-normal">
-              Etapa {idx + 1} de {STEP_ORDER.length}
+              Etapa {displayNodeIndex(step).index} de {displayNodeIndex(step).total}
             </Badge>
             {agent.placeholder && (
               <Badge
@@ -2593,12 +2587,7 @@ export function StepShell({ step }: Props) {
       </header>
 
       {isRevisorStep(step) && (
-        <RevisorPartsOverview
-          currentStep={step as "revisor1" | "revisor2"}
-          busy={revisorJobActive}
-          onGenerateBoth={reviseBothParts}
-          onContinueBoth={continueBothParts}
-        />
+        <RevisorPartTabs currentStep={step as "revisor1" | "revisor2"} />
       )}
 
       {previousOutputsSummary.some((p) => p.content) && (
@@ -2995,53 +2984,44 @@ export function StepShell({ step }: Props) {
         <div className="flex items-center gap-2 flex-wrap pt-2">
           {!isGenerating ? (
             isRevisorStep(step) ? (
-              // Botões DESTA Parte só. As ações "as duas Partes" (gerar/continuar
-              // em paralelo) ficam no RevisorPartsOverview, no topo — a separação
-              // visual é o que evita misturar os dois revisores.
+              // Step ÚNICO de Revisor: as abas (no topo) trocam de Parte; aqui no
+              // rodapé ficam as ações. "Gerar as duas Partes" enfileira revisor1 +
+              // revisor2 do zero (rodam em paralelo na fila — cobre também a 1ª
+              // geração). "Continuar somente Parte N" re-roda só a Parte da aba
+              // ativa em modo continuação ("não relista os erros já apontados").
               <>
-                {hasContent ? (
-                  <>
-                    <Button
-                      onClick={() => generate("regenerate")}
-                      size="lg"
-                      variant="outline"
-                      className="gap-2"
-                      disabled={!!stepJob}
-                    >
-                      <RotateCcw className="size-4" />
-                      Gerar novamente
-                    </Button>
-                    {/* "Continuar" DESTA Parte vai pela FILA (paralelo + sobrevive
-                        à navegação) com o contexto "não relista esses erros". A
-                        versão "as duas Partes" é o botão primário do painel. */}
-                    <Button
-                      onClick={() =>
-                        continueRevisorPart(step as "revisor1" | "revisor2")
-                      }
-                      size="lg"
-                      variant="outline"
-                      className="gap-2"
-                      disabled={!!stepJob}
-                    >
-                      <Sparkles className="size-4" />
-                      Continuar só esta Parte
-                    </Button>
-                  </>
-                ) : (
-                  <Button
-                    onClick={() => generate("regenerate")}
-                    size="lg"
-                    className="gap-2"
-                    disabled={!!stepJob}
-                  >
-                    {stepJob ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <Sparkles className="size-4" />
-                    )}
-                    {stepJob ? "Gerando em 2º plano…" : generateLabel}
-                  </Button>
-                )}
+                <Button
+                  onClick={reviseBothParts}
+                  size="lg"
+                  className="gap-2"
+                  disabled={revisorJobActive}
+                  title="Enfileira a revisão da Parte 1 e da Parte 2 ao mesmo tempo (rodam em paralelo)."
+                >
+                  {revisorJobActive ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="size-4" />
+                  )}
+                  Gerar as duas Partes
+                </Button>
+                <Button
+                  onClick={() =>
+                    continueRevisorPart(step as "revisor1" | "revisor2")
+                  }
+                  size="lg"
+                  variant="outline"
+                  className="gap-2"
+                  disabled={revisorJobActive || !hasContent}
+                  title={
+                    hasContent
+                      ? "Re-roda só esta Parte em modo continuação (não relista os erros já apontados)."
+                      : "Gere esta Parte primeiro (use “Gerar as duas Partes”)."
+                  }
+                >
+                  <RotateCcw className="size-4" />
+                  Continuar somente Parte{" "}
+                  {partOfRevisorStep(step as "revisor1" | "revisor2")}
+                </Button>
               </>
             ) : (
               <Button

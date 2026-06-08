@@ -32,6 +32,26 @@ EM CASO DE CONFLITO:
 • Se um detalhe necessário NÃO está no cânone, prefira manter genérico ("o restaurante do bairro") a inventar específico ("Tasca da Vila"). Só invente se for inevitável pra trama, e mantenha consistente dali em diante.
 • Nunca crie um personagem novo com papel relevante (não-figurante) se ele não aparece no cânone.
 
+## REGRA DE NOMES — DISTINÇÃO E ESTABILIDADE DE SOBRENOMES (NÃO NEGOCIÁVEL)
+
+Trocar/empilhar sobrenomes e repetir nomes deixa a história confusa e quase impossível de revisar. Vale pra TODOS os personagens (principais, secundários, figurantes nomeados), em TODOS os capítulos e nas DUAS Partes.
+
+ESTABILIDADE — nunca trocar:
+• Uma vez que um personagem aparece com um sobrenome, esse sobrenome é DEFINITIVO — repita-o IDÊNTICO em todos os capítulos e nas duas Partes. Nunca troque por outro, nunca varie.
+• Se o personagem foi apresentado SÓ com o primeiro nome, NÃO invente um sobrenome pra ele depois. Se foi apresentado com nome + sobrenome, mantenha os dois consistentes.
+
+DISTINÇÃO — nunca repetir, nunca colidir:
+• Dois personagens DISTINTOS NUNCA têm o mesmo primeiro nome. Cada personagem tem um primeiro nome único na história.
+• Um sobrenome NUNCA pode ser igual ao primeiro nome de outro personagem (ex.: se existe um "Marcos", ninguém pode se chamar "Helena Marcos"). Confunde leitor e revisão.
+
+FAMÍLIA — a única exceção do sobrenome compartilhado:
+• Personagens da MESMA família COMPARTILHAM o mesmo sobrenome — natural e esperado (pais, irmãos, primos). Sobrenome igual é SINAL de parentesco.
+• Por isso: NUNCA dê o mesmo sobrenome a quem NÃO é parente — senão o leitor acha que são família.
+
+ECONOMIA — não empilhar sobrenomes:
+• Não distribua sobrenomes à toa. Só quem realmente precisa (trama, parentesco, formalidade) ganha sobrenome; secundários menores podem ficar só com o primeiro nome.
+• Menos sobrenomes, fixos e distintos > muitos sobrenomes que mudam e se confundem.
+
 Esta regra é mais forte que qualquer outra instrução de estilo, ritmo ou criatividade.`;
 
 /**
@@ -66,6 +86,14 @@ DIVERGÊNCIAS QUE PRECISAM VIRAR ERRO NO BLOCO <erros_detalhados>:
 • Data ou marco temporal divergente (ex.: cânone diz "encontro em outubro" e a escrita coloca "em julho") — **erro grave** com find/replace.
 
 • Personagem novo com papel relevante que não aparece no cânone — **erro grave**: ou o personagem é cortado/genericado, ou a roteirista precisa adicionar ao cânone (sinalize a escolha no por_que_alterado).
+
+• Sobrenome trocado: o MESMO personagem aparece com sobrenomes diferentes em capítulos/Partes distintos (ou ganha um sobrenome que não tinha) — **GRAVÍSSIMO** (💀 / 🔴 conforme a paleta). Emita um <erro> POR cada ocorrência divergente, padronizando pelo sobrenome da 1ª aparição (ou do cânone) como trecho_corrigido.
+
+• Primeiro nome repetido: dois personagens DISTINTOS com o mesmo primeiro nome — **erro grave** (🔴). Sinalize no por_que_alterado que um dos dois precisa ser renomeado (a roteirista escolhe qual).
+
+• Sobrenome = primeiro nome de outro personagem (ex.: "Helena Marcos" convivendo com um personagem "Marcos") — **erro grave** (🔴), pelo risco de confusão.
+
+• Sobrenome repetido entre personagens que NÃO são parentes — **erro grave** (🔴): ou são família (e isso tem que estar claro no texto), ou um precisa de outro sobrenome.
 
 • Inconsistência interna entre capítulos (mesmo personagem aparece com idade diferente em capítulos distintos, ou nome grafado de duas formas ao longo do roteiro) — **GRAVÍSSIMO** (💀 ou 🔴 conforme a paleta) — emita um <erro> POR cada ocorrência divergente, todas apontando pra grafia canônica como trecho_corrigido.
 

@@ -49,6 +49,7 @@
 
 import type { EscritaChapter } from "@/types/roteiro";
 import { stripChapterTitleAnnotation } from "./strip-chapter-annotations";
+import { stripEscritaContamination } from "./sanitize-escrita-content";
 
 export interface ParsedEscritaOutput {
   /** Texto do roteiro completo — pronto pra leitura/edição. */
@@ -315,7 +316,7 @@ function parseChaptersFromRoteiro(
     return [
       {
         number: 1,
-        content: roteiroText.trim(),
+        content: stripEscritaContamination(roteiroText.trim()),
         generatedAt: new Date().toISOString(),
       },
     ];
@@ -328,10 +329,12 @@ function parseChaptersFromRoteiro(
     const body = roteiroText.slice(cur.headerEnd, nextStart).trim();
     // Remove cabeçalhos de PARTE 1/PARTE 2 que tenham caído dentro deste body
     // (entre dois capítulos). Cobre ambos formatos: ═══ PARTE 1 ═══ e # PARTE 1.
-    const cleanedBody = body
-      .replace(/═{3,}\s*\n\s*PARTE [12]\s*\n\s*═{3,}/gi, "")
-      .replace(/^#\s+PARTE [12]\s*$/gim, "")
-      .trim();
+    const cleanedBody = stripEscritaContamination(
+      body
+        .replace(/═{3,}\s*\n\s*PARTE [12]\s*\n\s*═{3,}/gi, "")
+        .replace(/^#\s+PARTE [12]\s*$/gim, "")
+        .trim(),
+    );
 
     const part = partAtIndex(cur.index);
     const memInfo = memoryChapters.get(cur.number);

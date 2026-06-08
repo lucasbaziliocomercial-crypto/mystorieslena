@@ -4,6 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 @AGENTS.md
 
+## ⚠️ REGRA Nº 1 — Mudar SÓ o que foi pedido
+
+**Quando a roteirista pedir uma alteração, mexa APENAS no escopo exato do pedido.** Nunca aproveite pra "melhorar", refatorar, renomear ou remover outra coisa que já está funcionando. O que permanece dando certo, **mantenha intacto**.
+
+- Antes de editar, isole o escopo exato. Se algo fora do pedido parecer errado, **pergunte antes de tocar** — não corrija por conta própria.
+- Toda alteração vale para as **4 categorias** (`milionario-1p`, `milionario-3p`, `mafia`, `alpha-king`) salvo restrição explícita. Fazer nas 4 é *completar* o pedido, não extrapolar.
+- Ao terminar, declare exatamente o que mudou e confirme que o resto ficou como estava.
+
+**Invariantes provados — NÃO mexer sem pedido explícito:** Escrita P1‖P2 em paralelo + costura cruzada P1→P2 (`lib/generation/run-escrita.ts`, fonte única — não reanimar o branch morto do `StepShell`); Parte 2 = exatamente 6 capítulos nas 4 categorias (Parte 1 não mexer); calibração ±8% (Sonnet) / Revisor ±3%, anti-overshoot mira alvo×0,94; Revisor enxuto em todas as passadas (sempre NOTA + HATER + RISCO); evals versionados (custo zero de cota); caching (system prompt via boundary + prefixo cacheável da Escrita; `cache_control` SÓ no último bloco); fila grava coalescido (`scheduleSave`, não `saveRoteiro` direto); `countWords` de `@/lib/word-count` como única fonte de contagem; streaming sempre throttled; nunca renomear a KEY `veludo:roteiros`; nunca abrir DevTools pro usuário; commit/push = release completo pra equipe (nunca `npm run release` local).
+
 ## What this is
 
 Desktop app (Electron + Next.js 16) that drives a 5-step wizard for producing Brazilian Portuguese romance scripts ("Romance de Milionário"). Each step is a specialized Claude agent. **Auth is OAuth via the user's Claude Pro/Max subscription — there is no API key path in the runtime.**
