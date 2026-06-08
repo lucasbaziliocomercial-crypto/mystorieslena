@@ -8,7 +8,9 @@
  * (até MAX_CONCURRENT ao mesmo tempo). Isso atende ao pedido de "deixar várias
  * histórias gerando ao mesmo tempo pra otimizar tempo".
  *
- * - Escreve o resultado direto no storage por id (`saveRoteiro`).
+ * - Escreve o resultado no storage por id pelo caminho coalescido/idle
+ *   (`scheduleSave` + `flushPendingSave` no fim) pra não travar a janela
+ *   quando 2+ jobs geram em paralelo.
  * - Se o roteiro do job for o que está ABERTO no momento, também reflete no
  *   store ativo (`useWizard.setOutput`) pra a aba mostrar os capítulos surgindo.
  * - Cada job tem seu AbortController (registro em `job-control.ts`) pra cancelar.
@@ -20,7 +22,7 @@
 import { useEffect, useRef } from "react";
 import { useQueue } from "@/store/queue";
 import { useWizard } from "@/store/wizard";
-import { getRoteiro, saveRoteiro } from "@/lib/storage";
+import { getRoteiro, scheduleSave, flushPendingSave } from "@/lib/storage";
 import { appendEvalSnapshot } from "@/lib/eval-log";
 import { computeRevisorEval } from "@/lib/parse-revisor-output";
 import {
@@ -78,7 +80,7 @@ function applyCanone(roteiroId: string, canone: string) {
   if (r) {
     const next = { ...r, canone, canoneApproved: false };
     delete next.canoneApprovedAt;
-    saveRoteiro(next);
+    scheduleSave(next);
   }
   const w = useWizard.getState();
   if (w.roteiro?.id === roteiroId) w.setCanone(canone);
@@ -106,7 +108,13 @@ function applyStepOutput(roteiroId: string, step: StepId, output: StepOutput) {
         next = { ...next, evals: appendEvalSnapshot(r.evals, data, new Date().toISOString()) };
       }
     }
-    saveRoteiro(next);
+    // Caminho COALESCIDO/idle (não o saveRoteiro direto): o `onPartial` dispara
+    // por batch e, com 2 jobs em paralelo, o save direto comprimia a biblioteca
+    // toda de forma síncrona a cada batch × 2 → travava a janela. `scheduleSave`
+    // junta tudo num Map por id (último vence) e comprime 1× por janela de 600ms
+    // dentro de requestIdleCallback, fora do caminho crítico. O estado final do
+    // job é forçado a disco via flushPendingSave() ao concluir (abaixo).
+    scheduleSave(next);
   }
   // Se a aba aberta é esse roteiro, reflete ao vivo no store.
   if (active) {
@@ -253,6 +261,11 @@ export function QueueRunner() {
             applyStepOutput(job.roteiroId, job.step, output);
           }
 
+          // Durabilidade "terminou = salvou": força o último snapshot coalescido
+          // pro disco AGORA, sem esperar o debounce de 600ms. Os onPartial
+          // intermediários já coalesceram via scheduleSave; aqui a geração acabou
+          // (sem stream competindo), então 1 compressão síncrona é aceitável.
+          flushPendingSave();
           updateJob(job.id, {
             status: "done",
             finishedAt: new Date().toISOString(),

@@ -22,6 +22,31 @@ const KEY = "veludo:roteiros";
 const CORRUPT_KEY = `${KEY}.corrupt`;
 
 /**
+ * Prefixo das chaves laterais que guardam o `dataUrl` (base64, ~0,3-0,5 MB) da
+ * imagem de referência de cada roteiro, FORA do blob `veludo:roteiros`. Sem
+ * isso, a imagem entrava em TODA compressão da biblioteca (a cada save), e o
+ * custo de compressão cresce com o nº de roteiros — era o maior peso único por
+ * roteiro além da Escrita. Movê-la pra uma chave própria deixa o blob quente
+ * comprimir sem ela (saves mais rápidos), mantendo a imagem intacta.
+ *
+ * Invariante: o cache em memória SEMPRE tem o `Roteiro` com `dataUrl` reidratado
+ * (`hydrateRefImage` no read); só o blob persistido grava `dataUrl: ""`
+ * (`stripRefImage` no write). Nenhum consumidor de `referenceImage` muda —
+ * todos leem do cache reidratado.
+ */
+const REFIMG_PREFIX = "veludo:refimg:";
+
+/**
+ * Rastreia, por id, a ÚLTIMA string de `dataUrl` já gravada na chave lateral —
+ * por identidade de referência (`===`), não por valor. Quando a imagem não muda,
+ * o cache mantém a MESMA string (nada a recria), então `stripRefImage` detecta
+ * "já persistida" em O(1) e NÃO reescreve a chave lateral (reescrever ~0,4 MB a
+ * cada save reintroduziria o custo por-save que estamos eliminando). Só quando a
+ * roteirista troca a imagem (nova string) é que regrava. Limpo no reset/import.
+ */
+const lastWrittenRefImg = new Map<string, string>();
+
+/**
  * Sentinel que marca um valor comprimido com lz-string. Sem isso, não dá pra
  * distinguir um JSON cru (formato legado, escrito por versões ≤ 1.0.51) de
  * uma string UTF-16 comprimida — leitura quebraria pra qualquer um dos dois.
@@ -33,10 +58,13 @@ const COMPRESSED_PREFIX = "LZ1:";
 /**
  * Cap de snapshots por step no histórico. Antes era 20, mas com o texto
  * completo da Escrita (~200KB) salvo em cada snapshot sem dedup, isso
- * sozinho enchia o localStorage (4MB por roteiro só de histórico). 5 é o
- * suficiente pra dar undo confortável sem estourar o quota.
+ * sozinho enchia o localStorage (4MB por roteiro só de histórico). Baixado
+ * pra 2 (de 5) pra aliviar máquinas fracas: ainda dá pra desfazer a última
+ * geração, mas corta ~600KB-1MB por roteiro do blob comprimido a cada save.
+ * Exportado pra o store (`store/wizard.ts`) usar o MESMO cap e não divergir
+ * — os dois truncam pilhas, então repetir o literal era fonte de bug.
  */
-const HISTORY_CAP = 5;
+export const HISTORY_CAP = 2;
 
 function isBrowser() {
   return typeof window !== "undefined";
@@ -366,7 +394,40 @@ function pruneHistory(r: Roteiro): Roteiro {
   return changed ? { ...r, history: newHistory } : r;
 }
 
+/**
+ * Reidrata o `dataUrl` da imagem de referência a partir da chave lateral
+ * (`REFIMG_PREFIX + id`). Roda no pipeline de leitura, DEPOIS do blob ser
+ * descomprimido. Casos:
+ *  • Sem `referenceImage` → no-op.
+ *  • `dataUrl` já preenchido (roteiro LEGADO, imagem ainda inline no blob) →
+ *    no-op; o 1º save migra pra chave lateral via `stripRefImage`. NÃO semeia
+ *    `lastWrittenRefImg` (queremos que o 1º save grave a chave lateral).
+ *  • `dataUrl` vazio → lê a chave lateral; se achar, reidrata E semeia
+ *    `lastWrittenRefImg` (já está persistida → o 1º save não reescreve). Se a
+ *    chave sumiu, mantém vazio (estado degradado, não quebra).
+ */
+function hydrateRefImage(r: Roteiro): Roteiro {
+  const img = r.referenceImage;
+  if (!img) return r;
+  if (img.dataUrl) return r; // inline legado ou já reidratado
+  try {
+    const s = window.localStorage.getItem(REFIMG_PREFIX + r.id);
+    if (s) {
+      lastWrittenRefImg.set(r.id, s);
+      return { ...r, referenceImage: { ...img, dataUrl: s } };
+    }
+  } catch {
+    /* leitura da chave lateral falhou — mantém vazio */
+  }
+  return r;
+}
+
 function serialize(roteiros: Roteiro[]): string {
+  // [perf] mede o custo síncrono de compressão (era o que travava a janela ao
+  // gerar 2 em paralelo). Deve aparecer COALESCIDO (poucas vezes/min, em idle)
+  // após a Frente 1, e com menos chars após mover imagem/histórico pra fora.
+  const t0 =
+    typeof performance !== "undefined" ? performance.now() : 0;
   const json = JSON.stringify(roteiros);
   // Tenta comprimir; se algo bizarro acontecer (lz-string nunca lança em uso
   // normal, mas mantemos o fallback), grava cru — perder dados é pior do
@@ -374,12 +435,66 @@ function serialize(roteiros: Roteiro[]): string {
   try {
     const compressed = compressToUTF16(json);
     if (compressed && compressed.length > 0) {
+      if (t0) {
+        console.info(
+          `[perf] serialize: ${(performance.now() - t0).toFixed(0)}ms, ${roteiros.length} roteiros, ${json.length} chars`,
+        );
+      }
       return COMPRESSED_PREFIX + compressed;
     }
   } catch (e) {
     console.warn("[storage] falha na compressão, gravando cru:", e);
   }
   return json;
+}
+
+/**
+ * Tira o `dataUrl` da imagem do roteiro ANTES de ele entrar no blob comprimido,
+ * gravando-o na chave lateral. Retorna um CLONE raso com `dataUrl: ""` (o cache
+ * em memória, intocado, segue com a imagem reidratada). Pontos:
+ *  • `storageReadBlocked` (blob em quarentena) → não mexe em nada.
+ *  • Sem imagem → passa direto; se sobrou chave lateral de uma imagem apagada,
+ *    limpa.
+ *  • Imagem inalterada (mesma string já gravada) → só tira do blob, sem reescrever.
+ *  • Imagem nova/legada inline → grava a chave lateral e tira do blob.
+ *  • Falha de quota ao gravar a chave → MANTÉM inline (nunca perde a imagem).
+ */
+function stripRefImage(r: Roteiro): Roteiro {
+  if (storageReadBlocked) return r;
+  const img = r.referenceImage;
+  const dataUrl = img?.dataUrl;
+  if (!dataUrl) {
+    if (lastWrittenRefImg.has(r.id)) {
+      try {
+        window.localStorage.removeItem(REFIMG_PREFIX + r.id);
+      } catch {
+        /* best-effort */
+      }
+      lastWrittenRefImg.delete(r.id);
+    }
+    return r;
+  }
+  if (lastWrittenRefImg.get(r.id) === dataUrl) {
+    return { ...r, referenceImage: { ...img!, dataUrl: "" } };
+  }
+  try {
+    window.localStorage.setItem(REFIMG_PREFIX + r.id, dataUrl);
+    lastWrittenRefImg.set(r.id, dataUrl);
+    return { ...r, referenceImage: { ...img!, dataUrl: "" } };
+  } catch {
+    // Quota etc — não dá pra mover; mantém inline pra NUNCA perder a imagem.
+    return r;
+  }
+}
+
+/**
+ * Serializa pro blob `veludo:roteiros` com as imagens movidas pras chaves
+ * laterais. É o que os writers usam (saveRoteiro / performPendingSave /
+ * deleteRoteiro / import). `serialize` puro continua existindo pra backup/export,
+ * que DEVE manter a imagem inline (cópia completa de segurança).
+ */
+function serializeForBlob(roteiros: Roteiro[]): string {
+  return serialize(roteiros.map(stripRefImage));
 }
 
 function deserialize(raw: string): Roteiro[] {
@@ -463,7 +578,8 @@ function readFromStorage(): Roteiro[] {
     return parsed
       .map(migrateLegacy)
       .map(pruneHistory)
-      .map(sanitizeRoteiroXmlCruft);
+      .map(sanitizeRoteiroXmlCruft)
+      .map(hydrateRefImage);
   } catch (e) {
     // raw existia e era não-vazio, mas não parseou. Retornar [] em silêncio
     // (comportamento antigo) faria o próximo save apagar a biblioteca toda.
@@ -492,6 +608,7 @@ function getCache(): Roteiro[] {
  */
 export function resetRoteirosCache() {
   roteirosCache = null;
+  lastWrittenRefImg.clear();
 }
 
 export function listRoteiros(): Roteiro[] {
@@ -579,8 +696,13 @@ export function importLibraryFromString(raw: string): number {
     .map(pruneHistory)
     .map(sanitizeRoteiroXmlCruft);
 
+  // Restaurar substitui a biblioteca inteira — zera o rastreador de imagens já
+  // gravadas pra as chaves laterais serem (re)escritas a partir do backup. O
+  // cache fica com as imagens inline (do backup), então segue reidratado.
+  lastWrittenRefImg.clear();
+
   try {
-    window.localStorage.setItem(KEY, serialize(sanitized));
+    window.localStorage.setItem(KEY, serializeForBlob(sanitized));
   } catch (e) {
     if (isQuotaExceededError(e)) {
       throw new Error(
@@ -641,7 +763,7 @@ export function saveRoteiro(roteiro: Roteiro) {
   const updated: Roteiro = { ...roteiro, updatedAt: new Date().toISOString() };
   if (idx >= 0) all[idx] = updated;
   else all.push(updated);
-  safeSetItem(serialize(all));
+  safeSetItem(serializeForBlob(all));
 }
 
 /**
@@ -704,7 +826,7 @@ function performPendingSave() {
     else all.push(updated);
   }
   pendingRoteiros.clear();
-  safeSetItem(serialize(all));
+  safeSetItem(serializeForBlob(all));
 }
 
 export function scheduleSave(roteiro: Roteiro) {
@@ -742,9 +864,131 @@ export function deleteRoteiro(id: string) {
   const all = getCache();
   const idx = all.findIndex((r) => r.id === id);
   if (idx >= 0) all.splice(idx, 1);
-  safeSetItem(serialize(all));
+  // Limpa a chave lateral da imagem (não deixa órfã ocupando quota).
+  try {
+    window.localStorage.removeItem(REFIMG_PREFIX + id);
+  } catch {
+    /* best-effort */
+  }
+  lastWrittenRefImg.delete(id);
+  safeSetItem(serializeForBlob(all));
 }
 
 export function newRoteiroId(): string {
   return `r_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** Cap de evals mantidos ao "Limpar cache" (mais enxuto que o EVAL_LOG_CAP=200 do
+ *  log normal — mantém só a curva recente). Cada eval é minúsculo, mas o botão é
+ *  pra deixar tudo o mais leve possível. */
+export const EVAL_CLEAN_CAP = 30;
+
+/** Tamanho aproximado (bytes) do blob `veludo:roteiros` no localStorage. UTF-16
+ *  ≈ 2 bytes/char. Pro dialog de "Limpar cache" mostrar o peso atual. */
+export function getRoteirosBlobBytes(): number {
+  if (!isBrowser()) return 0;
+  try {
+    const raw = window.localStorage.getItem(KEY);
+    return raw ? raw.length * 2 : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export interface PruneCacheResult {
+  changed: boolean;
+  prunedRoteiros: number;
+  removedHistory: number;
+  removedEvals: number;
+  beforeBytes: number;
+  afterBytes: number;
+}
+
+/**
+ * Poda "cache-like" do localStorage, disparada pelo botão "Limpar cache" e pela
+ * limpeza automática semanal. NUNCA toca em `outputs` (os roteiros), nem em
+ * `userInputs`, `canone`, `drafts`, `title` ou na imagem de referência. O que faz:
+ *
+ *  1. Trunca o `evals[]` (log de qualidade) pra EVAL_CLEAN_CAP, mantendo os mais
+ *     recentes.
+ *  2. Trunca pilhas de `history` acima de HISTORY_CAP (defensivo — o `pruneHistory`
+ *     do load normalmente já capou; fica aqui caso algo escape).
+ *  3. **Recompacta o blob em disco no formato enxuto AGORA**: mesmo sem mudança no
+ *     cache (já podado no load), o blob `veludo:roteiros` em disco pode ainda estar
+ *     no formato antigo (history 5, imagem inline) até o próximo save. Reescrever
+ *     via `serializeForBlob` aplica o formato enxuto (imagens nas chaves laterais,
+ *     history 2) na hora. Idempotente: só grava se o blob mudaria (compara strings),
+ *     então rodar de novo logo em seguida quase não acha o que fazer.
+ *
+ * Respeita `storageReadBlocked` (não escreve em estado de corrupção). Atualiza o
+ * cache em memória in-place pra a UI refletir sem reload.
+ */
+export function pruneCacheLikeData(): PruneCacheResult {
+  const result: PruneCacheResult = {
+    changed: false,
+    prunedRoteiros: 0,
+    removedHistory: 0,
+    removedEvals: 0,
+    beforeBytes: 0,
+    afterBytes: 0,
+  };
+  if (!isBrowser() || storageReadBlocked) return result;
+
+  const all = getCache();
+  for (let i = 0; i < all.length; i++) {
+    const r = all[i]!;
+    let history = r.history;
+    let evals = r.evals;
+    let histChanged = false;
+    let evalsChanged = false;
+
+    if (history) {
+      const newHistory: Partial<Record<StepId, StepGenerationSnapshot[]>> = {};
+      for (const [step, stack] of Object.entries(history) as [
+        StepId,
+        StepGenerationSnapshot[] | undefined,
+      ][]) {
+        if (!stack) continue;
+        if (stack.length > HISTORY_CAP) {
+          result.removedHistory += stack.length - HISTORY_CAP;
+          newHistory[step] = stack.slice(0, HISTORY_CAP);
+          histChanged = true;
+        } else {
+          newHistory[step] = stack;
+        }
+      }
+      if (histChanged) history = newHistory;
+    }
+
+    if (evals && evals.length > EVAL_CLEAN_CAP) {
+      result.removedEvals += evals.length - EVAL_CLEAN_CAP;
+      evals = evals.slice(-EVAL_CLEAN_CAP);
+      evalsChanged = true;
+    }
+
+    if (histChanged || evalsChanged) {
+      const clone: Roteiro = { ...r };
+      if (histChanged) clone.history = history;
+      if (evalsChanged) clone.evals = evals;
+      all[i] = clone;
+      result.prunedRoteiros += 1;
+    }
+  }
+
+  // Recompacta o blob em disco (estoura imagens pras chaves laterais + formato
+  // enxuto). Só grava se realmente muda — idempotente.
+  let currentRaw = "";
+  try {
+    currentRaw = window.localStorage.getItem(KEY) ?? "";
+  } catch {
+    /* ignore */
+  }
+  result.beforeBytes = currentRaw.length * 2;
+  const nextRaw = serializeForBlob(all);
+  result.afterBytes = nextRaw.length * 2;
+  if (nextRaw !== currentRaw) {
+    safeSetItem(nextRaw);
+    result.changed = true;
+  }
+  return result;
 }

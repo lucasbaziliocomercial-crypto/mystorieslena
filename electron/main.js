@@ -1070,6 +1070,10 @@ async function boot() {
     // Mesmo em dev/live, preparamos os listeners pra que checagem manual via UI funcione no app empacotado.
     wireUpdaterEvents();
   }
+
+  // Agente de limpeza automática (disco): poda backups antigos + trunca log do
+  // servidor ~20s após abrir, fora do caminho crítico de boot.
+  scheduleAutoCleanup();
 }
 
 /**
@@ -1420,6 +1424,166 @@ ipcMain.handle("roteiros:export", async (_event, payload) => {
     return { ok: false, reason: String(e?.message || e) };
   }
 });
+
+/**
+ * Limpeza de cache / arquivos temporários (botão "Limpar cache" + agente
+ * automático). Libera espaço e mantém o app leve em máquinas fracas SEM tocar
+ * nos roteiros salvos (que moram no localStorage / `Local Storage/leveldb`).
+ *
+ * ⚠️ SEGURANÇA: o único ponto que poderia apagar roteiros é `clearStorageData`.
+ * A allowlist de `storages` é EXPLÍCITA e NUNCA inclui "localstorage"/"indexdb";
+ * `clearStorageData` jamais roda sem `storages` (o default apaga tudo).
+ */
+// Subpastas de cache do Chromium sob userData (regeneram sozinhas). Só MEDIDAS
+// aqui — o esvaziamento de fato é via session.clearCache/clearStorageData na
+// sessão viva (seguro; não há fs.rm em pasta com lock no Windows). NUNCA inclui
+// "Local Storage".
+const CACHE_DIRS = ["Cache", "Code Cache", "GPUCache", "DawnCache"];
+
+function dirSizeBytes(dir) {
+  let total = 0;
+  let entries;
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return 0; // pasta não existe / sem acesso
+  }
+  for (const ent of entries) {
+    const full = path.join(dir, ent.name);
+    try {
+      if (ent.isDirectory()) total += dirSizeBytes(full);
+      else total += fs.statSync(full).size;
+    } catch {
+      /* entry sumiu/locked — ignora */
+    }
+  }
+  return total;
+}
+
+function getServerLogSizeBytes() {
+  try {
+    return fs.statSync(getServerLogPath()).size;
+  } catch {
+    return 0;
+  }
+}
+
+function measureCacheTargets() {
+  const userData = app.getPath("userData");
+  let cacheBytes = 0;
+  for (const name of CACHE_DIRS) cacheBytes += dirSizeBytes(path.join(userData, name));
+  let backupsBytes = 0;
+  try {
+    const dir = getBackupDir();
+    const files = fs
+      .readdirSync(dir)
+      .filter((f) => f.startsWith("veludo-roteiros-") && f.endsWith(".json"))
+      .sort();
+    for (const f of files.slice(0, Math.max(0, files.length - BACKUP_KEEP))) {
+      try {
+        backupsBytes += fs.statSync(path.join(dir, f)).size;
+      } catch {
+        /* ignore */
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  const logsBytes = getServerLogSizeBytes();
+  return { cacheBytes, backupsBytes, logsBytes, totalBytes: cacheBytes + backupsBytes + logsBytes };
+}
+
+function pruneBackupsBeyond(keep) {
+  try {
+    const dir = getBackupDir();
+    const files = fs
+      .readdirSync(dir)
+      .filter((f) => f.startsWith("veludo-roteiros-") && f.endsWith(".json"))
+      .sort();
+    for (const f of files.slice(0, Math.max(0, files.length - keep))) {
+      try {
+        fs.unlinkSync(path.join(dir, f));
+      } catch {
+        /* best-effort */
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+function truncateServerLog() {
+  // Fecha o stream aberto e zera o arquivo; o próximo appendServerLog reabre em
+  // append. next-server.log não tem rotação própria, então pode crescer sozinho.
+  try {
+    serverLogFileStream?.end();
+  } catch {
+    /* ignore */
+  }
+  serverLogFileStream = null;
+  try {
+    const p = getServerLogPath();
+    if (fs.existsSync(p)) fs.truncateSync(p, 0);
+  } catch {
+    /* ignore */
+  }
+}
+
+ipcMain.handle("cache:get-size", () => {
+  try {
+    return { ok: true, ...measureCacheTargets() };
+  } catch (e) {
+    return { ok: false, reason: String(e?.message || e), totalBytes: 0 };
+  }
+});
+
+ipcMain.handle("cache:clear", async () => {
+  try {
+    const before = measureCacheTargets();
+    const ses = mainWindow?.webContents?.session;
+    if (ses) {
+      await ses.clearCache(); // HTTP + Code cache
+      // ALLOWLIST EXPLÍCITA — JAMAIS "localstorage"/"indexdb" (roteiros moram lá).
+      await ses.clearStorageData({
+        storages: ["cachestorage", "serviceworkers", "shadercache"],
+      });
+    }
+    pruneBackupsBeyond(BACKUP_KEEP);
+    truncateServerLog();
+    const after = measureCacheTargets();
+    return {
+      ok: true,
+      freedBytes: Math.max(0, before.totalBytes - after.totalBytes),
+      before: before.totalBytes,
+      after: after.totalBytes,
+    };
+  } catch (e) {
+    return { ok: false, reason: String(e?.message || e), freedBytes: 0 };
+  }
+});
+
+// Agente de limpeza automática (disco) — roda ~20s após o boot, fora do caminho
+// crítico de abertura. Silencioso e best-effort. NÃO chama clearCache no boot
+// (a página acabou de carregar; limpar HTTP cache aí é desperdício) — isso fica
+// pro botão manual. O renderer cuida da poda semanal do localStorage (AutoCleanup).
+function runAutoCleanup() {
+  try {
+    pruneBackupsBeyond(BACKUP_KEEP);
+    if (getServerLogSizeBytes() > 5 * 1024 * 1024) truncateServerLog();
+    console.log("[cleanup] auto: backups podados + log verificado");
+  } catch (e) {
+    console.warn("[cleanup] auto falhou:", e?.message || e);
+  }
+}
+
+let autoCleanupTimer = null;
+function scheduleAutoCleanup() {
+  if (autoCleanupTimer) return; // não empilha em retries de boot
+  autoCleanupTimer = setTimeout(() => {
+    autoCleanupTimer = null;
+    runAutoCleanup();
+  }, 20_000);
+}
 
 /**
  * Verifica se o usuário já fez login na conta Claude (Pro/Max).

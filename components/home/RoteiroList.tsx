@@ -25,6 +25,7 @@ import {
 import { CategoryPicker } from "./CategoryPicker";
 import { QueuePanel } from "@/components/queue/QueuePanel";
 import { RestoreBackupDialog } from "@/components/RestoreBackupDialog";
+import { ClearCacheButton } from "@/components/ClearCacheButton";
 import { useQueue } from "@/store/queue";
 import { useTabs } from "@/store/tabs";
 import {
@@ -177,6 +178,7 @@ export function RoteiroList() {
             <History className="size-4" />
             Restaurar backup
           </Button>
+          <ClearCacheButton />
           <Button onClick={openPicker} className="gap-2" size="lg">
             <Plus className="size-4" />
             Novo roteiro
