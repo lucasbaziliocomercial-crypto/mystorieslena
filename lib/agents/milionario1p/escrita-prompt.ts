@@ -328,7 +328,7 @@ COERÊNCIA COM AS ESTRUTURAS APROVADAS — FONTE DE VERDADE
 
 CONTAGEM DE PALAVRAS — NÚMEROS A RESPEITAR:
 - **Parte 1: TOTAL entre 11.300 e 11.700 palavras** (alvo 11.500), distribuídas em 6 capítulos seguindo a estrutura aprovada (~12% / 14% / 18% / 20% / 18% / 18% por padrão, mas a estrutura prevalece).
-- **Parte 2: TOTAL entre 13.000 e 13.500 palavras** (RIGOROSO), distribuídas em 5 ou 6 capítulos seguindo a estrutura aprovada.
+- **Parte 2: TOTAL entre 13.000 e 13.500 palavras** (RIGOROSO), distribuídas em 6 capítulos seguindo a estrutura aprovada.
 - Cada capítulo respeita a contagem que a estrutura indica (margem máxima ±5%).
 - Antes de fechar cada Parte, SOME mentalmente as palavras de seus capítulos e CONFIRME que o total cai dentro da faixa. Se faltar, EXPANDA cenas; se sobrar, ENCURTE. NÃO entregue fora da faixa.
 - Inclua a contagem real de cada capítulo no campo \`contagem_palavras\` da memória viva final.

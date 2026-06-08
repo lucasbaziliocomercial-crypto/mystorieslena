@@ -9,7 +9,7 @@ import { ESTRUTURA2_PROMPT } from "./estrutura2-prompt";
 /**
  * Etapa 3 — Estrutura da Parte 2 (Romance Alpha King / Werewolf).
  *
- * 13.000-13.500 palavras (alvo 13.500), 5-6 capítulos, abertura com A BOMBA,
+ * 13.000-13.500 palavras (alvo 13.500), 6 capítulos, abertura com A BOMBA,
  * narração 1ª pessoa alternando heroína + 2 A 4 trechos do Alpha King com
  * identificação visual obrigatória (✦ NOME), cena íntima / marcação completa
  * flexível narrada pela heroína, final feliz no último cap / EPÍLOGO
@@ -19,7 +19,7 @@ export const estrutura2Agent: Agent = {
   id: "estrutura2",
   label: "Estrutura — Parte 2",
   description:
-    "Monta a estrutura completa da Parte 2 de Alpha King (13.000-13.500 palavras, 5-6 capítulos) — bomba inicial, mapa com narrador, distribuição de 2-4 POVs do Alpha King (✦ NOME), cena de marcação completa flexível, easter eggs, coroação como Luna + herdeiro",
+    "Monta a estrutura completa da Parte 2 de Alpha King (13.000-13.500 palavras, 6 capítulos) — bomba inicial, mapa com narrador, distribuição de 2-4 POVs do Alpha King (✦ NOME), cena de marcação completa flexível, easter eggs, coroação como Luna + herdeiro",
   model: MODELS.opus,
   thinking: "adaptive",
   effort: "medium",
@@ -84,7 +84,7 @@ export const estrutura2Agent: Agent = {
           "• <original> precisa ser cópia LITERAL do documento atual.",
           "• <original> precisa ser ÚNICO no documento.",
           "• NÃO devolva a estrutura inteira.",
-          "• Mantenha entre 5 e 6 capítulos (máx. 6) e 2 a 4 trechos do Alpha King (✦ NOME), nunca dois seguidos.",
+          "• Mantenha EXATAMENTE 6 capítulos e 2 a 4 trechos do Alpha King (✦ NOME), nunca dois seguidos.",
           "• Se mudar a contagem de palavras de um capítulo, EMITA TAMBÉM blocos rebalanceando outros para manter o total entre 13.000 e 13.500 palavras (REGRA INEGOCIÁVEL — Parte 2 NUNCA pode cair fora dessa faixa).",
           "• Se a correção pedida não exigir alteração nenhuma, devolva apenas a string [NENHUMA_ALTERACAO_NECESSARIA] e nada mais.",
           "",
@@ -137,7 +137,7 @@ export const estrutura2Agent: Agent = {
     }
 
     sections.push(
-      "━━━ AÇÃO ━━━\n\nMonte a ESTRUTURA COMPLETA da Parte 2 seguindo o LAYOUT DE SAÍDA OBRIGATÓRIO definido no system prompt (Título/Continuação → Mapa com Narrador → Hook da Parte 2 → Ponto de Retomada → Distribuição dos POVs do Alpha → Conflitos Herdados → Capítulos → Cena Íntima/Marcação Completa → Easter Eggs → Entrega Final → Resolução). Comece direto. NÃO escreva os capítulos em si — apenas a ESTRUTURA/PLANEJAMENTO.\n\n⚠️ ATENÇÃO CRÍTICA — CONTAGEM DE PALAVRAS: a SOMA das contagens declaradas DEVE ficar entre 13.000 e 13.500 palavras (alvo 13.500). ZERO tolerância. Capítulos: 5 ou 6 (máx 6). Trechos do Alpha King: 2 a 4 (✦ NOME), nunca dois seguidos, nenhum recontando cena da heroína. Antes de finalizar, SOME mentalmente e CONFIRME que cabe na faixa.",
+      "━━━ AÇÃO ━━━\n\nMonte a ESTRUTURA COMPLETA da Parte 2 seguindo o LAYOUT DE SAÍDA OBRIGATÓRIO definido no system prompt (Título/Continuação → Mapa com Narrador → Hook da Parte 2 → Ponto de Retomada → Distribuição dos POVs do Alpha → Conflitos Herdados → Capítulos → Cena Íntima/Marcação Completa → Easter Eggs → Entrega Final → Resolução). Comece direto. NÃO escreva os capítulos em si — apenas a ESTRUTURA/PLANEJAMENTO.\n\n⚠️ ATENÇÃO CRÍTICA — CONTAGEM DE PALAVRAS: a SOMA das contagens declaradas DEVE ficar entre 13.000 e 13.500 palavras (alvo 13.500). ZERO tolerância. Capítulos: EXATAMENTE 6 — nunca menos, nunca mais. Trechos do Alpha King: 2 a 4 (✦ NOME), nunca dois seguidos, nenhum recontando cena da heroína. Antes de finalizar, SOME mentalmente e CONFIRME que cabe na faixa.",
     );
 
     return sections.join("\n\n");

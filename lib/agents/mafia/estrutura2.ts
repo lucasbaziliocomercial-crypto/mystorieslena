@@ -9,7 +9,7 @@ import { ESTRUTURA2_PROMPT } from "./estrutura2-prompt";
 /**
  * Etapa 3 — Estrutura da Parte 2 (Romance de Máfia).
  *
- * 13.500 palavras (faixa 13.300-13.700, alvo 13.500), 5-6 capítulos,
+ * 13.500 palavras (faixa 13.300-13.700, alvo 13.500), 6 capítulos,
  * abertura com BOMBA (separação iminente), narração 1ª pessoa alternando
  * FMC + ATÉ 4 trechos do MMC com identificação visual obrigatória (✦ NOME),
  * cena erótica completa em posição flexível (definida pela curva de química),
@@ -19,7 +19,7 @@ export const estrutura2Agent: Agent = {
   id: "estrutura2",
   label: "Estrutura — Parte 2",
   description:
-    "Monta a estrutura completa da Parte 2 de Máfia (13.500 palavras, 5-6 capítulos) — bomba inicial, mapa com narrador, distribuição de POVs masculinos, cena erótica em posição flexível, final feliz com casamento/filhos/sonho",
+    "Monta a estrutura completa da Parte 2 de Máfia (13.500 palavras, 6 capítulos) — bomba inicial, mapa com narrador, distribuição de POVs masculinos, cena erótica em posição flexível, final feliz com casamento/filhos/sonho",
   model: MODELS.opus,
   thinking: "adaptive",
   effort: "medium",
@@ -136,7 +136,7 @@ export const estrutura2Agent: Agent = {
     }
 
     sections.push(
-      "━━━ AÇÃO ━━━\n\nMonte a ESTRUTURA COMPLETA da Parte 2 seguindo o LAYOUT DE SAÍDA OBRIGATÓRIO definido no system prompt (Hook/Bomba → Ponto de Retomada → Mapa com Narrador → Mapa de Mudanças de POV → Conflitos Herdados → Capítulos → Narração do MMC em pontos estratégicos → Cena Erótica → Easter Eggs → Casal Secundário → Entrega Final → Resolução). Comece direto. NÃO escreva os capítulos em si — apenas a ESTRUTURA/PLANEJAMENTO.\n\n⚠️ ATENÇÃO CRÍTICA — CONTAGEM DE PALAVRAS: a SOMA das contagens declaradas DEVE ficar entre 13.300 e 13.700 palavras (alvo 13.500). ZERO tolerância. Capítulos: 5 ou 6 (máx 6). Antes de finalizar, SOME mentalmente e CONFIRME que cabe na faixa. Se abaixo, AUMENTE algum cap; se acima, REDUZA.",
+      "━━━ AÇÃO ━━━\n\nMonte a ESTRUTURA COMPLETA da Parte 2 seguindo o LAYOUT DE SAÍDA OBRIGATÓRIO definido no system prompt (Hook/Bomba → Ponto de Retomada → Mapa com Narrador → Mapa de Mudanças de POV → Conflitos Herdados → Capítulos → Narração do MMC em pontos estratégicos → Cena Erótica → Easter Eggs → Casal Secundário → Entrega Final → Resolução). Comece direto. NÃO escreva os capítulos em si — apenas a ESTRUTURA/PLANEJAMENTO.\n\n⚠️ ATENÇÃO CRÍTICA — CONTAGEM DE PALAVRAS: a SOMA das contagens declaradas DEVE ficar entre 13.300 e 13.700 palavras (alvo 13.500). ZERO tolerância. Capítulos: EXATAMENTE 6 — nunca menos, nunca mais. Antes de finalizar, SOME mentalmente e CONFIRME que cabe na faixa. Se abaixo, AUMENTE algum cap; se acima, REDUZA.",
     );
 
     return sections.join("\n\n");
