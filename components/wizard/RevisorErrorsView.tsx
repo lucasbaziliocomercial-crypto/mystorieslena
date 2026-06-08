@@ -392,35 +392,56 @@ export function RevisorErrorsView({ errors, escritaSnapshotHash }: Props) {
         </div>
       )}
 
+      {/* Lista principal = SÓ pendentes. Ao aplicar uma correção (applied=true),
+          o card SAI daqui — sem isso a lista de 28 erros nunca encolhia e dava a
+          sensação de "encher em vez de atualizar". As aplicadas ficam num
+          <details> recolhido abaixo (conferência/histórico, fora do caminho). */}
       <div className="flex flex-col gap-2">
-        {errors.map((err) => {
-          // Fallback: se o agente não emitiu `parte` no XML (revisões
-          // antigas), tenta inferir buscando o trecho no roteiro.
-          const parte =
-            err.parte ?? inferPartFromContent(escritaContent, err.trechoOriginal);
-          const enrichedErr = parte ? { ...err, parte } : err;
-          // Aplicados não têm kind no map; lê o kind ou cai pro default
-          // "literal" (irrelevante quando applied=true).
-          const kind: ErrorKind = err.applied
-            ? "literal"
-            : kindById.get(err.id) ?? "informativo";
-          const scopeInfo = scopeInfoById.get(err.id);
-          return (
-            <ErrorCard
-              key={err.id}
-              error={enrichedErr}
-              kind={kind}
-              disabled={!escritaContent}
-              onApply={handleApplyOne}
-              onApplyViaAi={handleApplyOneViaAi}
-              scopeKind={scopeInfo?.kind}
-              scopeBlockedReason={scopeInfo?.blockedReason}
-            />
-          );
-        })}
+        {pendingErrors.map((err) => renderCard(err))}
       </div>
+
+      {appliedErrors.length > 0 && (
+        <details className="rounded-md border bg-muted/20">
+          <summary className="cursor-pointer px-3 py-2 text-xs text-muted-foreground flex items-center gap-1.5">
+            <CheckCircle2 className="size-3.5 text-emerald-600" />
+            {appliedErrors.length} correç{appliedErrors.length === 1 ? "ão" : "ões"}{" "}
+            já aplicada{appliedErrors.length === 1 ? "" : "s"}
+          </summary>
+          <div className="flex flex-col gap-2 p-2 pt-0">
+            {appliedErrors.map((err) => renderCard(err))}
+          </div>
+        </details>
+      )}
     </div>
   );
+
+  /** Render de um card — compartilhado entre a lista de pendentes e o
+   *  <details> de aplicadas (mesma enriquecimento de `parte`/`kind`/`scope`). */
+  function renderCard(err: RevisorError) {
+    // Fallback: se o agente não emitiu `parte` no XML (revisões
+    // antigas), tenta inferir buscando o trecho no roteiro.
+    const parte =
+      err.parte ?? inferPartFromContent(escritaContent, err.trechoOriginal);
+    const enrichedErr = parte ? { ...err, parte } : err;
+    // Aplicados não têm kind no map; lê o kind ou cai pro default
+    // "literal" (irrelevante quando applied=true).
+    const kind: ErrorKind = err.applied
+      ? "literal"
+      : kindById.get(err.id) ?? "informativo";
+    const scopeInfo = scopeInfoById.get(err.id);
+    return (
+      <ErrorCard
+        key={err.id}
+        error={enrichedErr}
+        kind={kind}
+        disabled={!escritaContent}
+        onApply={handleApplyOne}
+        onApplyViaAi={handleApplyOneViaAi}
+        scopeKind={scopeInfo?.kind}
+        scopeBlockedReason={scopeInfo?.blockedReason}
+      />
+    );
+  }
 }
 
 /**

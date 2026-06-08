@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { STEP_LABELS, STEP_ORDER, type StepId } from "@/types/roteiro";
+import { STEPPER_NODES, type StepId } from "@/types/roteiro";
 import { Check } from "lucide-react";
 
 interface Props {
@@ -11,20 +11,27 @@ interface Props {
 }
 
 export function StepIndicator({ current, completed, onSelect }: Props) {
-  const currentIdx = STEP_ORDER.indexOf(current);
+  // Trilha de EXIBIÇÃO: 6 nós (revisor1+revisor2 colapsados num "Revisor").
+  const currentNodeIdx = STEPPER_NODES.findIndex((n) =>
+    n.steps.includes(current),
+  );
 
   return (
     <div className="w-full">
       <ol className="flex items-center justify-between gap-1 sm:gap-2">
-        {STEP_ORDER.map((step, idx) => {
-          const isCompleted = completed.includes(step);
-          const isCurrent = step === current;
+        {STEPPER_NODES.map((node, idx) => {
+          // Um nó "feito" = TODOS os steps que ele representa têm conteúdo
+          // (pro "Revisor" só marca o check quando as duas Partes existem).
+          const isCompleted = node.steps.every((s) => completed.includes(s));
+          const isCurrent = node.steps.includes(current);
 
           return (
-            <li key={step} className="flex items-center flex-1 last:flex-none">
+            <li key={node.key} className="flex items-center flex-1 last:flex-none">
               <button
                 type="button"
-                onClick={() => onSelect?.(step)}
+                // Clicar no nó leva pro 1º step que ele representa (no Revisor =
+                // revisor1; as abas dentro do step trocam pra Parte 2).
+                onClick={() => onSelect?.(node.steps[0]!)}
                 className="group flex flex-col items-center gap-1.5 min-w-0 transition cursor-pointer"
               >
                 <div
@@ -52,14 +59,14 @@ export function StepIndicator({ current, completed, onSelect }: Props) {
                     isCurrent ? "text-foreground" : "text-muted-foreground",
                   )}
                 >
-                  {STEP_LABELS[step]}
+                  {node.label}
                 </span>
               </button>
-              {idx < STEP_ORDER.length - 1 && (
+              {idx < STEPPER_NODES.length - 1 && (
                 <div
                   className={cn(
                     "flex-1 h-[2px] mx-1 sm:mx-2 -mt-5 rounded-full transition",
-                    idx < currentIdx ? "bg-primary/80" : "bg-border",
+                    idx < currentNodeIdx ? "bg-primary/80" : "bg-border",
                   )}
                 />
               )}

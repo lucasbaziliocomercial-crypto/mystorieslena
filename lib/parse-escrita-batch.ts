@@ -20,6 +20,7 @@
 
 import type { EscritaChapter, EscritaSynopsis } from "@/types/roteiro";
 import { stripChapterTitleAnnotation } from "./strip-chapter-annotations";
+import { stripEscritaContamination } from "./sanitize-escrita-content";
 
 export interface ParsedBatch {
   chapters: EscritaChapter[];
@@ -92,7 +93,7 @@ export function parseEscritaBatch(
       chapters.push({
         number: 0,
         part,
-        content: chaptersBody,
+        content: stripEscritaContamination(chaptersBody),
         generatedAt,
       });
     }
@@ -101,7 +102,9 @@ export function parseEscritaBatch(
       const cur = hits[i]!;
       const nextStart =
         i + 1 < hits.length ? hits[i + 1]!.index : chaptersBody.length;
-      const body = chaptersBody.slice(cur.headerEnd, nextStart).trim();
+      const body = stripEscritaContamination(
+        chaptersBody.slice(cur.headerEnd, nextStart).trim(),
+      );
       chapters.push({
         number: cur.number,
         title: cur.title,

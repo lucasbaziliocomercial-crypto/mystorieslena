@@ -1,6 +1,10 @@
 import type { EscritaChapter } from "@/types/roteiro";
 import { countWords } from "./word-count.ts";
 import { stripChapterTitleAnnotation } from "./strip-chapter-annotations.ts";
+import {
+  isWordCountLine,
+  stripEscritaContamination,
+} from "./sanitize-escrita-content.ts";
 
 /**
  * Helpers de exportação HTML do roteiro.
@@ -155,44 +159,6 @@ export function detectMaleLeadName(raw: string): string | null {
 }
 
 const IMPLICIT_POV_KEY = "__implicit__";
-
-/**
- * Linha standalone que o LLM da Escrita injeta no fim de capítulos com a
- * contagem de palavras (ex.: `(2.097 palavras)`, `*(2.103 palavras)*`,
- * `(Contagem: 1.764 palavras)`, `Total de palavras: 1764`). Não devem ir
- * pra exportação (PDF, HTML, clipboard) em nenhuma categoria nem Parte.
- *
- * Estratégia: a linha é considerada metadata se, depois de remover marcadores
- * markdown, parênteses, sinais, números e palavras-chave conhecidas (contagem,
- * total, palavra(s), de, aproximadamente, etc.), sobrar STRING VAZIA. Frases
- * de prosa que mencionam "palavras" no meio (ex.: "Ela escreveu 200 palavras
- * antes de parar.") deixam tokens normais sobrando, então não casam.
- *
- * Exige presença simultânea de dígito e da palavra "palavra(s)" — sem isso,
- * é prosa normal.
- */
-function isWordCountLine(rawLine: string): boolean {
-  const trimmed = rawLine.trim();
-  if (!trimmed) return false;
-  if (!/\d/.test(trimmed)) return false;
-  // Não usa \b pq `_` é word char (regex JS), e o LLM emite italico com
-  // underscore tipo `_2.103 palavras_`. Boundary explícito por não-letra.
-  if (
-    !/(?:^|[^a-záéíóúâêôãõçñ])palavras?(?:$|[^a-záéíóúâêôãõçñ])/i.test(trimmed)
-  )
-    return false;
-  const stripped = trimmed
-    .replace(/[*_()~≈]/g, " ")
-    .replace(/[:\-—,.]/g, " ")
-    .replace(/\d+/g, " ")
-    .toLowerCase()
-    .replace(
-      /\b(?:contagem|total|de|palavras|palavra|aproximadamente|cerca|aprox|aproximado)\b/g,
-      " ",
-    )
-    .replace(/\s+/g, "");
-  return stripped === "";
-}
 
 /**
  * Valida/normaliza um valor cru de "nome" extraído da Estrutura. Rejeita
@@ -459,6 +425,10 @@ export function escritaContentToHtml(
     chapters?: EscritaChapter[];
   },
 ): string {
+  // Última linha de defesa: nenhum PDF/HTML/paste-no-Docs pode carregar
+  // contagem de palavras nem o relatório do Revisor, mesmo que um roteiro
+  // tenha escapado do heal de storage. Idempotente (no-op pra texto limpo).
+  raw = stripEscritaContamination(raw);
   const out: string[] = [];
   let inCodeBlock = false;
   let paraBuffer: string[] = [];
@@ -671,6 +641,9 @@ export function escritaContentToHtml(
  * cor —, então isso é o melhor degradê possível pro caminho de fallback.
  */
 export function escritaContentToPlainText(raw: string): string {
+  // Mesma defesa do flavor HTML — o fallback text/plain também não pode
+  // carregar contagem nem relatório do Revisor.
+  raw = stripEscritaContamination(raw);
   const preprocessed = preprocessRoteiro(raw);
   const lines: string[] = [];
 

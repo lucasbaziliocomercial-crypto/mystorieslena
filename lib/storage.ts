@@ -9,6 +9,10 @@ import type {
 } from "@/types/roteiro";
 import { DEFAULT_CATEGORY } from "@/types/roteiro";
 import { hasXmlCruft, stripXmlCruft } from "@/lib/parse-revisor-output";
+import {
+  hasEscritaContamination,
+  stripEscritaContamination,
+} from "@/lib/sanitize-escrita-content";
 import { normalizeEscritaOutput } from "@/lib/normalize-escrita";
 import {
   hasChapterTitleAnnotation,
@@ -249,6 +253,55 @@ function cleanEscritaChapterAnnotations(output: StepOutput | undefined):
   };
 }
 
+/**
+ * Remove contaminação de metadados/relatório que vazou pra PROSA da Escrita:
+ * linhas de contagem de palavras (`[Contagem: ~1.750 palavras]`) e o relatório
+ * do Revisor apendado (`# ❌ PRINCIPAIS ERROS`, `<erros_detalhados>`, etc.).
+ * Cura roteiros JÁ gerados na origem — o próximo save persiste a versão limpa,
+ * sem a roteirista precisar regerar. Limpa o content monolítico E cada
+ * `metadata.chapters[i].content`. Idempotente — early-return via
+ * `hasEscritaContamination`. Ver `lib/sanitize-escrita-content.ts`.
+ */
+function cleanEscritaContentContamination(output: StepOutput | undefined):
+  | { output: StepOutput; changed: boolean }
+  | { output: StepOutput | undefined; changed: false } {
+  if (!output) return { output, changed: false };
+  let changed = false;
+
+  let nextContent = output.content;
+  if (hasEscritaContamination(nextContent)) {
+    nextContent = stripEscritaContamination(nextContent);
+    changed = true;
+  }
+
+  let nextChapters: EscritaChapter[] | undefined = output.metadata?.chapters;
+  if (nextChapters && nextChapters.some((c) => hasEscritaContamination(c.content))) {
+    nextChapters = nextChapters.map((c) =>
+      hasEscritaContamination(c.content)
+        ? { ...c, content: stripEscritaContamination(c.content) }
+        : c,
+    );
+    changed = true;
+  }
+
+  if (!changed) return { output, changed: false };
+  return {
+    output: {
+      ...output,
+      content: nextContent,
+      ...(nextChapters
+        ? {
+            metadata: {
+              ...(output.metadata ?? {}),
+              chapters: nextChapters,
+            },
+          }
+        : {}),
+    },
+    changed: true,
+  };
+}
+
 function sanitizeRoteiroXmlCruft(r: Roteiro): Roteiro {
   let changed = false;
   let outputs = r.outputs;
@@ -265,6 +318,14 @@ function sanitizeRoteiroXmlCruft(r: Roteiro): Roteiro {
   const cleanedAnno = cleanEscritaChapterAnnotations(outputs?.escrita);
   if (cleanedAnno.changed && cleanedAnno.output) {
     outputs = { ...(outputs ?? {}), escrita: cleanedAnno.output };
+    changed = true;
+  }
+
+  // Remove contagem de palavras / relatório do Revisor que vazou pra prosa
+  // (ver cleanEscritaContentContamination). Roda no load → próximo save grava limpo.
+  const cleanedContamination = cleanEscritaContentContamination(outputs?.escrita);
+  if (cleanedContamination.changed && cleanedContamination.output) {
+    outputs = { ...(outputs ?? {}), escrita: cleanedContamination.output };
     changed = true;
   }
 
@@ -296,12 +357,20 @@ function sanitizeRoteiroXmlCruft(r: Roteiro): Roteiro {
         if (hasChapterTitleAnnotation(cleanContent)) {
           cleanContent = stripChapterHeaderAnnotations(cleanContent);
         }
+        if (hasEscritaContamination(cleanContent)) {
+          cleanContent = stripEscritaContamination(cleanContent);
+        }
         const snapChapters = snap.metadata?.chapters;
         const titleNeedsClean = (c: EscritaChapter) =>
           !!c.title && c.title !== stripChapterTitleAnnotation(c.title);
         const chaptersNeedClean =
           !!snapChapters &&
-          snapChapters.some((c) => hasXmlCruft(c.content) || titleNeedsClean(c));
+          snapChapters.some(
+            (c) =>
+              hasXmlCruft(c.content) ||
+              titleNeedsClean(c) ||
+              hasEscritaContamination(c.content),
+          );
         let next = snap;
         let snapChanged = false;
         if (cleanContent !== snap.content || chaptersNeedClean) {
@@ -316,6 +385,12 @@ function sanitizeRoteiroXmlCruft(r: Roteiro): Roteiro {
                       let nc = c;
                       if (hasXmlCruft(nc.content)) {
                         nc = { ...nc, content: stripXmlCruft(nc.content) };
+                      }
+                      if (hasEscritaContamination(nc.content)) {
+                        nc = {
+                          ...nc,
+                          content: stripEscritaContamination(nc.content),
+                        };
                       }
                       if (titleNeedsClean(nc)) {
                         nc = {

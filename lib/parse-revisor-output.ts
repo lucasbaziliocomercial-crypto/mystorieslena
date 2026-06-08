@@ -368,20 +368,27 @@ export function gravityLabel(g: RevisorErrorGravity): {
 }
 
 /**
- * Extrai a Nota (0 a 10) do markdown do relatório do Revisor. Formato canônico:
- * `**Nota: X/10**` (vem em TODA passada — completa e enxuta; está travado). Aceita
- * decimal (8,5 / 8.5) e variações de bold/espaço. Retorna null se não achar.
- * Usado pelo banner de veredito ("pode finalizar?"), computado no display — sem
- * persistir nada no metadata, sem sincronizar trilhas de gravação.
+ * Extrai a Nota (0 a 10) do markdown do relatório do Revisor. O relatório enxuto
+ * pede "NOTA FINAL (0 a 10) — …", então o modelo escreve coisas como
+ * `**NOTA FINAL (0 a 10): 8/10**` ou `Nota Final: 8,5/10`. Tolera texto entre
+ * "nota" e o "X/10" (a palavra "FINAL" + o engodo "(0 a 10)") e aceita decimal
+ * (8,5 / 8.5) e variações de bold/espaço. Pega a ÚLTIMA ocorrência — a NOTA FINAL
+ * fica perto do fim do relatório, longe de qualquer "x/10" solto na prosa.
+ * Retorna null se não achar. Usado pelo banner de veredito + abas + eval,
+ * computado no display — sem persistir nada no metadata.
  */
 export function parseRevisorNota(content: string): number | null {
-  const m = content.match(
-    /nota\s*:?\s*\*{0,2}\s*(\d+(?:[.,]\d+)?)\s*\/\s*10/i,
-  );
-  if (!m) return null;
-  const n = parseFloat(m[1].replace(",", "."));
-  if (!Number.isFinite(n)) return null;
-  return Math.max(0, Math.min(10, n));
+  if (!content) return null;
+  // Exigir "/10" é o que pula o engodo "(0 a 10)" (que não tem barra): o motor
+  // backtrack avança o gap até o "8/10" real. Bound de ~40 chars cobre
+  // "FINAL (0 a 10): " sem deixar o gap saltar pra um "/10" distante.
+  const re = /nota\b[\s\S]{0,40}?(\d+(?:[.,]\d+)?)\s*\/\s*10/gi;
+  let best: number | null = null;
+  for (const m of content.matchAll(re)) {
+    const n = parseFloat(m[1]!.replace(",", "."));
+    if (Number.isFinite(n)) best = Math.max(0, Math.min(10, n));
+  }
+  return best;
 }
 
 /**
