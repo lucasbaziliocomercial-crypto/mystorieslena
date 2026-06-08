@@ -28,7 +28,7 @@ export function CanoneCard() {
   const approveCanone = useWizard((s) => s.approveCanone);
   const clearCanone = useWizard((s) => s.clearCanone);
   const setCanone = useWizard((s) => s.setCanone);
-  const queueLiveStream = useWizard((s) => s.queueLiveStream);
+  const queueLiveStream = useWizard((s) => s.queueLiveStream["canone"] ?? "");
   const enqueue = useQueue((s) => s.enqueue);
   const removeQueueJob = useQueue((s) => s.removeJob);
 

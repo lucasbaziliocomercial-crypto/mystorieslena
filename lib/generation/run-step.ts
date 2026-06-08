@@ -97,10 +97,17 @@ export async function runStreamingStep(
   step: StreamingStep,
   userInput: string | undefined,
   hooks: RunStepHooks,
+  /**
+   * Só revisor1/revisor2 — contexto do "Continuar revisão" (títulos dos erros já
+   * destacados em rodadas anteriores). Quando presente, vai pro agente como
+   * `previousRevisorErrors` ("não relista esses"). Snapshot vindo do job da fila.
+   */
+  previousRevisorErrors?: string[],
 ): Promise<StepOutput> {
   const r = getRoteiro(roteiroId);
   if (!r) throw new Error("Roteiro não encontrado (foi excluído?).");
-  if (isRevisorStep(step)) return runRevisorStep(r, step, userInput, hooks);
+  if (isRevisorStep(step))
+    return runRevisorStep(r, step, userInput, hooks, previousRevisorErrors);
   if (step === "overview") return runOverviewStep(r, userInput, hooks);
   return runEstruturaStep(r, step, userInput, hooks);
 }
@@ -321,6 +328,7 @@ async function runRevisorStep(
   step: StreamingStep,
   userInput: string | undefined,
   hooks: RunStepHooks,
+  previousRevisorErrors?: string[],
 ): Promise<StepOutput> {
   const revisorPart = partOfRevisorStep(step as "revisor1" | "revisor2");
   const partLabel = revisorPart === 1 ? "Parte 1" : "Parte 2";
@@ -359,6 +367,9 @@ async function runRevisorStep(
       userInput,
       referenceImage: r.referenceImage,
       ...(r.canone?.trim() ? { canone: r.canone } : {}),
+      ...(previousRevisorErrors && previousRevisorErrors.length > 0
+        ? { previousRevisorErrors }
+        : {}),
       leanRevisorReport: true,
     }),
     signal: hooks.signal,
