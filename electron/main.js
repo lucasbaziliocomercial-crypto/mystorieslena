@@ -1537,16 +1537,42 @@ ipcMain.handle("cache:get-size", () => {
   }
 });
 
+// Electron pode PENDURAR clearCache/clearStorageData indefinidamente (sem CPU,
+// I/O preso) em algumas sessões/máquinas — sem teto, o botão "Limpar cache"
+// ficava eterno em "Limpando…". Cada chamada de sessão corre contra um timeout;
+// se estourar, seguimos best-effort (as podas de fs SEMPRE rodam) e o botão volta.
+const CLEAR_STEP_TIMEOUT_MS = 8000;
+function withTimeout(promise, ms, label) {
+  let timer;
+  const guard = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`timeout: ${label} (${ms}ms)`)), ms);
+  });
+  return Promise.race([promise, guard]).finally(() => clearTimeout(timer));
+}
+
 ipcMain.handle("cache:clear", async () => {
   try {
     const before = measureCacheTargets();
     const ses = mainWindow?.webContents?.session;
     if (ses) {
-      await ses.clearCache(); // HTTP + Code cache
+      // HTTP + Code cache. Best-effort com teto — nunca pendura o botão.
+      try {
+        await withTimeout(ses.clearCache(), CLEAR_STEP_TIMEOUT_MS, "clearCache");
+      } catch (e) {
+        console.warn("[cache:clear] clearCache pulado:", e?.message || e);
+      }
       // ALLOWLIST EXPLÍCITA — JAMAIS "localstorage"/"indexdb" (roteiros moram lá).
-      await ses.clearStorageData({
-        storages: ["cachestorage", "serviceworkers", "shadercache"],
-      });
+      try {
+        await withTimeout(
+          ses.clearStorageData({
+            storages: ["cachestorage", "serviceworkers", "shadercache"],
+          }),
+          CLEAR_STEP_TIMEOUT_MS,
+          "clearStorageData",
+        );
+      } catch (e) {
+        console.warn("[cache:clear] clearStorageData pulado:", e?.message || e);
+      }
     }
     pruneBackupsBeyond(BACKUP_KEEP);
     truncateServerLog();
