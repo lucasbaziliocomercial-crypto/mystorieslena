@@ -188,7 +188,8 @@ export function QueueRunner() {
                 // que está aberto agora. Em outra aba, não custa nada.
                 onLiveText: (text) => {
                   const w = useWizard.getState();
-                  if (w.roteiro?.id === job.roteiroId) w.setQueueLiveStream(text);
+                  if (w.roteiro?.id === job.roteiroId)
+                    w.setQueueLiveStream(job.step, text);
                 },
               },
             );
@@ -205,7 +206,8 @@ export function QueueRunner() {
               onPhase: (phase) => updateJob(job.id, { phase }),
               onLiveText: (text) => {
                 const w = useWizard.getState();
-                if (w.roteiro?.id === job.roteiroId) w.setQueueLiveStream(text);
+                if (w.roteiro?.id === job.roteiroId)
+                  w.setQueueLiveStream(job.step, text);
               },
             });
             if (abort.signal.aborted) return; // cancelado — job já removido
@@ -222,7 +224,7 @@ export function QueueRunner() {
                 onLiveText: (text) => {
                   const w = useWizard.getState();
                   if (w.roteiro?.id === job.roteiroId)
-                    w.setQueueLiveStream(text);
+                    w.setQueueLiveStream(job.step, text);
                 },
               },
             );
@@ -240,9 +242,12 @@ export function QueueRunner() {
                 onLiveText: (text) => {
                   const w = useWizard.getState();
                   if (w.roteiro?.id === job.roteiroId)
-                    w.setQueueLiveStream(text);
+                    w.setQueueLiveStream(job.step, text);
                 },
               },
+              // Contexto "não relista esses erros" do "Continuar revisão" —
+              // snapshot capturado no enqueue (só revisor1/revisor2 usam).
+              job.previousRevisorErrors,
             );
             if (abort.signal.aborted) return; // cancelado — job já removido
             applyStepOutput(job.roteiroId, job.step, output);
@@ -272,10 +277,10 @@ export function QueueRunner() {
         } finally {
           running.delete(jobKey(job));
           unregisterJob(job.id);
-          // Limpa o preview ao vivo deste roteiro (terminou/abortou/falhou) — só
-          // se ele ainda é o aberto. Os capítulos finais já foram pro output.
+          // Limpa o preview ao vivo deste step (terminou/abortou/falhou) — só
+          // se o roteiro ainda é o aberto. Os capítulos finais já foram pro output.
           const w = useWizard.getState();
-          if (w.roteiro?.id === job.roteiroId) w.setQueueLiveStream("");
+          if (w.roteiro?.id === job.roteiroId) w.setQueueLiveStream(job.step, "");
           if (mountedRef.current) setTimeout(() => drainRef.current(), 50);
         }
       })();

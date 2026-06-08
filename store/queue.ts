@@ -63,6 +63,13 @@ export interface QueueJob {
   resume?: boolean;
   /** Params da Premissa (só quando step === "premissa"). */
   premissa?: PremissaJobParams;
+  /**
+   * Contexto do "Continuar revisão" (só revisor1/revisor2): títulos dos erros já
+   * destacados em rodadas anteriores, agregados no clique e mandados pro agente
+   * como "não relista esses". Snapshot no job (igual a `userInput`) — quando
+   * presente, o job é uma continuação de revisão, não uma 1ª passada.
+   */
+  previousRevisorErrors?: string[];
   queuedAt: string;
   startedAt?: string;
   finishedAt?: string;
@@ -81,6 +88,7 @@ interface QueueState {
     userInput?: string,
     resume?: boolean,
     premissa?: PremissaJobParams,
+    previousRevisorErrors?: string[],
   ) => string | null;
   updateJob: (id: string, patch: Partial<QueueJob>) => void;
   removeJob: (id: string) => void;
@@ -137,7 +145,15 @@ function makeJobId(): string {
 export const useQueue = create<QueueState>((set, get) => ({
   jobs: loadJobs(),
 
-  enqueue: (roteiroId, roteiroTitle, step, userInput, resume, premissa) => {
+  enqueue: (
+    roteiroId,
+    roteiroTitle,
+    step,
+    userInput,
+    resume,
+    premissa,
+    previousRevisorErrors,
+  ) => {
     const exists = get().jobs.some(
       (j) =>
         j.roteiroId === roteiroId &&
@@ -155,6 +171,9 @@ export const useQueue = create<QueueState>((set, get) => ({
       ...(userInput && userInput.trim() ? { userInput } : {}),
       ...(resume ? { resume: true } : {}),
       ...(premissa ? { premissa } : {}),
+      ...(previousRevisorErrors && previousRevisorErrors.length > 0
+        ? { previousRevisorErrors }
+        : {}),
       queuedAt: new Date().toISOString(),
     };
     set((s) => {

@@ -73,7 +73,9 @@ import {
   parseCorrectionPatches,
 } from "@/lib/parse-correction-patches";
 import { mergeContinuation } from "@/lib/parse-continuation-overlap";
+import { aggregatePreviousRevisorErrors } from "@/lib/revisor-continuation";
 import { RevisorErrorsView } from "@/components/wizard/RevisorErrorsView";
+import { RevisorPartsOverview } from "@/components/wizard/RevisorPartsOverview";
 import {
   countChaptersInEstrutura,
   planBatches,
@@ -476,7 +478,9 @@ export function StepShell({ step }: Props) {
   const pushOutputToHistory = useWizard((s) => s.pushOutputToHistory);
   // Texto ao vivo de um job rodando em 2º plano (alimentado pelo QueueRunner só
   // quando o roteiro do job é este). Só usado no banner do stepJob abaixo.
-  const queueLiveStream = useWizard((s) => s.queueLiveStream);
+  // Mapa por step → lê só a chave DESTE step (revisor1 e revisor2 rodam juntos e
+  // não podem clobberar o preview um do outro).
+  const queueLiveStream = useWizard((s) => s.queueLiveStream[step] ?? "");
   const enqueueStep = useQueue((s) => s.enqueue);
   const removeJob = useQueue((s) => s.removeJob);
   const queueJobs = useQueue((s) => s.jobs);
@@ -546,11 +550,6 @@ export function StepShell({ step }: Props) {
   const [revisorPhase, setRevisorPhase] = useState<
     "streaming" | "extracting" | null
   >(null);
-  // Override do gate do revisor2: por padrão a Parte 2 espera a Parte 1 ser
-  // revisada (a revisão da P1 vira contexto narrativo da P2). Mas a roteirista
-  // pode optar por revisar as duas EM PARALELO (mais rápido) — aí a P2 roda sem
-  // o contexto da P1. Este flag (por sessão) libera o step revisor2.
-  const [forceRevisor2Parallel, setForceRevisor2Parallel] = useState(false);
   // Tempo decorrido desde o início da geração corrente, em segundos. Zera
   // quando isGenerating cai pra false. Atualiza a cada 1s via useEffect.
   const [elapsedSec, setElapsedSec] = useState(0);
@@ -750,15 +749,6 @@ export function StepShell({ step }: Props) {
     mode: "regenerate" | "refine" | "continue" = "regenerate",
     userInputOverride?: string,
     historyLabel?: string,
-    /**
-     * Modo "Continuar revisão" do step Revisor — quando true, agrega os
-     * títulos dos erros já destacados em rodadas anteriores (output corrente +
-     * todos os snapshots no histórico) e envia pro agente como
-     * `previousRevisorErrors`. O prompt do Revisor usa essa lista pra evitar
-     * relistar erros equivalentes — força refinamento incremental rodada
-     * após rodada. Só relevante pros steps "revisor1"/"revisor2"; outros ignoram.
-     */
-    continuation?: boolean,
   ) => {
     if (!roteiro) return;
 
@@ -796,7 +786,6 @@ export function StepShell({ step }: Props) {
     // como snapshot no job (evita race com o debounce de save).
     if (
       mode !== "refine" &&
-      !continuation &&
       (step === "escrita" ||
         ((step === "estrutura1" ||
           step === "estrutura2" ||
@@ -831,52 +820,11 @@ export function StepShell({ step }: Props) {
       return;
     }
 
-    // Modo "Continuar revisão": agrega os títulos dos erros já destacados em
-    // rodadas anteriores — output corrente (prestes a virar histórico) +
-    // todos os snapshots já no histórico — pra mandar pro agente como
-    // contexto "não repita". Captura ANTES de qualquer setState porque o
-    // pushOutputToHistory + setOutput("") vão zerar `output` em seguida.
-    // Escopado por step: erros de revisor1 não vazam pra revisor2 e
-    // vice-versa (cada revisor tem seu próprio histórico).
-    let previousRevisorErrors: string[] | undefined;
-    if (continuation && isRevisorStep(step)) {
-      const seen = new Set<string>();
-      const aggregate: string[] = [];
-      const pushIfNew = (e: RevisorError) => {
-        const loc: string[] = [];
-        if (typeof e.parte === "number") loc.push(`Parte ${e.parte}`);
-        if (typeof e.capitulo === "number") loc.push(`Cap. ${e.capitulo}`);
-        const locStr = loc.length > 0 ? ` (${loc.join(", ")})` : "";
-        const gravLabel =
-          e.gravidade === "gravissimo"
-            ? "Gravíssimo"
-            : e.gravidade === "interfere"
-              ? "Interfere"
-              : e.gravidade === "atencao"
-                ? "Atenção"
-                : "Não interfere";
-        const formatted = `${e.titulo.trim()}${locStr} [${gravLabel}]`;
-        // Dedup por título+localização — se a mesma issue ressurgiu em rodadas
-        // diferentes, manda só uma vez (o agente já entende que não pode repetir).
-        const key = formatted.toLowerCase();
-        if (seen.has(key)) return;
-        seen.add(key);
-        aggregate.push(formatted);
-      };
-      // Output corrente (rodada que está sendo arquivada agora).
-      if (output?.metadata?.errors) {
-        for (const e of output.metadata.errors) pushIfNew(e);
-      }
-      // Snapshots históricos (rodadas anteriores já arquivadas) — só do step
-      // ativo, sem cruzar revisor1/revisor2.
-      const history = roteiro.history?.[step] ?? [];
-      for (const snap of history) {
-        if (snap.metadata?.errors) {
-          for (const e of snap.metadata.errors) pushIfNew(e);
-        }
-      }
-      if (aggregate.length > 0) previousRevisorErrors = aggregate;
-    }
+    // Nota: o "Continuar revisão" do Revisor NÃO passa mais por aqui — virou
+    // `continueRevisorPart`/`continueBothParts`, que enfileiram na fila (paralelo
+    // + sobrevive à navegação) e agregam os erros anteriores via
+    // `aggregatePreviousRevisorErrors`. Este caminho foreground cobre só
+    // regenerate (que é interceptado e enfileirado acima) e refine pontual.
 
     abortRef.current?.abort();
     const ctrl = new AbortController();
@@ -1458,12 +1406,9 @@ export function StepShell({ step }: Props) {
             userInput: effectiveUserInput,
             referenceImage: roteiro.referenceImage,
             ...(roteiro.canone?.trim() ? { canone: roteiro.canone } : {}),
-            ...(previousRevisorErrors && previousRevisorErrors.length > 0
-              ? { previousRevisorErrors }
-              : {}),
-            // Este branch só roda em "Continuar revisão" (re-revisão por
-            // definição) — relatório enxuto: só o bloco de erros, sem o ensaio.
-            // Espelha a detecção do run-step.ts headless.
+            // Re-revisão por definição (refine pontual) — relatório enxuto: só o
+            // bloco de erros, sem o ensaio. Espelha a detecção do run-step.ts
+            // headless e o caminho da fila.
             leanRevisorReport: true,
           }),
           signal: ctrl.signal,
@@ -2167,16 +2112,15 @@ export function StepShell({ step }: Props) {
     );
   }, [roteiro, enqueueStep, queueJobs, removeJob]);
 
-  // Revisão das duas Partes EM PARALELO: enfileira revisor1 E revisor2 de uma
-  // vez. O lock do QueueRunner é por `${roteiroId}:${step}`, então as duas rodam
-  // ao mesmo tempo na fila (cada uma grava sua própria chave de step; limitado
-  // por MAX_CONCURRENT). ~Corta pela metade o wall-clock da revisão (antes 7+7
+  // "Gerar as duas Partes" — enfileira revisor1 E revisor2 do ZERO de uma vez.
+  // O lock do QueueRunner é por `${roteiroId}:${step}`, então as duas rodam ao
+  // mesmo tempo na fila (cada uma grava sua própria chave de step; limitado por
+  // MAX_CONCURRENT). ~Corta pela metade o wall-clock da revisão (antes 7+7
   // sequencial). A P2 roda SEM o relatório consolidado da P1 como contexto nesta
   // 1ª passada — re-rodar a P2 depois (enxuta/rápida) pega inconsistências
   // cruzadas. Snapshot do input "Ajustes opcionais" de cada step. `enqueue` é
   // idempotente por (roteiro, step), então não duplica se uma Parte já estiver
-  // rodando. `setForceRevisor2Parallel` libera a tela do revisor2 pra ela mostrar
-  // o job rodando (sem isso o gate suave continua escondendo).
+  // rodando.
   const reviseBothParts = useCallback(() => {
     if (!roteiro) return;
     for (const j of queueJobs) {
@@ -2200,8 +2144,52 @@ export function StepShell({ step }: Props) {
       "revisor2",
       roteiro.userInputs?.revisor2 || undefined,
     );
-    setForceRevisor2Parallel(true);
   }, [roteiro, enqueueStep, queueJobs, removeJob]);
+
+  // "Continuar revisão" de UMA Parte, pela fila (paralelo + sobrevive à
+  // navegação). Agrega os erros já apontados (output atual + histórico DESTE
+  // step) e manda como `previousRevisorErrors` ("não relista esses"). Arquiva a
+  // versão atual no histórico ANTES de enfileirar — a fila não arquiva sozinha
+  // (ver QueueRunner#applyStepOutput); sem isso o revert sumiria. Lê o output do
+  // `targetStep` direto do roteiro (não do `output`/`step` do componente), pra
+  // funcionar também quando continua a Parte que NÃO está aberta.
+  const continueRevisorPart = useCallback(
+    (targetStep: "revisor1" | "revisor2") => {
+      if (!roteiro) return;
+      const targetOutput = roteiro.outputs[targetStep];
+      if (!targetOutput?.content?.trim()) return; // nada a continuar
+      const prevErrors = aggregatePreviousRevisorErrors(
+        targetOutput,
+        roteiro.history?.[targetStep],
+      );
+      pushOutputToHistory(targetStep, "Antes de continuar revisão");
+      for (const j of queueJobs) {
+        if (
+          j.roteiroId === roteiro.id &&
+          j.step === targetStep &&
+          (j.status === "error" || j.status === "done")
+        ) {
+          removeJob(j.id);
+        }
+      }
+      enqueueStep(
+        roteiro.id,
+        roteiro.title,
+        targetStep,
+        roteiro.userInputs?.[targetStep] || undefined,
+        undefined,
+        undefined,
+        prevErrors.length > 0 ? prevErrors : undefined,
+      );
+    },
+    [roteiro, enqueueStep, queueJobs, removeJob, pushOutputToHistory],
+  );
+
+  // "Continuar as duas Partes" — continua revisor1 E revisor2 em paralelo.
+  const continueBothParts = useCallback(() => {
+    continueRevisorPart("revisor1");
+    continueRevisorPart("revisor2");
+  }, [continueRevisorPart]);
 
   // Regerar UM capítulo individual no step Escrita. Reusa o pipeline 2-em-2
   // disparando um batch de 1 capítulo + sinopses dos vizinhos (todas
@@ -2552,66 +2540,11 @@ export function StepShell({ step }: Props) {
 
   if (!roteiro) return null;
 
-  // Gate (suave) do revisor2: por padrão a revisão da Parte 2 espera a Parte 1
-  // ser revisada — o relatório da P1 vira contexto narrativo da P2 (consistência
-  // sem inconsistências cruzadas). MAS a roteirista pode optar por revisar as
-  // duas EM PARALELO (mais rápido): a P2 roda sem o contexto da P1 e ela re-roda
-  // depois de consolidar a P1 se quiser a checagem cruzada (re-rodada é enxuta/
-  // rápida). O override `forceRevisor2Parallel` libera o step nesta sessão.
-  if (
-    step === "revisor2" &&
-    !roteiro.outputs.revisor1?.content?.trim() &&
-    !forceRevisor2Parallel
-  ) {
-    return (
-      <div className="flex flex-col gap-6">
-        <header className="flex flex-col gap-1">
-          <Badge variant="secondary" className="font-normal w-fit">
-            Etapa {idx + 1} de {STEP_ORDER.length}
-          </Badge>
-          <h2 className="text-2xl sm:text-3xl font-serif tracking-tight">
-            {STEP_LABELS[step]}
-          </h2>
-        </header>
-        <div className="rounded-lg border-2 border-amber-300 bg-amber-50/60 p-6 sm:p-8 flex flex-col items-center text-center gap-4">
-          <AlertTriangle className="size-8 text-amber-600" />
-          <div className="flex flex-col gap-2 max-w-xl">
-            <h3 className="text-lg font-semibold">
-              A Parte 1 ainda não foi revisada
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              O fluxo recomendado é revisar a Parte 1 primeiro — o relatório dela
-              vira contexto da revisão da Parte 2 (mantém a consistência entre as
-              Partes). Mas você pode revisar as duas{" "}
-              <span className="font-semibold">em paralelo</span> pra ganhar
-              tempo: a Parte 2 será revisada agora, sem o contexto da Parte 1.
-              Depois de consolidar a Parte 1, é só re-rodar a revisão da Parte 2
-              (a re-rodada é enxuta e rápida) pra pegar qualquer inconsistência
-              cruzada.
-            </p>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Button
-              onClick={reviseBothParts}
-              size="lg"
-              className="gap-2"
-            >
-              Revisar as duas em paralelo
-            </Button>
-            <Button
-              onClick={() => setCurrentStep("revisor1")}
-              size="lg"
-              variant="outline"
-              className="gap-2"
-            >
-              <ArrowLeft className="size-4" />
-              Ir para Revisor — Parte 1
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // (Antes havia aqui uma PAREDE de bloqueio do revisor2 — escondia a tela
+  // inteira até a Parte 1 ser revisada. Removida: as duas Partes geram em
+  // paralelo pelo seu próprio "Gerar"; o estado da P1 aparece (sem bloquear) no
+  // RevisorPartsOverview no topo. A re-rodada cruzada continua possível pelo
+  // "Continuar" depois de consolidar a P1.)
 
   return (
     <div className="flex flex-col gap-6">
@@ -2658,6 +2591,15 @@ export function StepShell({ step }: Props) {
         </div>
         )}
       </header>
+
+      {isRevisorStep(step) && (
+        <RevisorPartsOverview
+          currentStep={step as "revisor1" | "revisor2"}
+          busy={revisorJobActive}
+          onGenerateBoth={reviseBothParts}
+          onContinueBoth={continueBothParts}
+        />
+      )}
 
       {previousOutputsSummary.some((p) => p.content) && (
         <details className="group border rounded-lg bg-muted/30">
@@ -3053,6 +2995,9 @@ export function StepShell({ step }: Props) {
         <div className="flex items-center gap-2 flex-wrap pt-2">
           {!isGenerating ? (
             isRevisorStep(step) ? (
+              // Botões DESTA Parte só. As ações "as duas Partes" (gerar/continuar
+              // em paralelo) ficam no RevisorPartsOverview, no topo — a separação
+              // visual é o que evita misturar os dois revisores.
               <>
                 {hasContent ? (
                   <>
@@ -3066,21 +3011,20 @@ export function StepShell({ step }: Props) {
                       <RotateCcw className="size-4" />
                       Gerar novamente
                     </Button>
+                    {/* "Continuar" DESTA Parte vai pela FILA (paralelo + sobrevive
+                        à navegação) com o contexto "não relista esses erros". A
+                        versão "as duas Partes" é o botão primário do painel. */}
                     <Button
                       onClick={() =>
-                        generate(
-                          "regenerate",
-                          undefined,
-                          "Antes de continuar revisão",
-                          true,
-                        )
+                        continueRevisorPart(step as "revisor1" | "revisor2")
                       }
                       size="lg"
+                      variant="outline"
                       className="gap-2"
                       disabled={!!stepJob}
                     >
                       <Sparkles className="size-4" />
-                      Continuar revisão
+                      Continuar só esta Parte
                     </Button>
                   </>
                 ) : (
@@ -3098,24 +3042,6 @@ export function StepShell({ step }: Props) {
                     {stepJob ? "Gerando em 2º plano…" : generateLabel}
                   </Button>
                 )}
-                {/* Dispara revisor1 ‖ revisor2 juntos (cada um no seu step da
-                    fila) — ~metade do tempo da revisão. A P2 roda sem o
-                    relatório da P1; re-rode a P2 depois pra pegar cruzados. */}
-                <Button
-                  onClick={reviseBothParts}
-                  size="lg"
-                  variant="secondary"
-                  className="gap-2"
-                  disabled={revisorJobActive}
-                  title="Enfileira a revisão da Parte 1 e da Parte 2 ao mesmo tempo (mais rápido — a Parte 2 roda sem o relatório da Parte 1; re-rode a Parte 2 depois pra pegar inconsistências cruzadas)."
-                >
-                  {revisorJobActive ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="size-4" />
-                  )}
-                  Revisar as duas Partes (paralelo)
-                </Button>
               </>
             ) : (
               <Button
@@ -3551,7 +3477,7 @@ function PremissaWizard() {
   // fechar guia + roda concorrente com outros projetos), não no componente.
   const enqueue = useQueue((s) => s.enqueue);
   const removeQueueJob = useQueue((s) => s.removeJob);
-  const queuePremissaLive = useWizard((s) => s.queueLiveStream);
+  const queuePremissaLive = useWizard((s) => s.queueLiveStream["premissa"] ?? "");
   const premissaJob = useQueue((s) =>
     roteiro
       ? s.jobs.find(

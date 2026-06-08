@@ -41,9 +41,14 @@ interface WizardState {
    * o preview do stream. O QueueRunner alimenta via `setQueueLiveStream` (só pro
    * roteiro ativo) e limpa ao concluir/abortar. O foreground (StepShell) tem seu
    * próprio `liveStream` local e NÃO usa este campo.
+   *
+   * **Mapa por step** (chave = `job.step`): com revisor1 ‖ revisor2 rodando no
+   * MESMO roteiro aberto, um campo único faria os dois previews se sobrescreverem
+   * (o preview embaixo da Parte 1 mostrando texto da Parte 2). Cada step lê só a
+   * sua chave (`queueLiveStream[step]`).
    */
-  queueLiveStream: string;
-  setQueueLiveStream: (text: string) => void;
+  queueLiveStream: Record<string, string>;
+  setQueueLiveStream: (step: string, text: string) => void;
   setRoteiro: (r: Roteiro) => void;
   setCurrentStep: (step: StepId) => void;
   setOutput: (step: StepId, output: StepOutput) => void;
@@ -193,9 +198,10 @@ export const useWizard = create<WizardState>((set, get) => ({
   roteiro: null,
   isGenerating: false,
   autoAdvance: false,
-  queueLiveStream: "",
+  queueLiveStream: {},
 
-  setQueueLiveStream: (text) => set({ queueLiveStream: text }),
+  setQueueLiveStream: (step, text) =>
+    set((s) => ({ queueLiveStream: { ...s.queueLiveStream, [step]: text } })),
 
   setRoteiro: (r) => {
     // Flush antes de trocar — o roteiro anterior em mem pode ter pendências
@@ -203,7 +209,7 @@ export const useWizard = create<WizardState>((set, get) => ({
     flushPendingSave();
     // Limpa o preview ao vivo: ele é específico do roteiro anterior. Se o novo
     // roteiro tiver um job rodando, o QueueRunner volta a alimentar.
-    set({ roteiro: r, queueLiveStream: "" });
+    set({ roteiro: r, queueLiveStream: {} });
   },
 
   setCurrentStep: (step) => {
@@ -792,7 +798,7 @@ export const useWizard = create<WizardState>((set, get) => ({
       roteiro: null,
       isGenerating: false,
       autoAdvance: false,
-      queueLiveStream: "",
+      queueLiveStream: {},
     });
   },
 }));
