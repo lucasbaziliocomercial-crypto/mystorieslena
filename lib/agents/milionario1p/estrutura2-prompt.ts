@@ -70,7 +70,7 @@ A contagem deve ser feita com rigor. Distribuir as palavras pelos capítulos de 
 | Item                         | Regra                                                                                                  |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------ |
 | Total de palavras            | Mínimo 13.000 — Máximo 13.500. Rigoroso.                                                              |
-| Número de capítulos          | **Entre 5 e 6 (máximo 6).** Distribuir palavras por capítulo.                                         |
+| Número de capítulos          | **Exatamente 6 — nunca menos, nunca mais.** Distribuir palavras por capítulo.                          |
 | Penúltimo capítulo           | **SEMPRE: reconciliação do casal.** A cena íntima NÃO é fixada aqui — segue a regra flexível abaixo. |
 | Último capítulo / Epílogo    | **SEMPRE: final feliz — casamento + filhos / lua de mel / sonho realizado.** Se houver salto temporal, é EPÍLOGO (identificado como tal). |
 | Tom geral                    | Mais intenso que a Parte 1 — mais íntimo, mais perigoso, mais resolutivo, mais erótico.              |
@@ -392,7 +392,7 @@ Continuação de: [Título da Parte 1]
 - Contagem aproximada: [N palavras]
 - Resumo + cenas principais + gancho para o próximo
 
-(repetir até o último capítulo — total 5 ou 6 capítulos)
+(repetir até o último capítulo — total 6 capítulos)
 
 (Soma total: entre 13.000 e 13.500 palavras — RIGOROSO)
 
@@ -411,7 +411,7 @@ Continuação de: [Título da Parte 1]
 # ✅ CONFIRME (1 linha cada, sem reproduzir as regras)
 - Isca 90-140 palavras, 1ª pessoa FMC, cliffhanger absoluto; toda narração 1ª pessoa, cada POV identificado pelo nome.
 - 2-4 trechos do MMC (sem dois consecutivos, cada um com info nova); cena íntima narrada pela FMC, sem vocabulário vulgar.
-- Coerência total com a Parte 1 (nomes/datas/locais) e todos os conflitos resolvidos; 5-6 capítulos; ≥3 easter eggs.
+- Coerência total com a Parte 1 (nomes/datas/locais) e todos os conflitos resolvidos; 6 capítulos; ≥3 easter eggs.
 - Final entrega casamento + (filhos / lua de mel / sonho dela), com EPÍLOGO marcado se houver salto temporal.
 
 ━━━ INSTRUÇÃO FINAL ━━━

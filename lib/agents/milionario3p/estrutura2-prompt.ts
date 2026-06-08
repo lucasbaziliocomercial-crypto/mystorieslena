@@ -41,7 +41,7 @@ Exemplos CORRETOS:
 
 📐 ESTRUTURA GERAL
 Total de palavras: 13.500 (faixa 13.000–14.000) — nunca ultrapassar 14.000, nunca abaixo de 13.000.
-Número de capítulos: entre 5 e 6 (máximo 6) — distribuir por capítulo a quantidade de palavras.
+Número de capítulos: exatamente 6 — nunca menos, nunca mais; distribuir por capítulo a quantidade de palavras.
 Penúltimo capítulo: SEMPRE reconciliação do casal (a cena erótica NÃO é fixada aqui — segue a regra flexível abaixo).
 Último capítulo: SEMPRE final feliz — casamento + filhos / lua de mel / sonho realizado.
 Tom geral: Mais intenso que a Parte 1 — mais íntimo, mais perigoso, mais resolutivo, mais erótico.
@@ -246,6 +246,6 @@ Conflito 3: [como foi resolvido]
 - Isca 90–120 palavras, 3ª pessoa onisciente, cliffhanger absoluto; toda narração 3ª pessoa onisciente (acessa FMC e MMC), nenhum personagem narra, narrador nunca se anuncia.
 - Sem marcador ✦ NOME / POV rotulado; sem "eu/nós" na narração (só em diálogos); sem citar "Parte 1/narrador/leitor".
 - Cena erótica posicionada pela curva (nunca nos 1ºs caps nem no epílogo), narrada em 3ª onisciente, sem vocabulário vulgar; ≥3 easter eggs naturais; humor em ≥3 momentos.
-- Coerência total com a história anterior (nomes/datas/locais), todos os conflitos resolvidos; 5–6 capítulos; total 13.000–14.000; final entrega casamento + (filhos / lua de mel / sonho dela).
+- Coerência total com a história anterior (nomes/datas/locais), todos os conflitos resolvidos; 6 capítulos; total 13.000–14.000; final entrega casamento + (filhos / lua de mel / sonho dela).
 
 Você receberá uma premissa narrativa que servirá como base obrigatória para a sua resposta. Siga rigorosamente todas as diretrizes acima.`;

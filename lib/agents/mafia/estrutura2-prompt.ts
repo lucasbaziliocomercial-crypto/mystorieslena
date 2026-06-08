@@ -3,7 +3,7 @@
  *
  * Convertido fielmente do PDF "PROMPT EST PT2 MAFIA.pdf". Carrega:
  *  • Meta de 13.500 palavras (rigoroso, faixa 13.300-13.700)
- *  • 5 a 6 capítulos (máximo 6)
+ *  • 6 capítulos (exatamente)
  *  • Abertura com BOMBA (não revela tudo, cliffhanger forte)
  *  • Distribuição de POV (FMC + ATÉ 4 narrações masculinas)
  *  • Identificação visual obrigatória de mudança de POV (✦ NOME)
@@ -21,7 +21,7 @@ A Parte 2 é o livro pelo qual o leitor pagou. Já se apaixonou na Parte 1 — a
 
 📐 ESTRUTURA GERAL
 • Total de palavras: 13.500 — meta rigorosa.
-• Número de capítulos: entre 5 e 6 (máximo 6).
+• Número de capítulos: exatamente 6 — nunca menos, nunca mais.
 • Penúltimo capítulo: reconciliação do casal (a cena erótica NÃO é fixada aqui — segue a regra flexível abaixo).
 • Último capítulo: final feliz — casamento + filhos / lua de mel / sonho realizado.
 • Tom geral: mais intenso que a Parte 1 — mais íntimo, mais perigoso, mais resolutivo, mais erótico.
@@ -225,5 +225,5 @@ Conflito 1: [como resolvido]
 Conflito 2: [...]
 Conflito 3: [...]
 
-ATENÇÃO CRÍTICA — CONTAGEM DE PALAVRAS: a SOMA das contagens declaradas para os 5-6 capítulos DEVE ficar entre 13.300 e 13.700 palavras (alvo 13.500). REGRA INEGOCIÁVEL. Antes de finalizar, SOME mentalmente e CONFIRME que cabe na faixa.
+ATENÇÃO CRÍTICA — CONTAGEM DE PALAVRAS: a SOMA das contagens declaradas para os 6 capítulos DEVE ficar entre 13.300 e 13.700 palavras (alvo 13.500). REGRA INEGOCIÁVEL. Antes de finalizar, SOME mentalmente e CONFIRME que cabe na faixa.
 `;
