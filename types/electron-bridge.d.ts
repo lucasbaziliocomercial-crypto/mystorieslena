@@ -107,6 +107,25 @@ export interface ClaudeLogoutResult {
   reason?: string;
 }
 
+export interface CacheSizeResult {
+  ok: boolean;
+  /** Soma de cacheBytes + backupsBytes + logsBytes. */
+  totalBytes: number;
+  cacheBytes?: number;
+  backupsBytes?: number;
+  logsBytes?: number;
+  reason?: string;
+}
+
+export interface ClearCacheResult {
+  ok: boolean;
+  /** Bytes liberados (medido antes − depois nas pastas-alvo). */
+  freedBytes: number;
+  before?: number;
+  after?: number;
+  reason?: string;
+}
+
 export interface MyStoriesLenaBridge {
   getRuntimeInfo: () => Promise<RuntimeInfo>;
   checkForUpdates: () => Promise<UpdaterCheckResult>;
@@ -134,6 +153,10 @@ export interface MyStoriesLenaBridge {
   getClaudeStatus: () => Promise<ClaudeStatus>;
   setupClaude: () => Promise<ClaudeSetupResult>;
   logoutClaude: () => Promise<ClaudeLogoutResult>;
+  /** Mede caches do Chromium + backups antigos + log do servidor (bytes). */
+  getCacheSize: () => Promise<CacheSizeResult>;
+  /** Limpa caches do Chromium + poda backups + zera log. NÃO toca nos roteiros. */
+  clearCache: () => Promise<ClearCacheResult>;
 }
 
 declare global {

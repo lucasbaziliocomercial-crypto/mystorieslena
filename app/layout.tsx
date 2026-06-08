@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Fraunces } from "next/font/google";
 import "./globals.css";
 import { StorageQuotaGuard } from "@/components/StorageQuotaGuard";
 import { LibraryBackup } from "@/components/LibraryBackup";
+import { AutoCleanup } from "@/components/AutoCleanup";
 import { QueueRunner } from "@/components/queue/QueueRunner";
 
 const geistSans = Geist({
@@ -44,6 +45,7 @@ export default function RootLayout({
         {children}
         <StorageQuotaGuard />
         <LibraryBackup />
+        <AutoCleanup />
         <QueueRunner />
       </body>
     </html>

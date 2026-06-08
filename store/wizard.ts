@@ -10,7 +10,7 @@ import type {
   StepOutput,
 } from "@/types/roteiro";
 import { STEP_ORDER, REVISOR_STEPS, isRevisorStep } from "@/types/roteiro";
-import { scheduleSave, flushPendingSave } from "@/lib/storage";
+import { scheduleSave, flushPendingSave, HISTORY_CAP } from "@/lib/storage";
 import {
   applyCorrections,
   computeRevisorEval,
@@ -378,11 +378,11 @@ export const useWizard = create<WizardState>((set, get) => ({
       const history = { ...(s.roteiro.history ?? {}) };
       const stack = history[step] ? [...history[step]!] : [];
       stack.unshift(snapshotFromOutput(current, customLabel));
-      // Limite de 5 snapshots por step pra não estourar localStorage. Antes
-      // era 20, mas o texto da Escrita (~200KB por snapshot) sozinho enchia
-      // os 5MB. O prune correspondente em listRoteiros() trunca pilhas
-      // antigas (até 20) na primeira leitura após a atualização.
-      if (stack.length > 5) stack.length = 5;
+      // Limite de HISTORY_CAP snapshots por step pra não estourar localStorage.
+      // O texto da Escrita (~200KB por snapshot) sozinho enchia os 5MB. O cap
+      // vem de `@/lib/storage` (mesma constante do prune de leitura) — o
+      // `pruneHistory` em listRoteiros() trunca pilhas antigas na 1ª leitura.
+      if (stack.length > HISTORY_CAP) stack.length = HISTORY_CAP;
       history[step] = stack;
 
       return {
@@ -404,7 +404,7 @@ export const useWizard = create<WizardState>((set, get) => ({
       if (current?.content?.trim()) {
         newHistoryStack.unshift(snapshotFromOutput(current));
       }
-      if (newHistoryStack.length > 5) newHistoryStack.length = 5;
+      if (newHistoryStack.length > HISTORY_CAP) newHistoryStack.length = HISTORY_CAP;
 
       const restoredOutput: StepOutput = {
         content: snapshot.content,

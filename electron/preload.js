@@ -99,6 +99,20 @@ contextBridge.exposeInMainWorld("mystorieslena", {
   openLogsFolder: () => ipcRenderer.invoke("log:open-folder"),
 
   /**
+   * Mede o tamanho atual dos caches do Chromium + backups antigos (além dos 5
+   * mais recentes) + log do servidor, em bytes. Pro dialog de "Limpar cache"
+   * mostrar quanto dá pra liberar. Retorna { ok, totalBytes, cacheBytes, ... }.
+   */
+  getCacheSize: () => ipcRenderer.invoke("cache:get-size"),
+
+  /**
+   * Limpa os caches do Chromium (session.clearCache + clearStorageData com
+   * allowlist SEM localstorage) + poda backups antigos (mantém 5) + zera o log
+   * do servidor. NÃO toca nos roteiros salvos. Retorna { ok, freedBytes }.
+   */
+  clearCache: () => ipcRenderer.invoke("cache:clear"),
+
+  /**
    * Assina eventos do auto-updater. Retorna função pra remover assinatura.
    *   onUpdateEvent(({ type, payload }) => {})
    * type pode ser: "checking-for-update", "update-available",
