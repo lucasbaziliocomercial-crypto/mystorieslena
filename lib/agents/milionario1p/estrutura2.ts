@@ -2,6 +2,7 @@ import { MODELS } from "@/lib/anthropic";
 import type { Agent } from "../types";
 import { buildEstruturaContinuationMessage } from "../continuation-prompt";
 import { buildCanoneBlock } from "../_shared/canone-block";
+import { buildPersonagensBlock } from "../_shared/personagens-block";
 import { CANONE_RULE } from "../_shared/canone-rule";
 import { ESTRUTURA_MASTER_PROMPT } from "./estrutura-master-prompt";
 import { ESTRUTURA2_PROMPT } from "./estrutura2-prompt";
@@ -33,6 +34,7 @@ export const estrutura2Agent: Agent = {
     const premissa = ctx.previousOutputs.premissa?.content?.trim() ?? "";
     const estrutura1 = ctx.previousOutputs.estrutura1?.content?.trim() ?? "";
     const canoneBlock = buildCanoneBlock(ctx.canone);
+    const personagensBlock = buildPersonagensBlock(ctx.personagens);
 
     // Modo "Continuar de onde parou": geração anterior interrompida. Continua
     // a partir do partial em `currentOutput` sem repetir nem recomeçar.
@@ -42,6 +44,7 @@ export const estrutura2Agent: Agent = {
         partial: ctx.currentOutput,
         userInput: ctx.userInput,
         canone: ctx.canone,
+        personagens: ctx.personagens,
       });
     }
 
@@ -62,6 +65,9 @@ export const estrutura2Agent: Agent = {
       );
       if (canoneBlock) {
         refine.push(canoneBlock);
+      }
+      if (personagensBlock) {
+        refine.push(personagensBlock);
       }
       if (premissa) {
         refine.push(
@@ -117,6 +123,10 @@ export const estrutura2Agent: Agent = {
 
     if (canoneBlock) {
       sections.push(canoneBlock);
+    }
+
+    if (personagensBlock) {
+      sections.push(personagensBlock);
     }
 
     if (premissa) {

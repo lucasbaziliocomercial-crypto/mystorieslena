@@ -104,6 +104,7 @@ import { DownloadEscritaButton } from "@/components/wizard/DownloadEscritaButton
 import { CopyPartButton } from "@/components/wizard/CopyPartButton";
 import { ReferenceImageUpload } from "@/components/wizard/ReferenceImageUpload";
 import { CanoneCard } from "@/components/wizard/CanoneCard";
+import { PersonagensCard } from "@/components/wizard/PersonagensCard";
 import { Prose } from "@/components/ui/prose";
 import { cn } from "@/lib/utils";
 
@@ -1070,6 +1071,9 @@ export function StepShell({ step }: Props) {
                 userInput: effectiveUserInput,
                 referenceImage: roteiro.referenceImage,
                 ...(roteiro.canone?.trim() ? { canone: roteiro.canone } : {}),
+                ...(roteiro.personagensValidados && roteiro.personagens?.trim()
+                  ? { personagens: roteiro.personagens }
+                  : {}),
                 batch: {
                   part: b.part,
                   chapters: chaptersToRequest,
@@ -1407,6 +1411,9 @@ export function StepShell({ step }: Props) {
             userInput: effectiveUserInput,
             referenceImage: roteiro.referenceImage,
             ...(roteiro.canone?.trim() ? { canone: roteiro.canone } : {}),
+            ...(roteiro.personagensValidados && roteiro.personagens?.trim()
+              ? { personagens: roteiro.personagens }
+              : {}),
             // Re-revisão por definição (refine pontual) — relatório enxuto: só o
             // bloco de erros, sem o ensaio. Espelha a detecção do run-step.ts
             // headless e o caminho da fila.
@@ -1599,6 +1606,9 @@ export function StepShell({ step }: Props) {
           userInput: effectiveUserInput,
           referenceImage: roteiro.referenceImage,
           ...(roteiro.canone?.trim() ? { canone: roteiro.canone } : {}),
+          ...(roteiro.personagensValidados && roteiro.personagens?.trim()
+            ? { personagens: roteiro.personagens }
+            : {}),
           ...(mode === "refine" && {
             refineMode: true,
             currentOutput: currentOutputForAgent,
@@ -2291,6 +2301,9 @@ export function StepShell({ step }: Props) {
             userInput: effectiveUserInput,
             referenceImage: roteiro.referenceImage,
             ...(roteiro.canone?.trim() ? { canone: roteiro.canone } : {}),
+            ...(roteiro.personagensValidados && roteiro.personagens?.trim()
+              ? { personagens: roteiro.personagens }
+              : {}),
             batch: {
               part,
               chapters: [target.number],
@@ -4038,6 +4051,8 @@ function PremissaWizard() {
           </div>
         )}
 
+        <PersonagensCard />
+
         <ReferenceImageUpload />
       </section>
     );
@@ -4278,6 +4293,8 @@ function PremissaWizard() {
           </div>
         );
       })()}
+
+      <PersonagensCard />
 
       <ReferenceImageUpload />
 

@@ -412,6 +412,25 @@ export interface Roteiro {
   /** Timestamp da aprovação do cânone. */
   canoneApprovedAt?: string;
   /**
+   * Lista travada de nomes de personagens digitada/colada MANUALMENTE pela
+   * roteirista (até ~10) no step da Premissa, pra evitar conflito de nomes e
+   * sobrenomes ao longo da história (o modelo escorrega: "Helena"→"Helen",
+   * repete primeiro nome, empilha sobrenome). Quando validada, é injetada como
+   * bloco canônico em todos os steps pós-Premissa (estrutura1/2, escrita,
+   * revisor), reusando as REGRAS DE NOMES do CANONE_RULE. Independente do
+   * `canone` (que é gerado por IA e mais amplo). Texto livre — um nome por
+   * linha, formato sugerido "Papel: Nome Sobrenome".
+   */
+  personagens?: string;
+  /**
+   * True depois que a roteirista clicou "Validar" — destrava a INJEÇÃO dos
+   * nomes na geração. NÃO bloqueia o avanço pra Estrutura (campo opcional,
+   * advisory). Editar os nomes reseta pra false (exige revalidar).
+   */
+  personagensValidados?: boolean;
+  /** Timestamp da validação dos nomes. */
+  personagensValidadosAt?: string;
+  /**
    * Rascunhos do que está digitado nos textareas mas ainda não foi commitado
    * via botão. Persistido para o usuário não perder trabalho ao trocar de
    * step. Limpo automaticamente quando o valor vira oficial (via Gerar /

@@ -10,6 +10,7 @@
  * Diferente do modo `refineMode` (que ajusta uma versão completa).
  */
 import { buildCanoneBlock } from "./_shared/canone-block";
+import { buildPersonagensBlock } from "./_shared/personagens-block";
 
 export function buildEstruturaContinuationMessage(args: {
   parteLabel: "PARTE 1" | "PARTE 2";
@@ -18,8 +19,10 @@ export function buildEstruturaContinuationMessage(args: {
   /** Cânone de Entidades — se presente, vai como referência canônica
    *  para nomes/idades/lugares/datas durante a continuação. */
   canone?: string;
+  /** Nomes dos Personagens travados pela roteirista — vão junto do cânone. */
+  personagens?: string;
 }): string {
-  const { parteLabel, partial, userInput, canone } = args;
+  const { parteLabel, partial, userInput, canone, personagens } = args;
   const sections: string[] = [];
 
   sections.push(
@@ -40,6 +43,11 @@ export function buildEstruturaContinuationMessage(args: {
   const canoneBlock = buildCanoneBlock(canone);
   if (canoneBlock) {
     sections.push(canoneBlock);
+  }
+
+  const personagensBlock = buildPersonagensBlock(personagens);
+  if (personagensBlock) {
+    sections.push(personagensBlock);
   }
 
   if (userInput?.trim()) {
