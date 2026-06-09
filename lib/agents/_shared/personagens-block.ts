@@ -16,5 +16,14 @@ export function buildPersonagensBlock(
 ): string | null {
   const trimmed = personagens?.trim();
   if (!trimmed) return null;
-  return `━━━ NOMES DOS PERSONAGENS (TRAVADOS PELA ROTEIRISTA — usar EXATAMENTE estes nomes/sobrenomes, nunca inventar variações) ━━━\n\n${trimmed}`;
+  return [
+    "━━━ NOMES DOS PERSONAGENS (TRAVADOS PELA ROTEIRISTA — usar EXATAMENTE estes nomes/sobrenomes, nunca inventar variações) ━━━",
+    "",
+    trimmed,
+    "",
+    "COMO USAR ESTES NOMES:",
+    '• Se a roteirista escreveu o PAPEL ao lado do nome (ex.: "MMC: Gabriel Veloso", "Vilã: Beatriz", "irmã da heroína: Lara"), respeite essa função EXATAMENTE — esse nome é daquele personagem, ponto.',
+    "• Se vier SÓ o nome (sem papel), VOCÊ distribui cada nome ao personagem correspondente da PREMISSA pelo contexto (quem é o protagonista masculino, a heroína, o antagonista, os secundários) e mantém cada nome amarrado a UM único personagem do começo ao fim, nas duas Partes.",
+    "• Use TODOS os nomes da lista — não deixe nome sem dono. Personagens da premissa que não estiverem na lista podem manter o nome que a premissa já deu (ou um novo coerente); mas os nomes desta lista são prioridade e não mudam.",
+  ].join("\n");
 }
