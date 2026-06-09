@@ -2,6 +2,7 @@ import { MODELS } from "@/lib/anthropic";
 import type { Agent } from "../types";
 import { buildEstruturaContinuationMessage } from "../continuation-prompt";
 import { buildCanoneBlock } from "../_shared/canone-block";
+import { buildPersonagensBlock } from "../_shared/personagens-block";
 import { CANONE_RULE } from "../_shared/canone-rule";
 import { extractTituloFromPremissa } from "../_shared/extract-titulo";
 import { ESTRUTURA_MASTER_PROMPT } from "./estrutura-master-prompt";
@@ -32,6 +33,7 @@ export const estrutura1Agent: Agent = {
   buildUserMessage: (ctx) => {
     const premissa = ctx.previousOutputs.premissa?.content?.trim() ?? "";
     const canoneBlock = buildCanoneBlock(ctx.canone);
+    const personagensBlock = buildPersonagensBlock(ctx.personagens);
     const titulo = extractTituloFromPremissa(premissa);
 
     // Modo "Continuar de onde parou": a geração anterior foi interrompida e
@@ -44,6 +46,7 @@ export const estrutura1Agent: Agent = {
         partial: ctx.currentOutput,
         userInput: ctx.userInput,
         canone: ctx.canone,
+        personagens: ctx.personagens,
       });
     }
 
@@ -65,6 +68,9 @@ export const estrutura1Agent: Agent = {
       );
       if (canoneBlock) {
         refine.push(canoneBlock);
+      }
+      if (personagensBlock) {
+        refine.push(personagensBlock);
       }
       if (premissa) {
         refine.push(
@@ -116,6 +122,10 @@ export const estrutura1Agent: Agent = {
 
     if (canoneBlock) {
       sections.push(canoneBlock);
+    }
+
+    if (personagensBlock) {
+      sections.push(personagensBlock);
     }
 
     if (titulo) {

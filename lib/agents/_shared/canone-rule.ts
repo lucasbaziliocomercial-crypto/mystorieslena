@@ -52,6 +52,10 @@ ECONOMIA — não empilhar sobrenomes:
 • Não distribua sobrenomes à toa. Só quem realmente precisa (trama, parentesco, formalidade) ganha sobrenome; secundários menores podem ficar só com o primeiro nome.
 • Menos sobrenomes, fixos e distintos > muitos sobrenomes que mudam e se confundem.
 
+## BLOCO "NOMES DOS PERSONAGENS" (lista travada pela roteirista)
+
+Quando o user message trouxer também um bloco "NOMES DOS PERSONAGENS", trate esses nomes/sobrenomes como CANÔNICOS do mesmo jeito que o cânone: use-os EXATAMENTE como aparecem (grafia, acentos, sobrenome, ordem, capitalização), nunca invente variações nem apelidos não previstos. Aplique a eles TODAS as REGRAS DE NOMES acima (distinção + estabilidade de sobrenomes + economia). Em caso de conflito, o cânone e os nomes travados VENCEM a prosa/estrutura anterior. Se a roteirista travou um nome para um papel, é esse nome que vai pra história — não escolha outro.
+
 Esta regra é mais forte que qualquer outra instrução de estilo, ritmo ou criatividade.`;
 
 /**
@@ -105,4 +109,6 @@ REGRAS DURAS PRO CHECKLIST:
 
 • Se o cânone NÃO foi entregue (roteiro legado), não pule o checklist clássico de "Continuidade de personagens"; aí vale só a coerência interna do roteiro. Mas mencione na seção "PRINCIPAIS ERROS" que o cânone está ausente, como aviso (gravidade 🟡 / atenção).
 
-• Cite o cânone explicitamente nas justificativas: "trecho_corrigido alinhado com o CÂNONE (Helena Marques, 32 anos)". Isso ajuda a roteirista a confiar na correção.`;
+• Cite o cânone explicitamente nas justificativas: "trecho_corrigido alinhado com o CÂNONE (Helena Marques, 32 anos)". Isso ajuda a roteirista a confiar na correção.
+
+• Se o user message trouxer o bloco "NOMES DOS PERSONAGENS" (lista travada pela roteirista), cruze a escrita contra ela do MESMO jeito que contra o cânone: qualquer nome/sobrenome na escrita que divirja da lista travada vira erro (grave/gravíssimo conforme a paleta) com find/replace literal pra grafia travada. A lista da roteirista tem a mesma autoridade do cânone.`;

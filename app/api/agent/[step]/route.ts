@@ -59,6 +59,10 @@ interface Body {
    *  Quando presente, agentes pós-Premissa injetam como referência canônica
    *  no user message (ver `lib/agents/_shared/canone-block.ts`). */
   canone?: string;
+  /** Nomes dos Personagens — lista manual travada pela roteirista (até ~10).
+   *  Só é enviada quando ela validou; agentes pós-Premissa injetam o bloco
+   *  "NOMES DOS PERSONAGENS" (ver `lib/agents/_shared/personagens-block.ts`). */
+  personagens?: string;
 }
 
 const ACCEPTED_IMAGE_MIMES: ClaudeImageMime[] = [
@@ -132,6 +136,7 @@ export async function POST(
     ...(body.leanRevisorReport ? { leanRevisorReport: true } : {}),
     ...(body.continuationMode ? { continuationMode: true } : {}),
     ...(body.canone?.trim() ? { canone: body.canone } : {}),
+    ...(body.personagens?.trim() ? { personagens: body.personagens } : {}),
   });
 
   // Image multimodal — só vai pro modelo se o agente declarou acceptsReferenceImage.
