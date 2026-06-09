@@ -46,10 +46,13 @@ export function PersonagensCard() {
         <CardTitle>Nomes dos Personagens</CardTitle>
         <CardDescription>
           Liste os nomes (e sobrenomes) dos personagens — um por linha, até 10.
-          Depois clique em <strong>Validar</strong> pra travá-los: eles viram
-          referência fixa em todos os próximos steps (Estrutura, Escrita e
-          Revisor), evitando que o modelo troque ou misture nomes ao longo da
-          história. Campo opcional — não trava o avanço.
+          Pode pôr <strong>só o nome</strong> (a automação distribui as funções
+          pela premissa) ou já indicar o papel pra travar (ex.:{" "}
+          <code>MMC: Gabriel</code>, <code>Vilã: Beatriz</code>). Depois clique
+          em <strong>Validar</strong>: os nomes viram referência fixa em todos
+          os próximos steps (Estrutura, Escrita e Revisor), sem o modelo trocar
+          ou misturar nomes ao longo da história. Campo opcional — não trava o
+          avanço.
         </CardDescription>
       </CardHeader>
 
