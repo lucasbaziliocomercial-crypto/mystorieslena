@@ -10,6 +10,9 @@
 // destaque verde nas falas do MMC).
 
 import http from "node:http";
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
 import {
   buildEscritaHtmlDocument,
   detectMaleLeadFromFullRoteiro,
@@ -275,6 +278,35 @@ ${prose(300)}
 ${prose(900)}
 
 — Você é minha — rosnei.
+`;
+
+// alpha-king: Estrutura com Thoren (MMC) e Sieva (FMC) — cenário do print da
+// regressão (mansão Voss, calabouço, uivo).
+const ESTRUTURA_ALPHAKING_THOREN = `🙋 HEROÍNA (FMC) — Sieva Voss; 21 anos; prisioneira da mansão Voss; forte.
+👤 ALPHA KING (MMC) — Thoren; 30 anos; Alpha King do Norte; vínculo com a heroína.
+`;
+
+// alpha-king: Parte 2 com um excerto MARCADO do Alpha (✦ THOREN) seguido de
+// uma cena da heroína SEM marcador ✦ (ela é a narradora-padrão), separados por
+// um '---'. BUG RECORRENTE (print): o POV do ✦ THOREN vazava pelo '---' e
+// pintava a cena da heroína de verde. A FMC NUNCA pode ficar verde.
+const ROTEIRO_ALPHAKING_HEROINA_APOS_EXCERTO = `# PARTE 2
+
+## Capítulo 7 — O Uivo no Norte
+
+✦ THOREN
+
+${prose(300)}
+
+Se Darius Voss ainda estivesse de pé quando eu chegasse, ele não estaria depois.
+
+---
+
+A pedra do calabouço gelava de um jeito que eu conhecia desde menina.
+
+Acordei com a costela latejando e o gosto de ferro na boca.
+
+Reconhecível como o próprio batimento dentro do meu peito. Thoren.
 `;
 
 // ============================================================================
@@ -617,6 +649,88 @@ Quem ele é: Mafioso italiano.
     allOk = assertEq("Lyra (FMC) continua sem destaque", fmcGreenHit, false) && allOk;
   }
 
+  console.log("\n— alpha-king: heroína (sem ✦) após excerto do Alpha + '---' NÃO fica verde (BUG DO PRINT) —");
+  {
+    const maleLeadName = extractMaleLeadNameFromEstrutura(ESTRUTURA_ALPHAKING_THOREN);
+    const femaleLeadName = extractFemaleLeadNameFromEstrutura(ESTRUTURA_ALPHAKING_THOREN);
+    allOk = assertEq("MMC = 'Thoren'", maleLeadName, "Thoren") && allOk;
+    allOk = assertEq("FMC = 'Sieva'", femaleLeadName, "Sieva") && allOk;
+
+    const { parte2 } = splitRoteiroByParts(ROTEIRO_ALPHAKING_HEROINA_APOS_EXCERTO);
+    const html = escritaContentToHtml(parte2, {
+      maleLeadName,
+      femaleLeadName,
+      forceParte2: true,
+    });
+
+    // Excerto do Alpha (Thoren / MMC) — ANTES do '---' — FICA verde.
+    const mmcGreen = html.includes(
+      `${GREEN_SPAN}Se Darius Voss ainda estivesse de pé quando eu chegasse, ele não estaria depois.`,
+    );
+    allOk = assertEq("Excerto do Alpha (Thoren) ESTÁ verde", mmcGreen, true) && allOk;
+
+    // Cena da heroína — DEPOIS do '---', sem marcador ✦ — NÃO pode ficar verde.
+    const fmc1 = html.includes(`${GREEN_SPAN}A pedra do calabouço gelava`);
+    allOk = assertEq("Cena da heroína após '---' NÃO fica verde (1)", fmc1, false) && allOk;
+    const fmc2 = html.includes(`${GREEN_SPAN}Acordei com a costela latejando`);
+    allOk = assertEq("Cena da heroína após '---' NÃO fica verde (2)", fmc2, false) && allOk;
+    const fmc3 = html.includes(`${GREEN_SPAN}Reconhecível como o próprio batimento`);
+    allOk = assertEq("Cena da heroína após '---' NÃO fica verde (3)", fmc3, false) && allOk;
+
+    // E o '---' vira <hr> (separador de cena), não some nem vaza como prosa.
+    allOk = assertContains("'---' virou <hr> (separador de cena)", html, "<hr ") && allOk;
+
+    // POV FEMININO identificável: a cena da heroína (FMC = Sieva), que narra
+    // SEM marcador ✦, agora ganha o rótulo "✦ Sieva — POV feminino" (mesmo
+    // formato do masculino, mas SEM verde) no começo do trecho dela. Antes
+    // ficava sem identificação nenhuma — era a queixa da roteirista.
+    allOk = assertContains("POV feminino: rótulo '✦ Sieva — POV feminino'", html, ">✦ Sieva — POV feminino</h3>") && allOk;
+    allOk = assertNotContains("Rótulo da FMC NÃO é verde", html, `${GREEN_SPAN}✦ Sieva`) && allOk;
+    // POV MASCULINO identificável: o cabeçalho do Alpha (✦ THOREN) ganha a
+    // etiqueta "— POV masculino" na Parte 2 (o verde fica na PROSA, não aqui).
+    allOk = assertContains("POV masculino: cabeçalho '✦ THOREN — POV masculino'", html, "✦ THOREN — POV masculino</h3>") && allOk;
+  }
+
+  console.log("\n— POV feminino P2: nome da heroína AUSENTE → fallback '✦ POV feminino' —");
+  {
+    // Estrutura quebrada / sem tag (FMC): femaleLeadName = null. Mesmo assim,
+    // como há alternância de POV (✦ THOREN), o trecho implícito da heroína
+    // PRECISA ser identificável — cai pro rótulo genérico. Era o caso real
+    // (projeto de máfia com Estrutura P1 quebrada) onde a heroína sumia sem
+    // identificação nenhuma.
+    const { parte2 } = splitRoteiroByParts(ROTEIRO_ALPHAKING_HEROINA_APOS_EXCERTO);
+    const html = escritaContentToHtml(parte2, {
+      maleLeadName: "Thoren",
+      femaleLeadName: null,
+      forceParte2: true,
+    });
+    allOk = assertContains("Sem nome da FMC → fallback '✦ POV feminino'", html, ">✦ POV feminino</h3>") && allOk;
+    const fmcGreen = html.includes(`${GREEN_SPAN}A pedra do calabouço gelava`);
+    allOk = assertEq("Heroína sem nome ainda NÃO fica verde", fmcGreen, false) && allOk;
+  }
+
+  console.log("\n— POV feminino P2: roteiro sem ✦ (todo FMC, ex.: milionário-3p) NÃO ganha rótulo —");
+  {
+    // Parte 2 narrada 100% pela heroína, sem NENHUM marcador ✦ (caso do
+    // milionário-3p, sem alternância de POV). Mesmo passando femaleLeadName, o
+    // export NÃO deve inventar rótulos "✦ NOME" — sem alternância não há o que
+    // distinguir, e os rótulos seriam ruído.
+    const p2SemPov = `# PARTE 2
+
+## Capítulo 6 — O Reencontro
+
+${prose(200)}
+
+Ela soube, naquele instante, que nada voltaria a ser como antes.
+`;
+    const html = escritaContentToHtml(p2SemPov, {
+      femaleLeadName: "Helena",
+      forceParte2: true,
+    });
+    allOk = assertNotContains("Sem ✦ no roteiro → nenhum rótulo '✦ Helena'", html, "✦ Helena") && allOk;
+    allOk = assertNotContains("Sem ✦ no roteiro → nenhum heading de POV sintetizado", html, ">✦ ") && allOk;
+  }
+
   console.log("\n— Filtro: linha de contagem '(N palavras)' não vai pra exportação —");
   {
     const variantes = [
@@ -700,6 +814,237 @@ Quem ele é: Mafioso italiano.
 // Servidor visual (modo --serve)
 // ============================================================================
 
+// Escapa texto pra colocar dentro de <textarea> sem quebrar o HTML.
+function htmlEscape(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+// Lê o corpo de um POST (form urlencoded) como string.
+function readBody(req) {
+  return new Promise((resolve) => {
+    let data = "";
+    req.on("data", (c) => (data += c));
+    req.on("end", () => resolve(data));
+    req.on("error", () => resolve(""));
+  });
+}
+
+// O roteiro já tem cabeçalho de Parte 2? (legado ═══ ou novo #). Se tiver, o
+// walker detecta a Parte sozinho e o forceParte2 deixa de ser necessário —
+// evita o footgun de marcar forceParte2 num roteiro COMPLETO (pintaria a P1).
+function hasParte2Marker(raw) {
+  return (
+    /^#\s+PARTE 2\s*$/m.test(raw) ||
+    /═{3,}\s*\n\s*PARTE 2\s*\n\s*═{3,}/.test(raw)
+  );
+}
+
+// Renderiza o conteúdo colado igual o app: nomes vêm da Estrutura
+// (extractLeadName MMC/FMC); o MMC cai pro detector heurístico só se a
+// Estrutura não der. Retorna o HTML + os nomes detectados pra inspeção.
+function renderPlayground(estrutura, roteiro, forceParte2) {
+  const est = (estrutura || "").trim();
+  let mmc = est ? extractMaleLeadNameFromEstrutura(est) : null;
+  const fmc = est ? extractFemaleLeadNameFromEstrutura(est) : null;
+  if (!mmc) mmc = detectMaleLeadFromFullRoteiro(roteiro || "");
+  const effForce = hasParte2Marker(roteiro || "") ? false : forceParte2;
+  const result = escritaContentToHtml(roteiro || "", {
+    maleLeadName: mmc,
+    femaleLeadName: fmc,
+    forceParte2: effForce,
+  });
+  return { result, mmc, fmc };
+}
+
+const PLAYGROUND_NAV = `
+  <a href="/projetos"><strong>★ meus projetos reais</strong></a>
+  <a href="/playground">▶ playground (colar roteiro)</a>
+  <a href="/alphaking-print">exemplo do print</a>
+  <a href="/">fixtures 1p</a>
+  <a href="/mafia-normal">mafia</a>
+  <a href="/3p-mmc-primeiro">3p</a>
+  <a href="/so-fmc">só FMC</a>`;
+
+// ----------------------------------------------------------------------------
+// Projetos REAIS do app instalado (lê o backup automático mais recente).
+// O app grava snapshots JSON em %APPDATA%/MyStoriesLena/backups a cada
+// auto-backup (JSON.stringify da biblioteca, imagens inline). Renderizamos
+// pelo MESMO caminho do DownloadEscritaButton, com o exporter já corrigido.
+// ----------------------------------------------------------------------------
+function backupsDir() {
+  const appData =
+    process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming");
+  return path.join(appData, "MyStoriesLena", "backups");
+}
+
+function latestBackup() {
+  try {
+    const dir = backupsDir();
+    const files = fs
+      .readdirSync(dir)
+      .filter((f) => f.startsWith("veludo-roteiros-") && f.endsWith(".json"))
+      .map((name) => ({ name, mtime: fs.statSync(path.join(dir, name)).mtimeMs }))
+      .sort((a, b) => b.mtime - a.mtime);
+    if (!files.length) return null;
+    return { path: path.join(dir, files[0].name), name: files[0].name, mtime: files[0].mtime };
+  } catch {
+    return null;
+  }
+}
+
+function loadBackupRoteiros() {
+  const f = latestBackup();
+  if (!f) return { roteiros: [], backupName: null, mtime: null };
+  try {
+    const arr = JSON.parse(fs.readFileSync(f.path, "utf8"));
+    return {
+      roteiros: Array.isArray(arr) ? arr : [],
+      backupName: f.name,
+      mtime: f.mtime,
+    };
+  } catch {
+    return { roteiros: [], backupName: f.name, mtime: f.mtime };
+  }
+}
+
+// Replica EXATAMENTE o DownloadEscritaButton do app: nomes da estrutura1 ??
+// estrutura2 ?? heurística (MMC); estrutura1 ?? estrutura2 (FMC); passa os
+// chapters do metadata como fonte da verdade da Parte.
+function renderRoteiroLikeApp(r) {
+  const escritaContent = (r.outputs?.escrita?.content || "").trim();
+  const maleLeadName =
+    extractMaleLeadNameFromEstrutura(r.outputs?.estrutura1?.content) ??
+    extractMaleLeadNameFromEstrutura(r.outputs?.estrutura2?.content) ??
+    detectMaleLeadFromFullRoteiro(escritaContent);
+  const femaleLeadName =
+    extractFemaleLeadNameFromEstrutura(r.outputs?.estrutura1?.content) ??
+    extractFemaleLeadNameFromEstrutura(r.outputs?.estrutura2?.content);
+  const chapters = r.outputs?.escrita?.metadata?.chapters;
+  const body = escritaContentToHtml(escritaContent, {
+    maleLeadName,
+    femaleLeadName,
+    chapters,
+  });
+  return { body, mmc: maleLeadName, fmc: femaleLeadName, escritaContent };
+}
+
+// Conta parágrafos verdes que pertencem ao POV da FMC — DEVE ser 0. É o
+// "detector de regressão" do bug: se algum trecho da heroína ficar verde,
+// esse número sobe.
+function countFmcGreenLeaks(body, fmc) {
+  if (!fmc) return null;
+  // Heurística simples de inspeção: procura spans verdes cujo texto soa 1ª
+  // pessoa feminina forte ("sozinha", "menina", "grávida") — sinaliza pra
+  // inspeção manual, não é prova. A prova real é visual.
+  const greenChunks = body.match(/#d9ead3">[^<]*/g) || [];
+  return greenChunks.length;
+}
+
+function projetosListPage({ roteiros, backupName, mtime }) {
+  const stamp = mtime
+    ? new Date(mtime).toLocaleString("pt-BR")
+    : "desconhecido";
+  const finished = roteiros.filter(
+    (r) => (r.outputs?.escrita?.content || "").trim().length > 0,
+  );
+  const rows = finished
+    .map((r) => {
+      const { mmc, fmc, body } = renderRoteiroLikeApp(r);
+      const caps = r.outputs?.escrita?.metadata?.chapters?.length ?? 0;
+      const greens = countFmcGreenLeaks(body, fmc);
+      return `<tr>
+        <td><a href="/projeto?id=${encodeURIComponent(r.id)}"><strong>${htmlEscape(r.title || "(sem título)")}</strong></a></td>
+        <td>${htmlEscape(r.category || "?")}</td>
+        <td>MMC <code>${htmlEscape(mmc || "—")}</code><br>FMC <code>${htmlEscape(fmc || "—")}</code></td>
+        <td>${caps} caps</td>
+        <td>${greens ?? "—"} spans verdes</td>
+        <td><a href="/projeto?id=${encodeURIComponent(r.id)}">abrir →</a></td>
+      </tr>`;
+    })
+    .join("\n");
+  return `<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Meus projetos reais</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 0; background: #f5f5f5; color: #222; }
+  .top { background: #fff8dc; border-bottom: 1px solid #ddd; padding: 12px 24px; font-size: 13px; }
+  .top a { color: #0066cc; margin-right: 14px; text-decoration: none; }
+  .wrap { padding: 16px 24px; }
+  table { background: #fff; border-collapse: collapse; box-shadow: 0 1px 4px rgba(0,0,0,.1); border-radius: 6px; overflow: hidden; }
+  td, th { padding: 10px 14px; border-bottom: 1px solid #eee; font-size: 13px; text-align: left; vertical-align: top; }
+  th { background: #f0f0f0; }
+  code { background: #f0f0f0; padding: 1px 5px; border-radius: 3px; }
+  .meta { color: #666; font-size: 12px; margin: 8px 0 16px; }
+</style></head>
+<body>
+  <div class="top"><strong>★ Projetos reais do app</strong>${PLAYGROUND_NAV}</div>
+  <div class="wrap">
+    <p class="meta">Lendo do backup automático mais recente: <code>${htmlEscape(backupName || "(nenhum)")}</code> — ${stamp}. ${finished.length} projeto(s) com Escrita gerada. Renderizado pelo MESMO caminho do botão "Baixar roteiro" do app, com o exporter já corrigido.</p>
+    <table>
+      <tr><th>Projeto</th><th>Categoria</th><th>Protagonistas</th><th>Capítulos</th><th>Destaque</th><th></th></tr>
+      ${rows || '<tr><td colspan="6">Nenhum projeto com Escrita no backup.</td></tr>'}
+    </table>
+  </div>
+</body></html>`;
+}
+
+// Página do playground: dois textareas (estrutura + roteiro) + checkbox, e o
+// HTML renderizado ao lado, do jeitinho que o app exporta.
+function playgroundPage({ estrutura, roteiro, forceParte2, result, mmc, fmc }) {
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Playground — destaque verde do POV</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f5f5f5; color: #222; }
+  .top { background: #fff8dc; border-bottom: 1px solid #ddd; padding: 12px 24px; font-size: 13px; }
+  .top a { color: #0066cc; margin-right: 14px; text-decoration: none; }
+  .top a:hover { text-decoration: underline; }
+  .wrap { display: flex; gap: 16px; padding: 16px 24px; align-items: flex-start; flex-wrap: wrap; }
+  form { flex: 1 1 420px; min-width: 340px; background: #fff; padding: 16px; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+  label { display: block; font-weight: bold; font-size: 13px; margin: 12px 0 4px; }
+  label.cb { font-weight: normal; font-size: 12px; color: #555; }
+  textarea { width: 100%; box-sizing: border-box; font-family: Consolas, monospace; font-size: 12px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+  .est { height: 110px; }
+  .rot { height: 380px; }
+  button { margin-top: 12px; background: #2563eb; color: #fff; border: 0; padding: 10px 20px; border-radius: 4px; font-size: 14px; cursor: pointer; }
+  .result { flex: 1 1 480px; min-width: 380px; }
+  .names { background: #fff; padding: 10px 14px; border-radius: 6px; margin-bottom: 12px; font-size: 13px; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+  .names code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; }
+  .doc { background: #fff; padding: 28px 36px; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+  .legend { font-size: 12px; color: #555; margin: 6px 0 0; }
+  .chip { background: #d9ead3; padding: 1px 6px; border-radius: 3px; }
+</style>
+</head>
+<body>
+  <div class="top">
+    <strong>🧪 Playground do destaque verde</strong> — cole o roteiro + a estrutura e clique Renderizar. <span class="chip">verde</span> = POV masculino (MMC). A heroína (FMC) <strong>NUNCA</strong> pode ficar verde.
+    <div style="margin-top:8px">${PLAYGROUND_NAV}</div>
+  </div>
+  <div class="wrap">
+    <form method="POST" action="/playground">
+      <label>Estrutura <span style="font-weight:normal;color:#777">(pra detectar os nomes MMC/FMC — opcional)</span></label>
+      <textarea class="est" name="estrutura" placeholder="Cole a saída da Estrutura (com (MMC)/(FMC) ou linhas Nome:)">${htmlEscape(estrutura)}</textarea>
+      <label>Roteiro <span style="font-weight:normal;color:#777">(markdown da Escrita)</span></label>
+      <textarea class="rot" name="roteiro" placeholder="Cole o roteiro — Parte 2, ou completo com # PARTE 1 / # PARTE 2">${htmlEscape(roteiro)}</textarea>
+      <label class="cb"><input type="checkbox" name="forceParte2" ${forceParte2 ? "checked" : ""}> Forçar Parte 2 (marque se colou SÓ a Parte 2, sem o cabeçalho <code>#&nbsp;PARTE&nbsp;2</code>; ignorado se o texto já tiver esse cabeçalho)</label>
+      <button type="submit">Renderizar →</button>
+    </form>
+    <div class="result">
+      <div class="names">
+        MMC detectado: <code>${htmlEscape(mmc ?? "—")}</code> (fica verde) &nbsp;·&nbsp; FMC detectada: <code>${htmlEscape(fmc ?? "—")}</code> (nunca verde)
+        <p class="legend">✅ Confira: trechos do MMC com fundo verde; toda a narração da heroína — <strong>inclusive depois de um <code>---</code></strong> — SEM cor.</p>
+      </div>
+      <div class="doc">${result || "<em style='color:#999'>O resultado renderizado aparece aqui.</em>"}</div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 function pageWith(title, html, info) {
   const wrapper = `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -717,10 +1062,7 @@ function pageWith(title, html, info) {
 <body>
 <div class="info">
   <strong>${title}</strong> — ${info}
-  &nbsp;|&nbsp;
-  <a href="/">/</a>
-  <a href="/parte2">/parte2</a>
-  <a href="/so-fmc">/so-fmc</a>
+  <div style="margin-top:8px">${PLAYGROUND_NAV}</div>
 </div>
 <div class="doc">
 ${html}
@@ -731,12 +1073,64 @@ ${html}
 }
 
 function startServer() {
-  const server = http.createServer((req, res) => {
+  const server = http.createServer(async (req, res) => {
     const url = (req.url || "/").split("?")[0];
+
+    // Playground — formulário pra colar roteiro + estrutura e renderizar.
+    if (url === "/playground") {
+      let estrutura = ESTRUTURA_ALPHAKING_THOREN;
+      let roteiro = ROTEIRO_ALPHAKING_HEROINA_APOS_EXCERTO;
+      let forceParte2 = true;
+      if (req.method === "POST") {
+        const params = new URLSearchParams(await readBody(req));
+        estrutura = params.get("estrutura") || "";
+        roteiro = params.get("roteiro") || "";
+        forceParte2 = params.get("forceParte2") === "on";
+      }
+      const { result, mmc, fmc } = renderPlayground(estrutura, roteiro, forceParte2);
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(playgroundPage({ estrutura, roteiro, forceParte2, result, mmc, fmc }));
+      return;
+    }
+
+    // Lista dos projetos REAIS do app (backup mais recente).
+    if (url === "/projetos") {
+      const data = loadBackupRoteiros();
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(projetosListPage(data));
+      return;
+    }
+
+    // Render de UM projeto real, igual o DownloadEscritaButton do app.
+    if (url === "/projeto") {
+      const id = new URLSearchParams((req.url || "").split("?")[1] || "").get("id");
+      const { roteiros, backupName } = loadBackupRoteiros();
+      const r = roteiros.find((x) => x.id === id);
+      if (!r) {
+        res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(`<p style="font-family:Arial;padding:24px">Projeto <code>${htmlEscape(id || "")}</code> não encontrado no backup <code>${htmlEscape(backupName || "")}</code>. <a href="/projetos">← voltar</a></p>`);
+        return;
+      }
+      const { body: docBody, mmc, fmc } = renderRoteiroLikeApp(r);
+      const title = `${r.title || "Roteiro"} — ${r.category}`;
+      const info = `Projeto REAL do app · MMC <code>${htmlEscape(mmc || "—")}</code> (fica verde) · FMC <code>${htmlEscape(fmc || "—")}</code> (NUNCA verde). Role a Parte 2: o homem em verde, a heroína SEM cor mesmo depois dos <code>---</code>.`;
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(pageWith(title, docBody, info));
+      return;
+    }
 
     let title, body, info;
 
-    if (url === "/parte2") {
+    if (url === "/alphaking-print") {
+      // Cenário EXATO do print: excerto ✦ THOREN (MMC) + cena da heroína sem
+      // marcador depois de um '---'. O verde tem que parar no '---'.
+      const { parte2 } = splitRoteiroByParts(ROTEIRO_ALPHAKING_HEROINA_APOS_EXCERTO);
+      const maleLeadName = extractMaleLeadNameFromEstrutura(ESTRUTURA_ALPHAKING_THOREN);
+      const femaleLeadName = extractFemaleLeadNameFromEstrutura(ESTRUTURA_ALPHAKING_THOREN);
+      title = "alpha-king — cena do print (Thoren + heroína após '---')";
+      info = `MMC: <code>${maleLeadName}</code> (verde) · FMC: <code>${femaleLeadName}</code> (NUNCA verde). O excerto do Thoren fica verde; a cena da heroína DEPOIS do '---' fica SEM cor.`;
+      body = escritaContentToHtml(parte2, { maleLeadName, femaleLeadName, forceParte2: true });
+    } else if (url === "/parte2") {
       const { parte2 } = splitRoteiroByParts(ROTEIRO_COMPLETO);
       const maleLeadName = detectMaleLeadFromFullRoteiro(ROTEIRO_COMPLETO);
       title = "1p — só Parte 2 (CopyPartButton)";
@@ -786,6 +1180,11 @@ function startServer() {
   const PORT = 4567;
   server.listen(PORT, () => {
     console.log(`\nServidor visual em http://localhost:${PORT}/`);
+    console.log(`\n  👉 TESTE A CORREÇÃO AQUI:`);
+    console.log(`  /projetos          → SEUS projetos reais do app (backup mais recente)`);
+    console.log(`  /playground        → COLE seu roteiro + estrutura e renderize`);
+    console.log(`  /alphaking-print   → o cenário exato do print (já corrigido)`);
+    console.log(`\n  Fixtures de referência:`);
     console.log(`  /                  → 1p completo`);
     console.log(`  /parte2            → 1p só Parte 2`);
     console.log(`  /so-fmc            → só Parte 1 sem POVs`);
