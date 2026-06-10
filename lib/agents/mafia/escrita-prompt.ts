@@ -40,6 +40,12 @@ ESTILO DE NARRAÇÃO
 • PARTE 1 — narração exclusiva da FMC, do começo ao fim. Não é necessário identificar — é sempre ela. Sem exceção: NENHUM bloco ✦ NOME na Parte 1, nem mesmo no cliffhanger final. O cliffhanger final da Parte 1 é narrado pela FMC.
 • PARTE 2 — duplo POV. Sempre que o narrador mudar, identificar com formato visual obrigatório.
 
+🚨 REGRA ABSOLUTA — 1ª PESSOA, ZERO DESLIZE PARA 3ª (PRIORIDADE MÁXIMA):
+Dentro de qualquer POV use SÓ "eu", "me", "mim", "meu", "minha". A narradora (FMC) — e o MMC nos trechos ✦ dele na Parte 2 — NUNCA se referem a SI MESMOS pelo próprio nome nem em 3ª pessoa. A 3ª pessoa só aparece para descrever OUTROS personagens.
+❌ ERRADO (deslize de POV — proibido): "Marceline ouviu o gelo bater no copo de Joss." / "O coração dela disparou." / "Ela sentiu medo."
+✅ CERTO (1ª pessoa): "Ouvi o gelo bater no copo de Joss." / "Meu coração disparou." / "Senti medo."
+Vale do começo ao fim das DUAS Partes — inclusive em telefonemas, cenas de tensão e trechos de observação, onde o deslize é mais comum. Um único deslize para o nome próprio da narradora ou para a 3ª pessoa dentro do próprio POV é erro GRAVÍSSIMO e quebra a imersão.
+
 🔀 IDENTIFICAÇÃO VISUAL DE MUDANÇA DE POV — REGRA INEGOCIÁVEL
 Formato obrigatório (em TODA mudança de POV):
 
@@ -101,7 +107,7 @@ LÍNGUA PORTUGUESA — NORMA CULTA
 Concordância verbal e nominal corretas. Ortografia correta. Pontuação adequada. Regência verbal e nominal correta. Uso correto de crase. Uso correto do verbo "ir" no passado — sempre "iria" (futuro do pretérito), nunca "ia" no contexto de imperfeito do futuro do pretérito. Sem gírias, erros gramaticais ou construções informais que fujam do padrão literário.
 
 ⚠️ ERROS COMUNS — NUNCA REPETIR
-• Narração em primeira pessoa: a FMC nunca se refere a si mesma na terceira pessoa.
+• Narração em primeira pessoa: a FMC NUNCA se refere a si mesma pelo nome nem na terceira pessoa (ver REGRA ABSOLUTA — 1ª PESSOA acima). "Marceline ouviu" está ERRADO; o certo é "Ouvi". A 3ª pessoa só descreve OUTROS personagens.
 • Pontos de vista que se repetem: antes de escrever trecho do MMC, verificar se já foi narrado pela FMC.
 • Arco do MMC incoerente: verificar arco da estrutura antes de escrever fala/pensamento dele.
 • Personagens secundários: verificar o que já aconteceu entre eles antes.
@@ -310,6 +316,7 @@ CHECKLIST FINAL — APÓS O ÚLTIMO CAPÍTULO
 • Toda mudança de POV usa o formato visual (✦ NOME) (Parte 2).
 • Narrador identificado pelo nome em cada mudança (Parte 2).
 • Parte 1 narrada exclusivamente pela FMC — sem exceção, inclusive o cliffhanger final.
+• 1ª pessoa do começo ao fim das DUAS Partes — nenhum deslize para 3ª pessoa nem para o nome próprio da narradora ("Ouvi", jamais "Marceline ouviu").
 • Nenhum bloco ✦ NOME apareceu em qualquer capítulo da Parte 1.
 • Parte 2 inicia conforme a regra do estrutura2: 1ª metade do Cap 1 narrada por quem está ALHEIO à bomba; 2ª metade por quem a recebe.
 • Narração do MMC com flashbacks estratégicos (Parte 2).
