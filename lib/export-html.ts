@@ -690,8 +690,9 @@ export function escritaContentToHtml(
       continue;
     }
 
-    // Separador de cena solto — tarja decorativa (═━─ ≥5) OU quebra temática
-    // markdown (--- / *** / ___, ≥3). Vira <hr> E RESETA o POV.
+    // Separador de cena solto — tarja decorativa (═━─ ≥5), quebra temática
+    // markdown (--- / *** / ___, ≥3) OU um marcador de POV SOZINHO (✦ / ♦ / ◆
+    // numa linha só, sem nome, com negrito opcional). Vira <hr> E RESETA o POV.
     //
     // ⚠️ TRAVA DO DESTAQUE VERDE (POV MASCULINO) — não remover o reset:
     // na Parte 2 de alpha-king/máfia a HEROÍNA (FMC) narra SEM marcador ✦
@@ -699,9 +700,16 @@ export function escritaContentToHtml(
     // troca de cena a prosa volta pra ela. Sem este reset, o POV do último
     // ✦ (o MMC) vazava pelo separador e pintava a cena da heroína de verde —
     // exatamente o bug recorrente ("tudo ficou verde / tirou o POV feminino").
-    // O verde é do MMC e SÓ do MMC; a FMC nunca pode ficar verde.
+    // O ✦ SOZINHO é o separador de cena que a máfia/alpha-king emitem entre um
+    // trecho do MMC (✦ NOME) e o retorno à heroína — sem este caso, o ✦ ficava
+    // como prosa e o POV do MMC vazava pra cena seguinte da FMC (bug do print
+    // da Calla). O verde é do MMC e SÓ do MMC; a FMC nunca pode ficar verde.
     const sep = line.trim();
-    if (/^[═━─]{5,}/.test(sep) || /^(?:-{3,}|\*{3,}|_{3,})$/.test(sep)) {
+    if (
+      /^[═━─]{5,}/.test(sep) ||
+      /^(?:-{3,}|\*{3,}|_{3,})$/.test(sep) ||
+      new RegExp(`^\\*{0,2}${POV_SYMBOL_CLASS}\\*{0,2}$`).test(sep)
+    ) {
       flushPara();
       currentPov = null;
       out.push(`<hr style="${STYLE_HR}">`);

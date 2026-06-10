@@ -731,6 +731,42 @@ Ela soube, naquele instante, que nada voltaria a ser como antes.
     allOk = assertNotContains("Sem ✦ no roteiro → nenhum heading de POV sintetizado", html, ">✦ ") && allOk;
   }
 
+  console.log("\n— máfia P2: ✦ SOZINHO (separador de cena) RESETA o POV; heroína depois NÃO fica verde (BUG DA CALLA) —");
+  {
+    // Formato real da máfia/alpha-king: o trecho do MMC é marcado `✦ NOME`, e
+    // o RETORNO à heroína vem por um `✦` SOZINHO (separador de cena, sem nome).
+    // Sem tratar o `✦` solto como quebra de cena, o POV do MMC vazava por ele e
+    // pintava a cena seguinte da heroína de verde — o bug do print da Calla.
+    const p2 = `# PARTE 2
+
+## Capítulo 1 — A Reunião
+
+✦ MARCO
+
+${prose(120)}
+
+Eu não me mexi quando o velho ameaçou a Calla.
+
+✦
+
+A primeira luz entrou pela janela e eu estava enrolada no peito dele, sem calcular nada pela primeira vez na vida.
+`;
+    const html = escritaContentToHtml(p2, {
+      maleLeadName: "Marco",
+      femaleLeadName: "Calla",
+      forceParte2: true,
+    });
+    const mmcGreen = html.includes(`${GREEN_SPAN}Eu não me mexi quando o velho ameaçou a Calla.`);
+    allOk = assertEq("Trecho do Marco (✦ MARCO) ESTÁ verde", mmcGreen, true) && allOk;
+    const fmcGreen = html.includes(`${GREEN_SPAN}A primeira luz entrou pela janela`);
+    allOk = assertEq("Heroína APÓS o ✦ solto NÃO fica verde", fmcGreen, false) && allOk;
+    // O ✦ solto vira <hr> (separador), não fica como parágrafo de prosa.
+    allOk = assertContains("✦ solto virou <hr>", html, "<hr ") && allOk;
+    allOk = assertNotContains("✦ solto NÃO sai como prosa", html, "✦</p>") && allOk;
+    // E como o POV resetou, a heroína volta a ser identificada (rótulo não-verde).
+    allOk = assertContains("Heroína re-rotulada após o ✦ solto", html, "✦ Calla — POV feminino") && allOk;
+  }
+
   console.log("\n— Filtro: linha de contagem '(N palavras)' não vai pra exportação —");
   {
     const variantes = [
