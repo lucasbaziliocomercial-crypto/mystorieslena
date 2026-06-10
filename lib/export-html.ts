@@ -109,10 +109,13 @@ function preprocessRoteiro(raw: string): string {
   // linha isolada `✦ NOME` (com possível **negrito**), sem heading markdown.
   // Promove para `### ✦ NOME` pra ser tratado pelo walker e pelo detector
   // de MMC. Não casa quando já tem `### ` na frente (esse prefixo bloqueia
-  // o `^[ \t]*` por causa do `#`).
+  // o `^[ \t]*` por causa do `#`). O `\*{0,2}` aparece DOS DOIS LADOS do nome
+  // pra cobrir `✦ **SALVATORE**` (negrito só no nome) — sem o lado de dentro,
+  // esse marcador NÃO era reconhecido, o trecho do MMC virava prosa sem POV
+  // (sem verde) e o rótulo do POV feminino vazava pra cima da fala dele.
   preprocessed = preprocessed.replace(
     new RegExp(
-      `^[ \\t]*\\*{0,2}${POV_SYMBOL_CLASS}[ \\t]+([^\\n*]+?)\\*{0,2}[ \\t]*$`,
+      `^[ \\t]*\\*{0,2}${POV_SYMBOL_CLASS}[ \\t]+\\*{0,2}([^\\n*]+?)\\*{0,2}[ \\t]*$`,
       "gm",
     ),
     (_m, name) => `### ✦ ${name.trim()}`,
@@ -221,14 +224,14 @@ function extractLeadName(
   if (!estruturaContent) return null;
 
   // Cabeçalho da seção: QUALQUER linha que contenha "(MMC)"/"(FMC)". Captura o
-  // que vem DEPOIS da tag na mesma linha (group 1) pra tentar o nome inline.
-  const headerRe = new RegExp(`^[^\\n]*\\(${tag}\\)([^\\n]*)$`, "im");
+  // que vem ANTES (group 1) e DEPOIS (group 2) da tag na mesma linha.
+  const headerRe = new RegExp(`^([^\\n]*?)\\(${tag}\\)([^\\n]*)$`, "im");
   const headerMatch = estruturaContent.match(headerRe);
   if (!headerMatch || headerMatch.index === undefined) return null;
 
-  // 1) Nome inline no próprio cabeçalho (formato alpha-king). O texto após a
-  //    tag começa com um separador (— / - / : / ;) seguido do nome.
-  const inlineRaw = headerMatch[1].replace(/^[\s—\-:;]+/, "").trim();
+  // 1) Nome inline DEPOIS da tag (formato alpha-king: "HEROÍNA (FMC) — Sieva").
+  //    O texto após a tag começa com um separador (— / - / : / ;) + o nome.
+  const inlineRaw = headerMatch[2].replace(/^[\s—\-:;]+/, "").trim();
   const inlineName = isPlausibleName(inlineRaw);
   if (inlineName) return inlineName;
 
@@ -262,6 +265,19 @@ function extractLeadName(
   for (let i = candidates.length - 1; i >= 0; i--) {
     const name = isPlausibleName(candidates[i]);
     if (name) return name;
+  }
+
+  // 3) ÚLTIMO recurso: nome ANTES da tag na mesma linha (formato
+  //    "**Helena (FMC)**" em tabelas/linhas de narração, onde o nome PRECEDE
+  //    o tag e não há linha "Nome:"). Pega o ÚLTIMO token nome-próprio
+  //    (Maiúscula + minúsculas) — assim NÃO captura rótulos em CAIXA ALTA
+  //    ("PROTAGONISTA FEMININA", "HEROÍNA"), que cairiam no Nome: acima.
+  const beforeTokens = headerMatch[1].match(
+    /[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-záéíóúâêôãõç]+/g,
+  );
+  if (beforeTokens && beforeTokens.length) {
+    const beforeName = isPlausibleName(beforeTokens[beforeTokens.length - 1]);
+    if (beforeName) return beforeName;
   }
   return null;
 }
@@ -433,6 +449,9 @@ export function escritaContentToHtml(
   let inCodeBlock = false;
   let paraBuffer: string[] = [];
   let currentPov: string | null = null;
+  // Já emitimos o rótulo "✦ NOME" do POV feminino implícito no trecho atual?
+  // (Ver flushPara — rótulo da heroína na Parte 2 quando ela narra sem ✦.)
+  let fmcSectionLabeled = false;
   let inParte2 = options?.forceParte2 === true;
 
   const maleLeadName =
@@ -460,6 +479,13 @@ export function escritaContentToHtml(
   let chapterCursor = 0;
 
   const preprocessed = preprocessRoteiro(raw);
+  // Há alternância de POV no roteiro? (algum marcador ✦ NOME nomeado, já
+  // normalizado pra `### ✦ NOME`). O rótulo do POV feminino implícito (heroína
+  // sem ✦ na Parte 2) só liga quando há alternância — senão (milionário-3p,
+  // todo FMC sem ✦) os rótulos seriam ruído.
+  const hasNamedPov = new RegExp(`^###\\s+${POV_SYMBOL_CLASS}`, "m").test(
+    preprocessed,
+  );
 
   // Renderiza um cabeçalho de capítulo (<h2> = Heading 2 no Docs). Compartilhado
   // pelo formato novo `## Capítulo` e pelo legado `# Capítulo` (alpha-king e
@@ -467,6 +493,7 @@ export function escritaContentToHtml(
   const emitChapter = (titleRaw: string) => {
     flushPara();
     currentPov = null;
+    fmcSectionLabeled = false;
     // Quando `chapters[]` é fornecido, usa o `chapter.part` desse cap como
     // fonte da verdade pra `inParte2`. Sobrevive a roteiros que perderam
     // o header `# PARTE 2` por uma reescrita/edição.
@@ -516,6 +543,28 @@ export function escritaContentToHtml(
       const content = isMmcPov
         ? `<span style="${STYLE_HIGHLIGHT_MMC}">${inner}</span>`
         : inner;
+      // Rótulo do POV FEMININO (heroína) na Parte 2: quando ela narra SEM
+      // marcador ✦ (o modelo a trata como narradora-padrão), o trecho fica
+      // sem identificação nenhuma no export. Emite um título "✦ NOME — POV
+      // feminino" (mesmo formato do masculino, mas SEM verde) no começo de
+      // cada trecho implícito dela (início do capítulo e quando o POV volta
+      // dela depois de um trecho do MMC). Só liga com alternância de POV
+      // (hasNamedPov) — não toca milionário-3p (todo FMC, sem ✦) nem a Parte
+      // 1. O nome é OPCIONAL: sem ele (Estrutura quebrada / sem tag (FMC)), cai
+      // pro rótulo genérico "✦ POV feminino" — o trecho dela NUNCA fica sem
+      // identificação. ⚠️ NUNCA pinta nada de verde — a FMC jamais fica verde.
+      if (
+        inParte2 &&
+        currentPov === null &&
+        hasNamedPov &&
+        !fmcSectionLabeled
+      ) {
+        const fmcLabel = femaleLeadName
+          ? `✦ ${escapeHtml(femaleLeadName)} — POV feminino`
+          : "✦ POV feminino";
+        out.push(`<h3 style="${STYLE_POV_HEADING}">${fmcLabel}</h3>`);
+        fmcSectionLabeled = true;
+      }
       out.push(`<p style="${STYLE_PARA}">${content}</p>`);
     }
     paraBuffer = [];
@@ -561,7 +610,37 @@ export function escritaContentToHtml(
       // na barra de navegação).
       flushPara();
       currentPov = nomeCanonico(h3[1]);
-      out.push(`<h3 style="${STYLE_POV_HEADING}">${escapeHtml(h3[1])}</h3>`);
+      const povFirst = currentPov.split(/\s+/)[0];
+      const headingMatchesFmc = matchesLead(
+        currentPov,
+        povFirst,
+        femaleLeadCanonical,
+        femaleLeadFirstToken,
+      );
+      const headingMatchesMmc = matchesLead(
+        currentPov,
+        povFirst,
+        maleLeadCanonical,
+        maleLeadFirstToken,
+      );
+      // Se este marcador É a FMC (heroína), ela já está rotulada por ele — não
+      // re-rotular implicitamente depois. Se é outro POV (o MMC), ao voltar pra
+      // prosa implícita da heroína, re-rotula com "✦ NOME — POV feminino".
+      fmcSectionLabeled = headingMatchesFmc;
+      // Etiqueta de papel na Parte 2 (sem verde aqui — o verde vai na PROSA do
+      // MMC, não no cabeçalho): mesma lógica do destaque verde — POV feminino
+      // se casa com a FMC; POV masculino se é o MMC OU (sabendo quem é a FMC)
+      // qualquer POV nomeado da P2 que não seja ela. Fora da Parte 2, sem
+      // etiqueta (a P1 não tem alternância a identificar).
+      let roleTag = "";
+      if (inParte2) {
+        if (headingMatchesFmc) roleTag = " — POV feminino";
+        else if (headingMatchesMmc || femaleLeadCanonical !== null)
+          roleTag = " — POV masculino";
+      }
+      out.push(
+        `<h3 style="${STYLE_POV_HEADING}">${escapeHtml(h3[1])}${roleTag}</h3>`,
+      );
       continue;
     }
     if (h2) {
@@ -586,6 +665,7 @@ export function escritaContentToHtml(
       // adiciona page-break antes da PARTE 2+.
       flushPara();
       currentPov = null;
+      fmcSectionLabeled = false;
       const partLabel = headingText.toUpperCase();
       if (/^PARTE\s+2\b/.test(partLabel)) {
         inParte2 = true;
@@ -610,9 +690,20 @@ export function escritaContentToHtml(
       continue;
     }
 
-    // Tarja decorativa solta (separador discreto).
-    if (/^[═━─]{5,}/.test(line.trim())) {
+    // Separador de cena solto — tarja decorativa (═━─ ≥5) OU quebra temática
+    // markdown (--- / *** / ___, ≥3). Vira <hr> E RESETA o POV.
+    //
+    // ⚠️ TRAVA DO DESTAQUE VERDE (POV MASCULINO) — não remover o reset:
+    // na Parte 2 de alpha-king/máfia a HEROÍNA (FMC) narra SEM marcador ✦
+    // (ela é a narradora-padrão; só os trechos do MMC levam ✦ NOME). Numa
+    // troca de cena a prosa volta pra ela. Sem este reset, o POV do último
+    // ✦ (o MMC) vazava pelo separador e pintava a cena da heroína de verde —
+    // exatamente o bug recorrente ("tudo ficou verde / tirou o POV feminino").
+    // O verde é do MMC e SÓ do MMC; a FMC nunca pode ficar verde.
+    const sep = line.trim();
+    if (/^[═━─]{5,}/.test(sep) || /^(?:-{3,}|\*{3,}|_{3,})$/.test(sep)) {
       flushPara();
+      currentPov = null;
       out.push(`<hr style="${STYLE_HR}">`);
       continue;
     }
