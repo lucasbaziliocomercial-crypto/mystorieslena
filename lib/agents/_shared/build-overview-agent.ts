@@ -12,7 +12,6 @@
 import { MODELS } from "@/lib/anthropic";
 import type { Agent } from "../types";
 import { buildCanoneBlock } from "./canone-block";
-import { buildPersonagensBlock } from "./personagens-block";
 import { OVERVIEW_SYSTEM_PROMPT } from "./overview-prompt";
 import { buildRefinePatchPrompt } from "./refine-patch-prompt";
 
@@ -30,7 +29,6 @@ export function buildOverviewAgent(): Agent {
     buildUserMessage: (ctx) => {
       const escrita = ctx.previousOutputs.escrita?.content?.trim() ?? "";
       const canoneBlock = buildCanoneBlock(ctx.canone);
-      const personagensBlock = buildPersonagensBlock(ctx.personagens);
 
       // Modo correção pontual: roteirista quer mexer no relatório atual sem
       // refazer a varredura inteira (ex.: remover um erro, ajustar a redação
@@ -58,9 +56,6 @@ export function buildOverviewAgent(): Agent {
         if (canoneBlock) {
           refine.push(canoneBlock);
         }
-        if (personagensBlock) {
-          refine.push(personagensBlock);
-        }
         if (escrita) {
           refine.push(
             `━━━ ROTEIRO COMPLETO (Parte 1 + Parte 2 — referência, consulte se a correção pedir releitura) ━━━\n\n${escrita}`,
@@ -77,10 +72,6 @@ export function buildOverviewAgent(): Agent {
 
       if (canoneBlock) {
         sections.push(canoneBlock);
-      }
-
-      if (personagensBlock) {
-        sections.push(personagensBlock);
       }
 
       if (escrita) {

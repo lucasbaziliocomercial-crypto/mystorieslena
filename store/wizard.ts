@@ -164,18 +164,6 @@ interface WizardState {
   /** Limpa o cânone (markdown + flag de aprovação + timestamp). Usado quando
    *  a roteirista quer regerar do zero. */
   clearCanone: () => void;
-  /**
-   * Atualiza a lista manual de nomes dos personagens. Persiste no localStorage
-   * e desmarca a validação se o conteúdo mudar (toda edição exige revalidar).
-   * Strings vazias / só whitespace deletam o campo. Diferente do cânone, NÃO
-   * bloqueia o avanço — é advisory.
-   */
-  setPersonagens: (personagens: string) => void;
-  /** Marca os nomes como validados pela roteirista, ativando a injeção deles
-   *  nos steps seguintes. Idempotente. */
-  validarPersonagens: () => void;
-  /** Limpa os nomes (texto + flag de validação + timestamp). */
-  clearPersonagens: () => void;
   reset: () => void;
 }
 
@@ -798,50 +786,6 @@ export const useWizard = create<WizardState>((set, get) => ({
       delete next.canone;
       delete next.canoneApproved;
       delete next.canoneApprovedAt;
-      return { roteiro: persist(next) };
-    }),
-
-  setPersonagens: (personagens) =>
-    set((s) => {
-      if (!s.roteiro) return s;
-      const trimmed = personagens.trim();
-      const next: Roteiro = { ...s.roteiro };
-      // Edição depois de validar invalida a validação — força revalidar.
-      if (
-        s.roteiro.personagensValidados &&
-        trimmed !== (s.roteiro.personagens ?? "").trim()
-      ) {
-        next.personagensValidados = false;
-        delete next.personagensValidadosAt;
-      }
-      if (trimmed.length === 0) {
-        delete next.personagens;
-      } else {
-        next.personagens = personagens;
-      }
-      return { roteiro: persist(next) };
-    }),
-
-  validarPersonagens: () =>
-    set((s) => {
-      if (!s.roteiro) return s;
-      if (!s.roteiro.personagens?.trim()) return s;
-      return {
-        roteiro: persist({
-          ...s.roteiro,
-          personagensValidados: true,
-          personagensValidadosAt: new Date().toISOString(),
-        }),
-      };
-    }),
-
-  clearPersonagens: () =>
-    set((s) => {
-      if (!s.roteiro) return s;
-      const next: Roteiro = { ...s.roteiro };
-      delete next.personagens;
-      delete next.personagensValidados;
-      delete next.personagensValidadosAt;
       return { roteiro: persist(next) };
     }),
 

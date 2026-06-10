@@ -1,7 +1,6 @@
 import { MODELS } from "@/lib/anthropic";
 import type { Agent } from "../types";
 import { buildCanoneBlock } from "../_shared/canone-block";
-import { buildPersonagensBlock } from "../_shared/personagens-block";
 import { CANONE_RULE } from "../_shared/canone-rule";
 import { CACHE_PREFIX_BOUNDARY } from "../_shared/prompt-cache";
 import { buildCrossPartBlock } from "../_shared/cross-part-block";
@@ -42,7 +41,6 @@ export const escritaAgent: Agent = {
     const batch = ctx.batch;
     const previousSynopses = ctx.previousSynopses ?? [];
     const canoneBlock = buildCanoneBlock(ctx.canone);
-    const personagensBlock = buildPersonagensBlock(ctx.personagens);
 
     if (ctx.refineMode && ctx.currentOutput?.trim() && ajustes) {
       const refine: string[] = [];
@@ -57,9 +55,6 @@ export const escritaAgent: Agent = {
       );
       if (canoneBlock) {
         refine.push(canoneBlock);
-      }
-      if (personagensBlock) {
-        refine.push(personagensBlock);
       }
       if (premissa) {
         refine.push(`━━━ PREMISSA APROVADA (Step 1 — referência) ━━━\n\n${premissa}`);
@@ -120,10 +115,6 @@ export const escritaAgent: Agent = {
 
     if (canoneBlock) {
       stable.push(canoneBlock);
-    }
-
-    if (personagensBlock) {
-      stable.push(personagensBlock);
     }
 
     if (premissa) {

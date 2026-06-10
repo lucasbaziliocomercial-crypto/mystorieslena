@@ -1,7 +1,6 @@
 import { MODELS } from "@/lib/anthropic";
 import type { Agent } from "../types";
 import { buildCanoneBlock } from "../_shared/canone-block";
-import { buildPersonagensBlock } from "../_shared/personagens-block";
 import { CANONE_RULE, CANONE_REVISOR_CHECKLIST } from "../_shared/canone-rule";
 import { REVISOR_SYSTEM_PROMPT } from "./revisor-prompt";
 
@@ -34,7 +33,6 @@ export const revisorAgentTemplate: Omit<Agent, "id"> = {
     const estrutura2 = ctx.previousOutputs.estrutura2?.content?.trim() ?? "";
     const escrita = ctx.previousOutputs.escrita?.content?.trim() ?? "";
     const canoneBlock = buildCanoneBlock(ctx.canone);
-    const personagensBlock = buildPersonagensBlock(ctx.personagens);
 
     // Modo correção: a roteirista pediu um ajuste pontual na REVISÃO. NÃO é
     // pra revisar o roteiro do zero nem regerar a revisão inteira. O agente
@@ -59,9 +57,6 @@ export const revisorAgentTemplate: Omit<Agent, "id"> = {
       }
       if (canoneBlock) {
         refine.push(canoneBlock);
-      }
-      if (personagensBlock) {
-        refine.push(personagensBlock);
       }
       if (premissa) {
         refine.push(
@@ -139,10 +134,6 @@ export const revisorAgentTemplate: Omit<Agent, "id"> = {
 
     if (canoneBlock) {
       sections.push(canoneBlock);
-    }
-
-    if (personagensBlock) {
-      sections.push(personagensBlock);
     }
 
     if (premissa) {

@@ -53,6 +53,7 @@ Devolva APENAS o bloco markdown abaixo (sem texto antes ou depois, sem explicaç
 
 ## Regras de extração
 
+• A PREMISSA é a ÚNICA fonte dos nomes. Capture TODOS os personagens nomeados com papel na trama (FMC, MMC, secundários, ex, antagonista, parentes, amigos recorrentes) — não deixe de fora ninguém que a premissa nomeia. Um nome que fica fora do cânone é um nome que o modelo vai acabar trocando ou inventando lá na frente.
 • EXTRAIA, não invente. Se a premissa não diz a idade de alguém, escreva "idade não informada" — nunca chute um número.
 • Use NOMES COMPLETOS quando aparecerem na premissa (nome + sobrenome). Se só aparece o primeiro nome, use só o primeiro nome.
 • Acentuação e capitalização DA PREMISSA — não normalize, não traduza, não abrevie.

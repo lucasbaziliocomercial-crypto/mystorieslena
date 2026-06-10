@@ -85,9 +85,6 @@ export interface RunEscritaInput {
   userInput?: string;
   referenceImage?: RoteiroReferenceImage;
   canone?: string;
-  /** Nomes dos Personagens travados pela roteirista — já chega gateado (só vem
-   *  quando validado; o QueueRunner passa undefined se não validado). */
-  personagens?: string;
   /**
    * Retomada: quando true, semeia os acumuladores com os capítulos/sinopses já
    * presentes em `previousOutputs.escrita.metadata` e PULA os batches cujos
@@ -406,9 +403,6 @@ export async function runEscrita(
               userInput: input.userInput,
               referenceImage: input.referenceImage,
               ...(input.canone?.trim() ? { canone: input.canone } : {}),
-              ...(input.personagens?.trim()
-                ? { personagens: input.personagens }
-                : {}),
               batch: {
                 part: b.part,
                 chapters: chaptersToRequest,
