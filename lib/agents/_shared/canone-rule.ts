@@ -20,6 +20,8 @@ export const CANONE_RULE = `
 
 Nomes próprios, idades, profissões, lugares, datas e relações foram FIXADOS no bloco "CÂNONE DE ENTIDADES" entregue no user message. Esse bloco é a fonte de verdade absoluta para todas essas entidades.
 
+⚠️ ORIGEM DOS NOMES — A PREMISSA É A FONTE: todo nome próprio do cânone foi extraído da PREMISSA do roteiro (a premissa já chega com os nomes dos personagens definidos). Você NUNCA inventa um nome de personagem que não venha da premissa/cânone, e NUNCA troca, mistura ou redistribui nomes entre personagens. Cada nome pertence a UM único personagem — do primeiro ao último capítulo, nas duas Partes. Se a premissa/cânone deu um nome a um personagem, é esse nome que vai pra história, sempre idêntico, sem variação.
+
 REGRAS DURAS:
 • Use os nomes EXATAMENTE como aparecem no cânone — letra-a-letra, com sobrenome, acentos, ordem (nome + sobrenome) e capitalização. Não traduza ("Helena" não vira "Helen"), não abrevie ("Caio Vasconcelos" não vira só "Caio" se o cânone trouxer ambos), não invente apelidos novos não previstos no cânone.
 • Idades, profissões, ocupações, cargos: literalmente como no cânone. Se o cânone diz "32 anos, arquiteta", em todo trecho a personagem tem 32 anos e é arquiteta — nunca 30, nunca designer.
@@ -51,10 +53,6 @@ FAMÍLIA — a única exceção do sobrenome compartilhado:
 ECONOMIA — não empilhar sobrenomes:
 • Não distribua sobrenomes à toa. Só quem realmente precisa (trama, parentesco, formalidade) ganha sobrenome; secundários menores podem ficar só com o primeiro nome.
 • Menos sobrenomes, fixos e distintos > muitos sobrenomes que mudam e se confundem.
-
-## BLOCO "NOMES DOS PERSONAGENS" (lista travada pela roteirista)
-
-Quando o user message trouxer também um bloco "NOMES DOS PERSONAGENS", trate esses nomes/sobrenomes como CANÔNICOS do mesmo jeito que o cânone: use-os EXATAMENTE como aparecem (grafia, acentos, sobrenome, ordem, capitalização), nunca invente variações nem apelidos não previstos. Aplique a eles TODAS as REGRAS DE NOMES acima (distinção + estabilidade de sobrenomes + economia). Em caso de conflito, o cânone e os nomes travados VENCEM a prosa/estrutura anterior. Se a roteirista travou um nome para um papel, é esse nome que vai pra história — não escolha outro.
 
 Esta regra é mais forte que qualquer outra instrução de estilo, ritmo ou criatividade.`;
 
@@ -109,6 +107,4 @@ REGRAS DURAS PRO CHECKLIST:
 
 • Se o cânone NÃO foi entregue (roteiro legado), não pule o checklist clássico de "Continuidade de personagens"; aí vale só a coerência interna do roteiro. Mas mencione na seção "PRINCIPAIS ERROS" que o cânone está ausente, como aviso (gravidade 🟡 / atenção).
 
-• Cite o cânone explicitamente nas justificativas: "trecho_corrigido alinhado com o CÂNONE (Helena Marques, 32 anos)". Isso ajuda a roteirista a confiar na correção.
-
-• Se o user message trouxer o bloco "NOMES DOS PERSONAGENS" (lista travada pela roteirista), cruze a escrita contra ela do MESMO jeito que contra o cânone: qualquer nome/sobrenome na escrita que divirja da lista travada vira erro (grave/gravíssimo conforme a paleta) com find/replace literal pra grafia travada. A lista da roteirista tem a mesma autoridade do cânone.`;
+• Cite o cânone explicitamente nas justificativas: "trecho_corrigido alinhado com o CÂNONE (Helena Marques, 32 anos)". Isso ajuda a roteirista a confiar na correção.`;

@@ -131,9 +131,6 @@ async function runOverviewStep(
       userInput,
       referenceImage: r.referenceImage,
       ...(r.canone?.trim() ? { canone: r.canone } : {}),
-      ...(r.personagensValidados && r.personagens?.trim()
-        ? { personagens: r.personagens }
-        : {}),
     }),
     signal: hooks.signal,
   });
@@ -304,9 +301,6 @@ async function runEstruturaStep(
       userInput,
       referenceImage: r.referenceImage,
       ...(r.canone?.trim() ? { canone: r.canone } : {}),
-      ...(r.personagensValidados && r.personagens?.trim()
-        ? { personagens: r.personagens }
-        : {}),
     }),
     signal: hooks.signal,
   });
@@ -373,9 +367,6 @@ async function runRevisorStep(
       userInput,
       referenceImage: r.referenceImage,
       ...(r.canone?.trim() ? { canone: r.canone } : {}),
-      ...(r.personagensValidados && r.personagens?.trim()
-        ? { personagens: r.personagens }
-        : {}),
       ...(previousRevisorErrors && previousRevisorErrors.length > 0
         ? { previousRevisorErrors }
         : {}),

@@ -104,16 +104,6 @@ export interface AgentContext {
    * sem cânone passam undefined — agentes funcionam como antes.
    */
   canone?: string;
-  /**
-   * Nomes dos Personagens — lista MANUAL (até ~10) que a roteirista digita no
-   * step da Premissa e valida, pra travar nomes/sobrenomes e evitar conflito.
-   * Quando presente, cada agente pós-Premissa injeta o bloco "━━━ NOMES DOS
-   * PERSONAGENS ━━━" (ver `lib/agents/_shared/personagens-block.ts`) e o
-   * CANONE_RULE no system prompt aplica a mesma fidelidade de grafia. Só chega
-   * aqui quando a roteirista clicou "Validar" (gate nos call sites). Independente
-   * do `canone`; undefined quando não preenchido/validado.
-   */
-  personagens?: string;
 }
 
 export interface Agent {

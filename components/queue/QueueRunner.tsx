@@ -181,10 +181,6 @@ export function QueueRunner() {
                 userInput: job.userInput ?? r.userInputs?.escrita,
                 referenceImage: r.referenceImage,
                 canone: r.canone,
-                personagens:
-                  r.personagensValidados && r.personagens?.trim()
-                    ? r.personagens
-                    : undefined,
                 resume: job.resume,
               },
               {
