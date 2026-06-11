@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type {
   EscritaChapter,
+  ProductionStepKey,
   RevisorError,
   Roteiro,
   RoteiroDrafts,
@@ -17,6 +18,7 @@ import {
   stripXmlCruft,
 } from "@/lib/parse-revisor-output";
 import { appendEvalSnapshot } from "@/lib/eval-log";
+import { accrueProductionTime } from "@/lib/production-time";
 import { dedupChapters } from "@/lib/dedup-chapters";
 import { concatenateChapters } from "@/lib/parse-escrita-output";
 import { normalizeEscritaOutput } from "@/lib/normalize-escrita";
@@ -60,6 +62,13 @@ interface WizardState {
    * idêntico não anexa.
    */
   recordEval: (step: StepId, output: StepOutput) => void;
+  /**
+   * Acumula `elapsedMs` de geração ativa do `step` no cronômetro de produção do
+   * roteiro (ver [ProductionTime]). Chamado pelo `QueueRunner` ao concluir cada
+   * step (caminho do roteiro ATIVO; o caminho 2º plano grava direto no storage).
+   * Só soma tempo de geração — nunca de pausa/edição.
+   */
+  recordProductionTime: (step: ProductionStepKey, elapsedMs: number) => void;
   updateOutputContent: (step: StepId, content: string) => void;
   /**
    * Salva o input/correção do step indicado. Cada step tem sua própria
@@ -262,6 +271,19 @@ export const useWizard = create<WizardState>((set, get) => ({
       const evals = appendEvalSnapshot(s.roteiro.evals, data, now);
       if (evals === s.roteiro.evals) return s; // dedup: nada novo
       return { roteiro: persist({ ...s.roteiro, evals }) };
+    }),
+
+  recordProductionTime: (step, elapsedMs) =>
+    set((s) => {
+      if (!s.roteiro) return s;
+      if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) return s;
+      const production = accrueProductionTime(
+        s.roteiro.production,
+        step,
+        elapsedMs,
+        new Date().toISOString(),
+      );
+      return { roteiro: persist({ ...s.roteiro, production }) };
     }),
 
   updateOutputContent: (step, content) =>

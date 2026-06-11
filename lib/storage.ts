@@ -1,5 +1,7 @@
 import { compressToUTF16, decompressFromUTF16 } from "lz-string";
 
+import { WORKER_SOURCE } from "@/lib/lz-compress-worker-source";
+
 import type {
   EscritaChapter,
   Roteiro,
@@ -497,22 +499,109 @@ function hydrateRefImage(r: Roteiro): Roteiro {
   return r;
 }
 
-function serialize(roteiros: Roteiro[]): string {
-  // [perf] mede o custo síncrono de compressão (era o que travava a janela ao
-  // gerar 2 em paralelo). Deve aparecer COALESCIDO (poucas vezes/min, em idle)
-  // após a Frente 1, e com menos chars após mover imagem/histórico pra fora.
-  const t0 =
-    typeof performance !== "undefined" ? performance.now() : 0;
-  const json = JSON.stringify(roteiros);
-  // Tenta comprimir; se algo bizarro acontecer (lz-string nunca lança em uso
-  // normal, mas mantemos o fallback), grava cru — perder dados é pior do
-  // que gravar maior.
+// O corpo do Web Worker de compressão (compressor lz-string vendorizado +
+// handler de mensagem) vive em `lib/lz-compress-worker-source.ts` (módulo SEM
+// dependências, pra ser embutível no worker E testável via node). Importado
+// como WORKER_SOURCE no topo. Ver o porquê do worker em `getCompressWorker`.
+
+/** Worker compartilhado (lazy). Nunca recriado salvo erro/reset. */
+let compressWorker: Worker | null = null;
+/** Após uma falha de criação/runtime do worker, todo save cai no caminho síncrono. */
+let workerUnavailable = false;
+let workerSeq = 0;
+const workerPending = new Map<
+  number,
+  {
+    resolve: (s: string) => void;
+    reject: (e: unknown) => void;
+    timer: ReturnType<typeof setTimeout>;
+  }
+>();
+
+/** Teto pra um compress travado nunca pendurar um save (cai no fallback síncrono). */
+const WORKER_COMPRESS_TIMEOUT_MS = 15_000;
+
+function rejectAllWorkerPending(reason: unknown) {
+  for (const [, p] of workerPending) {
+    clearTimeout(p.timer);
+    p.reject(reason);
+  }
+  workerPending.clear();
+}
+
+function getCompressWorker(): Worker | null {
+  if (workerUnavailable) return null;
+  if (compressWorker) return compressWorker;
+  if (typeof window === "undefined" || typeof Worker === "undefined") {
+    workerUnavailable = true;
+    return null;
+  }
+  try {
+    const blob = new Blob([WORKER_SOURCE], { type: "text/javascript" });
+    const url = URL.createObjectURL(blob);
+    const w = new Worker(url);
+    URL.revokeObjectURL(url); // o Worker já segurou o recurso; pode revogar.
+    w.onmessage = (e: MessageEvent) => {
+      const data = e.data as { id: number; ok: boolean; value?: string };
+      const p = workerPending.get(data.id);
+      if (!p) return;
+      clearTimeout(p.timer);
+      workerPending.delete(data.id);
+      if (data.ok && typeof data.value === "string") p.resolve(data.value);
+      else p.reject(new Error("worker compress falhou"));
+    };
+    w.onerror = () => {
+      // Erro duro do worker: derruba tudo e desativa — saves seguem síncronos.
+      rejectAllWorkerPending(new Error("worker error"));
+      workerUnavailable = true;
+      try {
+        w.terminate();
+      } catch {
+        /* best-effort */
+      }
+      if (compressWorker === w) compressWorker = null;
+    };
+    compressWorker = w;
+    return w;
+  } catch {
+    workerUnavailable = true;
+    return null;
+  }
+}
+
+/** Comprime `json` no worker. Rejeita se indisponível/erro/timeout → fallback síncrono. */
+function compressViaWorker(json: string): Promise<string> {
+  const w = getCompressWorker();
+  if (!w) return Promise.reject(new Error("worker indisponível"));
+  return new Promise<string>((resolve, reject) => {
+    const id = ++workerSeq;
+    const timer = setTimeout(() => {
+      workerPending.delete(id);
+      reject(new Error("worker timeout"));
+    }, WORKER_COMPRESS_TIMEOUT_MS);
+    workerPending.set(id, { resolve, reject, timer });
+    try {
+      w.postMessage({ id, json });
+    } catch (e) {
+      clearTimeout(timer);
+      workerPending.delete(id);
+      reject(e);
+    }
+  });
+}
+
+/**
+ * Comprime um `json` JÁ stringificado (caminho síncrono / fallback). Mantém o
+ * log `[perf] serialize` e o fallback de gravar cru se a compressão der pau.
+ */
+function serializeJsonSync(json: string): string {
+  const t0 = typeof performance !== "undefined" ? performance.now() : 0;
   try {
     const compressed = compressToUTF16(json);
     if (compressed && compressed.length > 0) {
       if (t0) {
         console.info(
-          `[perf] serialize: ${(performance.now() - t0).toFixed(0)}ms, ${roteiros.length} roteiros, ${json.length} chars`,
+          `[perf] serialize: ${(performance.now() - t0).toFixed(0)}ms, ${json.length} chars`,
         );
       }
       return COMPRESSED_PREFIX + compressed;
@@ -521,6 +610,13 @@ function serialize(roteiros: Roteiro[]): string {
     console.warn("[storage] falha na compressão, gravando cru:", e);
   }
   return json;
+}
+
+function serialize(roteiros: Roteiro[]): string {
+  // [perf] mede o custo síncrono de compressão. O caminho QUENTE (streaming) usa
+  // o worker (compressViaWorker) e NÃO passa aqui; isto cobre o síncrono:
+  // saveRoteiro/delete/import/backup/export e o fallback do unload.
+  return serializeJsonSync(JSON.stringify(roteiros));
 }
 
 /**
@@ -570,6 +666,17 @@ function stripRefImage(r: Roteiro): Roteiro {
  */
 function serializeForBlob(roteiros: Roteiro[]): string {
   return serialize(roteiros.map(stripRefImage));
+}
+
+/**
+ * Parte síncrona (main thread) do save para o caminho do worker: aplica
+ * `stripRefImage` (que escreve as chaves laterais de imagem — precisa de
+ * localStorage, indisponível no worker) e devolve só o JSON. A compressão
+ * pesada vai pro worker depois. NÃO usar no caminho síncrono — lá `serializeForBlob`
+ * já faz strip + compress de uma vez.
+ */
+function stripAndStringify(roteiros: Roteiro[]): string {
+  return JSON.stringify(roteiros.map(stripRefImage));
 }
 
 function deserialize(raw: string): Roteiro[] {
@@ -684,6 +791,18 @@ function getCache(): Roteiro[] {
 export function resetRoteirosCache() {
   roteirosCache = null;
   lastWrittenRefImg.clear();
+  // Derruba o worker de compressão: import/restore reconstroem a biblioteca, e
+  // compressões em voo viram stale. Um worker novo é criado no próximo save.
+  rejectAllWorkerPending(new Error("reset"));
+  if (compressWorker) {
+    try {
+      compressWorker.terminate();
+    } catch {
+      /* best-effort */
+    }
+    compressWorker = null;
+  }
+  workerUnavailable = false;
 }
 
 export function listRoteiros(): Roteiro[] {
@@ -890,8 +1009,10 @@ function runWhenIdle(cb: () => void) {
   }
 }
 
-function performPendingSave() {
-  if (pendingRoteiros.size === 0) return;
+/** Dreno do Map de pendentes pro cache em memória (parte síncrona, comum aos dois
+ *  caminhos). Retorna o array do cache já mutado, ou null se nada havia pendente. */
+function drainPendingIntoCache(): Roteiro[] | null {
+  if (pendingRoteiros.size === 0) return null;
   const all = getCache();
   const now = new Date().toISOString();
   for (const [id, roteiro] of pendingRoteiros) {
@@ -901,6 +1022,61 @@ function performPendingSave() {
     else all.push(updated);
   }
   pendingRoteiros.clear();
+  return all;
+}
+
+/** Trava de não-reentrância do caminho async (uma compressão no worker por vez). */
+let saveInFlight = false;
+let resaveQueued = false;
+
+/**
+ * Caminho QUENTE/idle (streaming): comprime FORA da main thread (worker). A main
+ * thread só paga o `JSON.stringify` (rápido) + `localStorage.setItem`. Coalesce:
+ * se uma compressão já está em voo, marca pra rodar de novo (last-write-wins) em
+ * vez de interleave. Fallback síncrono se o worker estiver indisponível/erro/timeout
+ * (um save NUNCA se perde).
+ */
+async function performPendingSave(): Promise<void> {
+  if (storageReadBlocked) {
+    pendingRoteiros.clear();
+    return;
+  }
+  if (saveInFlight) {
+    resaveQueued = true;
+    return;
+  }
+  const all = drainPendingIntoCache();
+  if (!all) return;
+  saveInFlight = true;
+  try {
+    // Parte rápida na main thread (inclui escrever as chaves laterais de imagem).
+    const json = stripAndStringify(all);
+    let blob: string;
+    try {
+      blob = await compressViaWorker(json); // pesado, fora da main thread
+    } catch {
+      // Worker indisponível/erro/timeout → comprime síncrono no MESMO json.
+      blob = serializeJsonSync(json);
+    }
+    // Re-checa guard DEPOIS do await (corrupção pode ter sido sinalizada no meio).
+    if (storageReadBlocked) return;
+    safeSetItem(blob); // re-checa storageReadBlocked + quota no momento do setItem
+  } finally {
+    saveInFlight = false;
+    // Edits que chegaram durante a compressão → roda de novo pra o ÚLTIMO estado
+    // vencer (nunca grava blob velho).
+    if (resaveQueued || pendingRoteiros.size > 0) {
+      resaveQueued = false;
+      void performPendingSave();
+    }
+  }
+}
+
+/** Caminho SÍNCRONO (unload/troca de step/reset): comprime inline. Garante que a
+ *  última edição vá pro disco antes da janela morrer (beforeunload não pode await). */
+function performPendingSaveSync(): void {
+  const all = drainPendingIntoCache();
+  if (!all) return;
   safeSetItem(serializeForBlob(all));
 }
 
@@ -910,12 +1086,12 @@ export function scheduleSave(roteiro: Roteiro) {
   if (saveTimer) return;
   saveTimer = setTimeout(() => {
     saveTimer = null;
-    runWhenIdle(performPendingSave);
+    runWhenIdle(() => void performPendingSave());
   }, SAVE_DEBOUNCE_MS);
 }
 
-export function flushPendingSave() {
-  if (!isBrowser()) return;
+/** Cancela o timer/idle pendente (sem disparar save). */
+function cancelPendingSaveTimers() {
   if (saveTimer) {
     clearTimeout(saveTimer);
     saveTimer = null;
@@ -929,7 +1105,30 @@ export function flushPendingSave() {
     }
     idleHandle = null;
   }
-  performPendingSave();
+}
+
+/**
+ * Flush SÍNCRONO — usar em beforeunload/pagehide, troca de step e reset. Comprime
+ * inline na main thread (curto: só o delta pendente). NÃO usar no caminho quente
+ * de streaming (use `requestPendingSaveFlush`).
+ */
+export function flushPendingSave() {
+  if (!isBrowser()) return;
+  cancelPendingSaveTimers();
+  performPendingSaveSync();
+}
+
+/**
+ * Flush ASSÍNCRONO coalescido — usar ao concluir/falhar um job da fila. Manda a
+ * compressão pro worker (não bloqueia a UI) e, com revisor1‖revisor2 terminando
+ * quase juntos, o `saveInFlight`/`resaveQueued` colapsa os dois persists num só.
+ * Durabilidade: os `onPartial` já gravaram via scheduleSave e o unload faz flush
+ * síncrono — então não precisa ser síncrono aqui.
+ */
+export function requestPendingSaveFlush() {
+  if (!isBrowser()) return;
+  cancelPendingSaveTimers();
+  void performPendingSave();
 }
 
 export function deleteRoteiro(id: string) {

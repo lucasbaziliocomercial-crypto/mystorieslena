@@ -79,7 +79,7 @@ for (const [name, content] of Object.entries(samples)) {
   }
 }
 
-// parseRevisorNota — extrai a Nota X/10 do relatório (alimenta o banner de veredito).
+// parseRevisorNota — extrai a Nota do relatório (alimenta o banner de veredito).
 const notaCases = [
   ["**Nota: 8/10**", 8],
   ["# ⭐ NOTA FINAL (0 a 10)\n**Nota: 9/10**\nbla", 9],
@@ -87,6 +87,16 @@ const notaCases = [
   ["**Nota: 8,5/10**", 8.5],
   ["sem nota aqui", null],
   ["# ⭐ NOTA FINAL (0 a 10)\n(sem valor numérico)", null],
+  // SEM "/10" — formato real que o modelo emitiu (bug do banner "Nota —" 11/06/2026).
+  ["🧨 NOTA FINAL: 7,8", 7.8],
+  ["**NOTA FINAL: 7,8**\nJustificativa: o Cap 4 acelera demais.", 7.8],
+  // Engodo "(0 a 10)" + nota sem barra: pega 8,5, NÃO o "0"/"10" do range.
+  ["# 🧨 NOTA FINAL (0 a 10): 8,5", 8.5],
+  // Nota inteira 10 sem barra.
+  ["NOTA FINAL: 10", 10],
+  // Malformado: cabeçalho NOTA FINAL sem valor + número ("Cap 4") na justificativa
+  // → NÃO pode capturar o 4; melhor null que nota errada (banner é advisory).
+  ["🧨 NOTA FINAL — veja o Cap 4 e o Cap 5", null],
 ];
 for (const [input, expected] of notaCases) {
   const got = parseRevisorNota(input);

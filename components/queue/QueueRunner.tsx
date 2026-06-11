@@ -22,8 +22,9 @@
 import { useEffect, useRef } from "react";
 import { useQueue } from "@/store/queue";
 import { useWizard } from "@/store/wizard";
-import { getRoteiro, scheduleSave, flushPendingSave } from "@/lib/storage";
+import { getRoteiro, scheduleSave, requestPendingSaveFlush } from "@/lib/storage";
 import { appendEvalSnapshot } from "@/lib/eval-log";
+import { accrueProductionTime } from "@/lib/production-time";
 import { appendPerfMetric } from "@/lib/perf-metrics";
 import { syncWriterIdentity } from "@/lib/writer-identity";
 import { computeRevisorEval } from "@/lib/parse-revisor-output";
@@ -41,7 +42,12 @@ import {
   unregisterJob,
   abortAllJobs,
 } from "@/lib/generation/job-control";
-import { isRevisorStep, type StepId, type StepOutput } from "@/types/roteiro";
+import {
+  isRevisorStep,
+  type ProductionStepKey,
+  type StepId,
+  type StepOutput,
+} from "@/types/roteiro";
 
 // Máx. de jobs de geração rodando ao mesmo tempo. Cada job de Escrita agora usa
 // 2 streams Opus em paralelo (Parte 1 ‖ Parte 2 em run-escrita.ts), então 2 jobs
@@ -123,6 +129,35 @@ function applyStepOutput(roteiroId: string, step: StepId, output: StepOutput) {
     w.setOutput(step, output);
     if (isRevisorStep(step)) w.recordEval(step, output);
   }
+}
+
+/**
+ * Acumula `elapsedMs` de geração ativa no cronômetro de produção do roteiro
+ * (ver [ProductionTime]). Roteiro ATIVO → via store (`recordProductionTime`,
+ * que persiste); em 2º plano → grava direto no storage pelo caminho coalescido.
+ * Mesma lógica de acúmulo dos dois lados (`accrueProductionTime`). Best-effort:
+ * instrumentação nunca derruba a conclusão do job.
+ */
+function accrueProduction(
+  roteiroId: string,
+  step: ProductionStepKey,
+  elapsedMs: number,
+) {
+  if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) return;
+  const w = useWizard.getState();
+  if (w.roteiro?.id === roteiroId) {
+    w.recordProductionTime(step, elapsedMs);
+    return;
+  }
+  const r = getRoteiro(roteiroId);
+  if (!r) return;
+  const production = accrueProductionTime(
+    r.production,
+    step,
+    elapsedMs,
+    new Date().toISOString(),
+  );
+  scheduleSave({ ...r, production });
 }
 
 export function QueueRunner() {
@@ -266,11 +301,18 @@ export function QueueRunner() {
             applyStepOutput(job.roteiroId, job.step, output);
           }
 
+          // Cronômetro de produção: soma o tempo ativo deste step ao total do
+          // roteiro (antes do flush, pra persistir junto com o output). É tempo
+          // de geração — só conta jobs que chegaram aqui (concluídos), não os
+          // que falharam/foram cancelados.
+          accrueProduction(job.roteiroId, job.step, Date.now() - startedMs);
+
           // Durabilidade "terminou = salvou": força o último snapshot coalescido
-          // pro disco AGORA, sem esperar o debounce de 600ms. Os onPartial
-          // intermediários já coalesceram via scheduleSave; aqui a geração acabou
-          // (sem stream competindo), então 1 compressão síncrona é aceitável.
-          flushPendingSave();
+          // pro disco. Caminho ASSÍNCRONO (worker) — a compressão NÃO bloqueia a
+          // UI. Com revisor1‖revisor2 terminando quase juntos, os dois flushes
+          // colapsam num único compress (saveInFlight/resaveQueued). Os onPartial
+          // já gravaram via scheduleSave e o unload faz flush síncrono.
+          requestPendingSaveFlush();
           updateJob(job.id, {
             status: "done",
             finishedAt: new Date().toISOString(),
@@ -287,6 +329,11 @@ export function QueueRunner() {
           console.info(
             `[perf] ${job.step} ("${job.roteiroTitle}") FALHOU após ${((Date.now() - startedMs) / 1000).toFixed(1)}s`,
           );
+          // Durabilidade em FALHA: força o último parcial coalescido pro disco
+          // (caminho async/worker — não bloqueia a UI). Os onPartial já gravaram
+          // via scheduleSave; aqui garante que o gerado até o erro sobreviva. O
+          // unload (beforeunload/pagehide) ainda faz flush síncrono se o app fechar.
+          requestPendingSaveFlush();
           updateJob(job.id, {
             status: "error",
             error: err.message || "Falha desconhecida",

@@ -317,6 +317,12 @@ export function MetricsPanelButton({ className }: { className?: string }) {
                           <th className="px-2 py-1.5 text-right">Pal/min</th>
                           <th className="px-2 py-1.5 text-right">429</th>
                           <th className="px-2 py-1.5 text-right">Backoff</th>
+                          <th
+                            className="px-2 py-1.5 text-right"
+                            title="Caps fora do alvo ±8% que precisaram de reescrita Sonnet (↑ expandir / ↓ encurtar) e total de passes. Muito ↑ = a Escrita está escrevendo curto."
+                          >
+                            Calibração
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
@@ -353,6 +359,24 @@ export function MetricsPanelButton({ className }: { className?: string }) {
                               </td>
                               <td className="px-2 py-1.5 text-right">
                                 {fmtDuration(r.backoffMs)}
+                              </td>
+                              <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                                {r.calibCapsOutOfTarget == null ? (
+                                  "—"
+                                ) : (
+                                  <span
+                                    className={
+                                      r.calibCapsOutOfTarget > 0
+                                        ? "font-medium text-amber-600"
+                                        : "text-muted-foreground"
+                                    }
+                                    title={`${r.calibCapsOutOfTarget} cap(s) fora do alvo · ${r.calibToExpand ?? 0} expandir / ${r.calibToShorten ?? 0} encurtar · ${r.calibPasses ?? 0} passe(s) Sonnet`}
+                                  >
+                                    {r.calibCapsOutOfTarget} (↑
+                                    {r.calibToExpand ?? 0}/↓
+                                    {r.calibToShorten ?? 0})
+                                  </span>
+                                )}
                               </td>
                             </tr>
                           );

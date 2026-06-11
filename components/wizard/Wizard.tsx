@@ -9,6 +9,7 @@ import { getRoteiro } from "@/lib/storage";
 import { StepIndicator } from "./StepIndicator";
 import { StepShell } from "./StepShell";
 import { ProjectTabs } from "@/components/tabs/ProjectTabs";
+import { ProductionTimeBadge } from "@/components/ProductionTimeBadge";
 import { UpdateButton } from "./UpdateButton";
 import { STEP_ORDER } from "@/types/roteiro";
 import { CATEGORIES } from "@/lib/categories";
@@ -132,6 +133,12 @@ export function Wizard({ id }: Props) {
 
         <UpdateButton />
       </header>
+
+      {roteiro.production && roteiro.production.totalMs > 0 && (
+        <div className="-mt-4">
+          <ProductionTimeBadge production={roteiro.production} />
+        </div>
+      )}
 
       <StepIndicator
         current={roteiro.currentStep}

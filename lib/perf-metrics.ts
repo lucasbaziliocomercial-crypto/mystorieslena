@@ -33,6 +33,18 @@ export interface EscritaPerfRecord {
   transientRetries: number;
   /** Total de ms em backoff exponencial. */
   backoffMs: number;
+  /**
+   * Calibração (observabilidade pro checkup decidir CALIBRATION_MAX_PASSES /
+   * alvo×0,94 com dado). Opcionais — registros antigos do .jsonl não têm.
+   */
+  /** Caps fora do alvo ±8% que dispararam reescrita Sonnet (P1+P2). */
+  calibCapsOutOfTarget?: number;
+  /** Destes, quantos estavam CURTOS (muito "expandir" = Escrita escreve curto). */
+  calibToExpand?: number;
+  /** Quantos estavam LONGOS (precisaram encurtar). */
+  calibToShorten?: number;
+  /** Total de chamadas Sonnet de reescrita — mede a cauda do MAX_PASSES. */
+  calibPasses?: number;
 }
 
 /**

@@ -5,11 +5,14 @@
  * Escrita.
  *
  * `lib/claude.ts#buildPromptInput` consome este marcador: quando presente,
- * quebra a mensagem em DOIS text blocks com `cache_control: ephemeral` cada,
- * criando um breakpoint de prompt caching. O prefixo (~20k tokens) passa a ser
- * lido do cache (`cache_read`) nos 6+ batches da Parte e cruzado entre os loops
- * P1‖P2 — em vez de reprocessado a cada chamada. Sem o marcador (Revisor,
- * Estrutura, calibração, refine), o comportamento é o de bloco único.
+ * quebra a mensagem em DOIS text blocks, AMBOS com `cache_control` ttl='1h'
+ * EXPLÍCITO, criando um breakpoint de prompt caching. O prefixo (~20k tokens)
+ * passa a ser lido do cache (`cache_read`) nos 6+ batches da Parte e cruzado
+ * entre os loops P1‖P2 — em vez de reprocessado a cada chamada. O ttl='1h'
+ * (não o ephemeral default de 5m) é obrigatório: o CLI injeta 1h no último
+ * bloco e "1h não pode vir depois de 5m" (= 400) — por isso tudo é 1h. Ver o
+ * comentário extenso em buildPromptInput. Sem o marcador (Revisor, Estrutura,
+ * calibração, refine), o comportamento é o de bloco único (ephemeral default).
  *
  * Usamos U+0002 (STX), caractere de controle que NUNCA aparece em texto de
  * roteiro/markdown — sem risco de colisão. Construído via String.fromCharCode

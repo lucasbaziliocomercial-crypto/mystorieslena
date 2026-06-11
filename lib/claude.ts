@@ -127,16 +127,26 @@ export type UserContentBlock =
   | {
       type: "text";
       text: string;
-      cache_control?: { type: "ephemeral" };
+      // `ttl` opcional: "5m" (default ephemeral) ou "1h" (estendido). Marcamos
+      // o prefixo cacheável da Escrita com "1h" EXPLÍCITO pra empatar com o 1h
+      // que o CLI injeta no último bloco (sem isso, 5m antes de 1h = 400). Ver
+      // o comentário em buildPromptInput.
+      cache_control?: { type: "ephemeral"; ttl?: "5m" | "1h" };
     };
 
 /**
  * Constrói o AsyncIterable<SDKUserMessage> que vai pro `query()`. Sempre
  * usa a forma estruturada (content array) — a forma de string simples
- * não permite cache_control. Anexa cache_control: ephemeral no último
- * text block, marcando system prompt + user message inteiros como
- * cacheáveis. Segunda chamada idêntica em 5 min lê do cache (Revisor
- * cai de ~2.5min cold pra ~32s warm).
+ * não permite cache_control.
+ *
+ * Sem o sentinela CACHE_PREFIX_BOUNDARY (Revisor/Estrutura/calibração/refine):
+ * UM text block com cache_control ephemeral default — re-run idêntico em 5 min
+ * lê do cache (Revisor cai de ~2.5min cold pra ~32s warm).
+ *
+ * COM o sentinela (só a Escrita): DOIS text blocks, ambos cache_control
+ * ttl='1h' — o prefixo estável (~20k tokens) vira cache_read cross-batch nos
+ * ~10-12 batches da geração (ataca a cota compartilhada da equipe + TTFT). Ver
+ * o comentário extenso no corpo da função pro porquê do ttl='1h' explícito.
  *
  * Exportada pra ser testável em isolamento.
  */
@@ -159,22 +169,25 @@ export function buildPromptInput(params: {
       },
     });
   }
-  // Se a mensagem traz o sentinela, quebramos em DOIS text blocks só pra PODER
-  // remover o caractere de controle do meio (prefixo estável | sufixo variável).
-  // O cache_control vai SÓ no ÚLTIMO bloco (o sufixo) — NUNCA num bloco anterior.
+  // Se a mensagem traz o sentinela (só a Escrita usa), quebramos em DOIS text
+  // blocks: prefixo ESTÁVEL (cânone+premissa+estrutura, ~20k tokens, idêntico
+  // em todos os ~10-12 batches da geração) | sufixo VARIÁVEL (intro+sinopses+
+  // alvos+AÇÃO). AMBOS marcados com cache_control ttl='1h' → o prefixo passa a
+  // ser lido do cache (cache_read) batch a batch e cruzado entre os loops P1‖P2,
+  // em vez de reprocessado a cada chamada (ataca a cota compartilhada da equipe).
   //
-  // ⚠️ POR QUÊ (aprendido na marra): o Claude CLI injeta SOZINHO um cache_control
-  // ttl='1h' no ÚLTIMO bloco da mensagem, independente do que a gente manda.
-  // Qualquer cache_control NOSSO num bloco anterior vira ttl='5m' e fica ANTES
-  // desse 1h → a API rejeita com 400 ("a ttl='1h' cache_control block must not
-  // come after a ttl='5m' cache_control block", apontando o último bloco). Foi o
-  // que quebrou a Escrita na 1.0.74: o breakpoint no prefixo (5m) vinha antes do
-  // 1h que o CLI põe no fim. A geração single-block (1.0.73) sempre funcionou
-  // justamente porque tem UM bloco só, e o cache cai nele (= último) → o 1h do
-  // CLI não tem nenhum 5m antes. Aqui replicamos isso: cache_control só no fim.
-  // Trade-off: perdemos o cache de prefixo cross-batch — reativá-lo exigiria
-  // marcar o prefixo com ttl='1h' EXPLÍCITO (pra empatar com o 1h do fim), não
-  // com ephemeral default; só fazer depois de validar que o CLI honra o ttl.
+  // ⚠️ POR QUÊ ttl='1h' EXPLÍCITO nos dois (aprendido na marra): o Claude CLI
+  // injeta SOZINHO um cache_control ttl='1h' no ÚLTIMO bloco da mensagem. A trava
+  // da API é "um bloco ttl='1h' não pode vir DEPOIS de um ttl='5m'". Na 1.0.74 o
+  // prefixo tinha ephemeral DEFAULT (=5m) e o 1h do CLI vinha no fim → 1h depois
+  // de 5m = 400 ("a ttl='1h' cache_control block must not come after a ttl='5m'
+  // ...") e a Escrita quebrava. A correção é deixar TUDO 1h (prefixo + sufixo +
+  // o 1h do CLI no último bloco): sem nenhum 5m, a ordenação é impossível de
+  // violar. NÃO basta tirar o cache_control do prefixo (era a versão anterior, que
+  // funcionava mas SEM cache de prefixo cross-batch — exatamente o que reativamos
+  // aqui). O branch de bloco único abaixo segue ephemeral default: é sempre o
+  // ÚLTIMO bloco (Revisor/Estrutura/calibração/refine), então o 1h do CLI cai
+  // nele sem nenhum 5m antes — sem risco de ordenação.
   const boundaryIdx = params.userMessage.indexOf(CACHE_PREFIX_BOUNDARY);
   if (boundaryIdx === -1) {
     userContent.push({
@@ -192,18 +205,22 @@ export function buildPromptInput(params: {
       .split(CACHE_PREFIX_BOUNDARY)
       .join("\n\n")
       .trimStart();
-    // Prefixo SEM cache_control (não pode haver breakpoint antes do último bloco).
+    // Prefixo COM cache_control ttl='1h' — este é o breakpoint que reativa o
+    // cache de prefixo cross-batch. ttl='1h' (não default) pra não ficar ANTES
+    // do 1h do CLI com um 5m (= 400). Ver comentário acima.
     if (prefix) {
       userContent.push({
         type: "text",
         text: prefix,
+        cache_control: { type: "ephemeral", ttl: "1h" },
       });
     }
-    // Cache_control SÓ no último bloco (sufixo) — espelha a 1.0.73 que funciona.
+    // Sufixo (último bloco) também ttl='1h' pra empatar com o que o CLI injeta —
+    // garante que não existe nenhum 5m em lugar nenhum da mensagem.
     userContent.push({
       type: "text",
       text: suffix,
-      cache_control: { type: "ephemeral" },
+      cache_control: { type: "ephemeral", ttl: "1h" },
     });
   }
   return (async function* () {

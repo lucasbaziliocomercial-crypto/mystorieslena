@@ -3,9 +3,11 @@
  * revisão que veio sem o XML (truncado ou esquecido pelo modelo).
  *
  * Disparado pela UI (StepShell.tsx) quando parseRevisorErrors devolve []
- * mas o markdown contém erros listados em PRINCIPAIS ERROS. Modelo: Opus
- * (precisão de localização do trecho literal). Output: stream do XML
- * `<erros_detalhados>...</erros_detalhados>`.
+ * mas o markdown contém erros listados em PRINCIPAIS ERROS. Modelo: Sonnet —
+ * é EXTRAÇÃO MECÂNICA de XML (re-localiza trechos que o Revisor já listou em
+ * PRINCIPAIS ERROS), não avaliação literária; Sonnet empata com Opus aqui a
+ * uma fração do tempo e tira carga da fila Opus da equipe. Só roda no fallback
+ * (raro). Output: stream do XML `<erros_detalhados>...</erros_detalhados>`.
  */
 
 import { NextRequest } from "next/server";
@@ -56,14 +58,14 @@ export async function POST(req: NextRequest) {
         for await (const chunk of streamClaudeText({
           systemPrompt: extract.systemPrompt,
           userMessage,
-          model: MODELS.opus,
+          model: MODELS.sonnet,
           thinking: "disabled",
           effort: "low",
           signal: req.signal,
           meta: {
             step: "revisor-extract",
             category: body.category ?? DEFAULT_CATEGORY,
-            model: MODELS.opus,
+            model: MODELS.sonnet,
             ...(body.roteiroId ? { roteiroId: body.roteiroId } : {}),
           },
         })) {
