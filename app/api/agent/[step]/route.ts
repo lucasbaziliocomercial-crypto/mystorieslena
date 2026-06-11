@@ -59,6 +59,9 @@ interface Body {
    *  Quando presente, agentes pós-Premissa injetam como referência canônica
    *  no user message (ver `lib/agents/_shared/canone-block.ts`). */
   canone?: string;
+  /** Id do roteiro — só pra atribuição no log de consumo de tokens
+   *  (`lib/usage-log`). Não influencia a geração. */
+  roteiroId?: string;
 }
 
 const ACCEPTED_IMAGE_MIMES: ClaudeImageMime[] = [
@@ -157,6 +160,12 @@ export async function POST(
           effort: agent.effort,
           ...(imageInput ? { image: imageInput } : {}),
           signal: req.signal,
+          meta: {
+            step,
+            category: body.category ?? DEFAULT_CATEGORY,
+            model: agent.model,
+            ...(body.roteiroId ? { roteiroId: body.roteiroId } : {}),
+          },
         })) {
           controller.enqueue(encoder.encode(chunk));
         }

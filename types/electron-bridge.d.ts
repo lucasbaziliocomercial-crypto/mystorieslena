@@ -58,6 +58,21 @@ export interface ExportPdfResult {
 export interface BackupResult {
   ok: boolean;
   path?: string;
+  /** Caminho do arquivo rolante gravado na pasta externa (se configurada). */
+  external?: string | null;
+  reason?: string;
+}
+
+export interface PickExternalDirResult {
+  ok: boolean;
+  dir?: string;
+  canceled?: boolean;
+  reason?: string;
+}
+
+export interface GetExternalDirResult {
+  ok: boolean;
+  dir: string | null;
   reason?: string;
 }
 
@@ -150,6 +165,18 @@ export interface MyStoriesLenaBridge {
   listRoteiroBackups: () => Promise<ListBackupsResult>;
   /** Lê o conteúdo de um backup automático pelo nome do arquivo. */
   readRoteiroBackup: (name: string) => Promise<ReadBackupResult>;
+  /** Escolhe a pasta de backup externo (OneDrive/Drive) via dialog nativo. */
+  pickExternalBackupDir: () => Promise<PickExternalDirResult>;
+  /** Retorna a pasta de backup externo configurada (ou dir:null). */
+  getExternalBackupDir: () => Promise<GetExternalDirResult>;
+  /** Remove a pasta de backup externo configurada. */
+  clearExternalBackupDir: () => Promise<{ ok: boolean; reason?: string }>;
+  /** Anexa uma linha JSON de métrica de throughput ao perf.jsonl. */
+  appendPerfMetric: (line: string) => Promise<{ ok: boolean; reason?: string }>;
+  /** Lê as últimas N métricas de throughput (mais recente primeiro). */
+  readPerfMetrics: (
+    limit?: number,
+  ) => Promise<{ ok: boolean; records?: unknown[]; reason?: string }>;
   getClaudeStatus: () => Promise<ClaudeStatus>;
   setupClaude: () => Promise<ClaudeSetupResult>;
   logoutClaude: () => Promise<ClaudeLogoutResult>;

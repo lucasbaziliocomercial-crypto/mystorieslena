@@ -57,6 +57,9 @@ interface Body {
   sugestao?: string;
   porqueAlterado?: string;
   gravidade?: string;
+  /** Id do roteiro / categoria — só atribuição no log de consumo de tokens. */
+  roteiroId?: string;
+  category?: string;
 }
 
 const APPLY_SUGGESTION_SYSTEM_PROMPT = `Você é um editor literário aplicando UMA OU MAIS sugestões de revisão num trecho de roteiro brasileiro de romance em primeira pessoa (POV da FMC).
@@ -244,6 +247,12 @@ export async function POST(req: NextRequest) {
           thinking: "disabled",
           effort: "low",
           signal: req.signal,
+          meta: {
+            step: "aplicar-correcao",
+            model: MODELS.opus,
+            ...(body.category ? { category: body.category } : {}),
+            ...(body.roteiroId ? { roteiroId: body.roteiroId } : {}),
+          },
         })) {
           controller.enqueue(encoder.encode(chunk));
         }

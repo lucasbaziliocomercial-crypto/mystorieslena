@@ -1,0 +1,39 @@
+name: CI
+
+# Portão de qualidade em cada push e Pull Request: roda typecheck + testes.
+# É barato (segundos) e pega erro de tipo / parser quebrado ANTES de virar
+# release. O release.yml roda os mesmos dois passos de novo antes do build,
+# como segunda barreira na tag.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  quality:
+    name: Typecheck + testes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          # Node 22: os scripts de teste (scripts/test-*.mjs) importam .ts
+          # direto, o que exige strip de tipos nativo (Node >= 22).
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+        env:
+          npm_config_optional: "true"
+
+      - name: Typecheck (tsc --noEmit)
+        run: npm run typecheck
+
+      - name: Testes (scripts/test-*.mjs)
+        run: npm test

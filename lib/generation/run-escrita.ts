@@ -48,6 +48,7 @@ import {
 } from "@/lib/parse-escrita-output";
 import { canonPart, dedupChaptersLast } from "@/lib/dedup-chapters";
 import { countWords } from "@/lib/word-count";
+import type { EscritaPerfRecord } from "@/lib/perf-metrics";
 import { createLimiter } from "@/lib/concurrency";
 import {
   CALIBRATION_THRESHOLD,
@@ -80,6 +81,9 @@ export interface RunEscritaState {
 
 export interface RunEscritaInput {
   category: RoteiroCategory;
+  /** Id do roteiro — só atribuição no log de consumo de tokens (não muda nada
+   *  na geração). Best-effort: se ausente, o evento fica sem roteiroId. */
+  roteiroId?: string;
   /** outputs do roteiro (vira `previousOutputs` no body da /api/agent/escrita). */
   previousOutputs: Partial<Record<StepId, StepOutput>>;
   userInput?: string;
@@ -114,6 +118,12 @@ export interface RunEscritaHooks {
    * pode prosseguir.
    */
   beforeUnit?: () => Promise<void>;
+  /**
+   * Disparado UMA vez no fim da geração com um resumo de throughput (tempo,
+   * palavras, 429/backoff). Só instrumentação — o QueueRunner persiste num
+   * .jsonl pro painel de métricas. Não muda nada na geração.
+   */
+  onMetrics?: (record: EscritaPerfRecord) => void;
 }
 
 /** Pré-condição não satisfeita (estruturas faltando) — não é erro de rede. */
@@ -399,6 +409,7 @@ export async function runEscrita(
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               category,
+              ...(input.roteiroId ? { roteiroId: input.roteiroId } : {}),
               previousOutputs,
               userInput: input.userInput,
               referenceImage: input.referenceImage,
@@ -674,6 +685,7 @@ export async function runEscrita(
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   category,
+                  ...(input.roteiroId ? { roteiroId: input.roteiroId } : {}),
                   chapter: {
                     number: cand.ch.number,
                     title: partChapters[idx]!.title,
@@ -763,11 +775,25 @@ export async function runEscrita(
       ...p1Synopses,
     ]).then(() => calibratePart("Parte 2", p2Chapters, p2Synopses, targetsP2)),
   ]);
+  const totalMs = Date.now() - batchesPhaseStart;
   console.info(
-    `[perf] escrita: geração+calibração levou ${((Date.now() - batchesPhaseStart) / 1000).toFixed(1)}s — ${transientRetries} retry transiente (429/5xx), ~${(backoffMs / 1000).toFixed(0)}s em backoff`,
+    `[perf] escrita: geração+calibração levou ${(totalMs / 1000).toFixed(1)}s — ${transientRetries} retry transiente (429/5xx), ~${(backoffMs / 1000).toFixed(0)}s em backoff`,
   );
 
   const result = snapshot();
   emitPartial();
+
+  // Resumo de throughput pra o painel de métricas (só observabilidade).
+  hooks.onMetrics?.({
+    category,
+    startedAt: new Date(batchesPhaseStart).toISOString(),
+    finishedAt: new Date().toISOString(),
+    totalMs,
+    words: countWords(result.content),
+    batches: totalBatches,
+    transientRetries,
+    backoffMs,
+  });
+
   return result;
 }

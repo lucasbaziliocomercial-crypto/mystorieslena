@@ -54,6 +54,8 @@ interface Body {
     part: "Parte 1" | "Parte 2";
     synopsis: string;
   }>;
+  /** Id do roteiro — só atribuição no log de consumo de tokens. */
+  roteiroId?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -142,6 +144,12 @@ export async function POST(req: NextRequest) {
           thinking: "disabled",
           effort: "low",
           signal: req.signal,
+          meta: {
+            step: "calibracao",
+            category: body.category ?? DEFAULT_CATEGORY,
+            model: MODELS.sonnet,
+            ...(body.roteiroId ? { roteiroId: body.roteiroId } : {}),
+          },
         })) {
           controller.enqueue(encoder.encode(chunk));
         }

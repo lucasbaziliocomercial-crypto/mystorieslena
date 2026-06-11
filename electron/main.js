@@ -415,6 +415,13 @@ async function startServerFromSource(sourceDir) {
   if (env.ANTHROPIC_API_KEY === "") delete env.ANTHROPIC_API_KEY;
   if (env.ANTHROPIC_AUTH_TOKEN === "") delete env.ANTHROPIC_AUTH_TOKEN;
   if (env.ANTHROPIC_BASE_URL === "") delete env.ANTHROPIC_BASE_URL;
+  // Diz ao server Next onde gravar o usage.jsonl (log de consumo de tokens) —
+  // mesma pasta do perf.jsonl (userData/metrics). Sem isso o lib/usage-log cai
+  // num fallback em tmp. Só observabilidade.
+  env.MYSTORIESLENA_METRICS_DIR = path.join(
+    app.getPath("userData"),
+    "metrics",
+  );
 
   const claudeExe = getClaudeExecutablePath(sourceDir);
   if (claudeExe) {
@@ -483,6 +490,13 @@ async function startServerPackaged() {
   if (env.ANTHROPIC_API_KEY === "") delete env.ANTHROPIC_API_KEY;
   if (env.ANTHROPIC_AUTH_TOKEN === "") delete env.ANTHROPIC_AUTH_TOKEN;
   if (env.ANTHROPIC_BASE_URL === "") delete env.ANTHROPIC_BASE_URL;
+  // Diz ao server Next onde gravar o usage.jsonl (log de consumo de tokens) —
+  // mesma pasta do perf.jsonl (userData/metrics). Sem isso o lib/usage-log cai
+  // num fallback em tmp. Só observabilidade.
+  env.MYSTORIESLENA_METRICS_DIR = path.join(
+    app.getPath("userData"),
+    "metrics",
+  );
 
   const claudeExe = getClaudeExecutablePath(null);
   if (claudeExe) {
@@ -1342,6 +1356,40 @@ function getBackupDir() {
   return dir;
 }
 
+/**
+ * Config de backup externo (cópia FORA da máquina). Pequeno JSON em userData,
+ * lido/escrito com o mesmo fs síncrono já usado aqui. `externalDir` aponta pra
+ * uma pasta sincronizada (OneDrive/Google Drive) — o auto-backup grava lá um
+ * arquivo ROLANTE `veludo-roteiros-latest.json` (overwrite), protegendo contra
+ * perda da máquina, não só corrupção do localStorage.
+ */
+function backupConfigFile() {
+  return path.join(app.getPath("userData"), "backup-config.json");
+}
+
+function readBackupConfig() {
+  try {
+    const cfg = JSON.parse(fs.readFileSync(backupConfigFile(), "utf8"));
+    return cfg && typeof cfg === "object" ? cfg : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeBackupConfig(cfg) {
+  try {
+    fs.writeFileSync(backupConfigFile(), JSON.stringify(cfg), "utf8");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function getExternalBackupDir() {
+  const dir = readBackupConfig().externalDir;
+  return typeof dir === "string" && dir ? dir : null;
+}
+
 ipcMain.handle("roteiros:auto-backup", (_event, payload) => {
   try {
     const data = String(payload?.data ?? "");
@@ -1362,7 +1410,63 @@ ipcMain.handle("roteiros:auto-backup", (_event, payload) => {
         // best-effort
       }
     }
-    return { ok: true, path: file };
+    // Cópia FORA da máquina: se houver pasta sincronizada configurada, grava um
+    // arquivo ROLANTE (overwrite) — mantém o Drive enxuto e sempre atual.
+    // Best-effort: se a pasta sumiu (drive desconectado), ignora sem falhar.
+    let external = null;
+    const extDir = getExternalBackupDir();
+    if (extDir) {
+      try {
+        if (fs.existsSync(extDir)) {
+          const extFile = path.join(extDir, "veludo-roteiros-latest.json");
+          fs.writeFileSync(extFile, data, "utf8");
+          external = extFile;
+        }
+      } catch {
+        // best-effort; não derruba o backup local por causa do externo
+      }
+    }
+    return { ok: true, path: file, external };
+  } catch (e) {
+    return { ok: false, reason: String(e?.message || e) };
+  }
+});
+
+ipcMain.handle("backup:pick-external-dir", async () => {
+  try {
+    const result = await dialog.showOpenDialog({
+      title: "Escolher pasta de backup externo (OneDrive, Google Drive…)",
+      properties: ["openDirectory", "createDirectory"],
+    });
+    if (result.canceled || !result.filePaths?.[0]) {
+      return { ok: false, canceled: true };
+    }
+    const dir = result.filePaths[0];
+    const cfg = readBackupConfig();
+    cfg.externalDir = dir;
+    if (!writeBackupConfig(cfg)) {
+      return { ok: false, reason: "não foi possível salvar a configuração" };
+    }
+    return { ok: true, dir };
+  } catch (e) {
+    return { ok: false, reason: String(e?.message || e) };
+  }
+});
+
+ipcMain.handle("backup:get-external-dir", () => {
+  try {
+    return { ok: true, dir: getExternalBackupDir() };
+  } catch (e) {
+    return { ok: false, dir: null, reason: String(e?.message || e) };
+  }
+});
+
+ipcMain.handle("backup:clear-external-dir", () => {
+  try {
+    const cfg = readBackupConfig();
+    delete cfg.externalDir;
+    writeBackupConfig(cfg);
+    return { ok: true };
   } catch (e) {
     return { ok: false, reason: String(e?.message || e) };
   }
@@ -1422,6 +1526,67 @@ ipcMain.handle("roteiros:export", async (_event, payload) => {
     return { ok: true, path: result.filePath };
   } catch (e) {
     return { ok: false, reason: String(e?.message || e) };
+  }
+});
+
+/**
+ * Métricas de throughput da Escrita (perf.jsonl) — observabilidade de
+ * velocidade/cota (complementa os evals de qualidade). `metrics:append` anexa
+ * uma linha JSON; `metrics:read` devolve as últimas N (mais recente primeiro).
+ * Arquivo enxuto: poda pras últimas METRICS_KEEP linhas a cada gravação.
+ */
+const METRICS_KEEP = 500;
+
+function getMetricsFile() {
+  const dir = path.join(app.getPath("userData"), "metrics");
+  fs.mkdirSync(dir, { recursive: true });
+  return path.join(dir, "perf.jsonl");
+}
+
+ipcMain.handle("metrics:append", (_event, payload) => {
+  try {
+    const line = String(payload?.line ?? "").replace(/[\r\n]+/g, " ").trim();
+    if (!line) return { ok: false, reason: "vazio" };
+    const file = getMetricsFile();
+    let lines = [];
+    try {
+      lines = fs.readFileSync(file, "utf8").split("\n").filter(Boolean);
+    } catch {
+      // arquivo ainda não existe
+    }
+    lines.push(line);
+    if (lines.length > METRICS_KEEP) {
+      lines = lines.slice(lines.length - METRICS_KEEP);
+    }
+    fs.writeFileSync(file, lines.join("\n") + "\n", "utf8");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, reason: String(e?.message || e) };
+  }
+});
+
+ipcMain.handle("metrics:read", (_event, payload) => {
+  try {
+    const limit = Math.max(1, Math.min(2000, Number(payload?.limit) || 50));
+    const file = getMetricsFile();
+    let lines = [];
+    try {
+      lines = fs.readFileSync(file, "utf8").split("\n").filter(Boolean);
+    } catch {
+      return { ok: true, records: [] };
+    }
+    const records = [];
+    for (const l of lines.slice(-limit)) {
+      try {
+        records.push(JSON.parse(l));
+      } catch {
+        // pula linha corrompida
+      }
+    }
+    records.reverse(); // mais recente primeiro
+    return { ok: true, records };
+  } catch (e) {
+    return { ok: false, reason: String(e?.message || e), records: [] };
   }
 });
 

@@ -127,6 +127,7 @@ async function runOverviewStep(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       category: r.category,
+      roteiroId: r.id,
       previousOutputs: r.outputs,
       userInput,
       referenceImage: r.referenceImage,
@@ -178,7 +179,7 @@ export async function runCanone(
   const res = await fetch("/api/canone", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ premissa }),
+    body: JSON.stringify({ premissa, roteiroId }),
     signal: hooks.signal,
   });
   if (!res.ok || !res.body) {
@@ -211,6 +212,7 @@ export async function runPremissa(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         category: r.category,
+        roteiroId: r.id,
         userInput,
         referenceImage: r.referenceImage,
         premissaPhase: "resumo",
@@ -251,6 +253,7 @@ export async function runPremissa(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       category: r.category,
+      roteiroId: r.id,
       userInput,
       referenceImage: r.referenceImage,
       premissaPhase: "estrutura",
@@ -297,6 +300,7 @@ async function runEstruturaStep(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       category: r.category,
+      roteiroId: r.id,
       previousOutputs: r.outputs,
       userInput,
       referenceImage: r.referenceImage,
@@ -363,6 +367,7 @@ async function runRevisorStep(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       category: r.category,
+      roteiroId: r.id,
       previousOutputs: r.outputs,
       userInput,
       referenceImage: r.referenceImage,
@@ -395,6 +400,7 @@ async function runRevisorStep(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           category: r.category,
+          roteiroId: r.id,
           revisaoMarkdown: cleanContent,
           escritaContent,
         }),
