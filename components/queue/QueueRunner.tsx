@@ -24,6 +24,8 @@ import { useQueue } from "@/store/queue";
 import { useWizard } from "@/store/wizard";
 import { getRoteiro, scheduleSave, flushPendingSave } from "@/lib/storage";
 import { appendEvalSnapshot } from "@/lib/eval-log";
+import { appendPerfMetric } from "@/lib/perf-metrics";
+import { syncWriterIdentity } from "@/lib/writer-identity";
 import { computeRevisorEval } from "@/lib/parse-revisor-output";
 import {
   runEscrita,
@@ -177,6 +179,7 @@ export function QueueRunner() {
             const finalState = await runEscrita(
               {
                 category: r.category,
+                roteiroId: r.id,
                 previousOutputs: r.outputs,
                 userInput: job.userInput ?? r.userInputs?.escrita,
                 referenceImage: r.referenceImage,
@@ -199,6 +202,8 @@ export function QueueRunner() {
                   if (w.roteiro?.id === job.roteiroId)
                     w.setQueueLiveStream(job.step, text);
                 },
+                // Throughput/cota → perf.jsonl (só observabilidade; best-effort).
+                onMetrics: (rec) => appendPerfMetric(rec),
               },
             );
             if (abort.signal.aborted) return; // cancelado — job já removido
@@ -308,6 +313,10 @@ export function QueueRunner() {
 
   useEffect(() => {
     mountedRef.current = true;
+    // Espelha o nome da roteirista no server (log de consumo de tokens). 1× no
+    // boot — o app é single-user por máquina, então isso basta pra atribuir o
+    // gasto. Best-effort.
+    void syncWriterIdentity();
     return () => {
       mountedRef.current = false;
       abortAllJobs();

@@ -4,6 +4,11 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import fs from "node:fs";
 import path from "node:path";
+// Log de consumo de tokens (server-side, só observabilidade). Import com
+// extensão .ts explícita: typecheck aceita (allowImportingTsExtensions),
+// o teste em node --experimental-strip-types resolve, e o Turbopack também.
+// usage-log.ts não importa `@/...` de valor, então não quebra o teste.
+import { recordUsageEvent } from "./usage-log.ts";
 
 // Marcadores que cercam o raciocínio (thinking) no stream text/plain. DEVEM
 // casar byte-a-byte com lib/stream-markers.ts (onde `splitThinking` os consome
@@ -27,6 +32,19 @@ const CACHE_PREFIX_BOUNDARY = `${STX}CACHE_BOUNDARY${STX}`;
 // cada `result` em streamClaudeText e logado como linha `cumulative:` pra tornar
 // o hit% de cache observável ao longo de uma geração.
 const usageTotals = { input: 0, cacheRead: 0, cacheWrite: 0, output: 0 };
+
+/**
+ * Snapshot do uso acumulado nesta sessão do server Next (zera no restart do
+ * server). Exposto via `/api/claude-usage` pro painel de métricas mostrar o
+ * hit% de cache e o total de tokens consumidos da cota compartilhada — só
+ * observabilidade, não muda nada na geração.
+ */
+export function getUsageTotals() {
+  const cacheable = usageTotals.input + usageTotals.cacheRead;
+  const hitPct =
+    cacheable > 0 ? Math.round((usageTotals.cacheRead / cacheable) * 100) : 0;
+  return { ...usageTotals, hitPct };
+}
 
 export type ClaudeImageMime =
   | "image/jpeg"
@@ -218,6 +236,18 @@ export interface StreamClaudeParams {
    */
   image?: ClaudeImageInput;
   signal?: AbortSignal;
+  /**
+   * Metadados de observabilidade pro log de consumo de tokens (`lib/usage-log`).
+   * Opcional — chamadas sem `meta` seguem funcionando, só ficam sem atribuição.
+   * Não influencia NADA na geração (não vai pro modelo).
+   */
+  meta?: {
+    step?: string;
+    category?: string;
+    model?: string;
+    roteiroId?: string;
+    writer?: string;
+  };
 }
 
 /**
@@ -367,6 +397,19 @@ export async function* streamClaudeText(
           console.log(
             `[claude.ts] cumulative: input=${usageTotals.input} cache_read=${usageTotals.cacheRead} cache_write=${usageTotals.cacheWrite} output=${usageTotals.output} hit=${hitPct}%`,
           );
+
+          // Grava o evento no log de consumo de tokens (local + Sheets central).
+          // Best-effort/non-blocking — recordUsageEvent nunca lança. Só
+          // observabilidade da cota compartilhada da equipe; o `meta` traz a
+          // atribuição (roteirista/roteiro/passo/categoria/modelo).
+          recordUsageEvent({
+            ...(params.meta ?? {}),
+            model: params.meta?.model ?? params.model,
+            input: typeof inp === "number" ? inp : 0,
+            output: typeof out === "number" ? out : 0,
+            cacheRead: typeof cr === "number" ? cr : 0,
+            cacheWrite: typeof cw === "number" ? cw : 0,
+          });
         }
         if (msg.subtype !== "success") {
           const errMsg = msg.errors?.join("; ") || msg.subtype;

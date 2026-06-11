@@ -55,6 +55,10 @@ next-env.d.ts
 .playwright-mcp/
 .claude/
 
+# segundo cérebro Obsidian (knowledge base pessoal — nao versionar)
+.obsidian/
+/Cerebro/
+
 # artefatos de teste/dev e scratch (sanitizacao 2026-06-03) — nao versionar
 /.e2e-*.txt
 /e2e-*.png
@@ -63,6 +67,9 @@ next-env.d.ts
 /docx_sections.txt
 /tmp-*.txt
 /tmp-export/
+
+# resultados do golden check do Revisor (gerados por `npm run golden`)
+/scripts/golden/results/
 
 # seed de dev (gerado por scripts/build-seed.mjs; pesado, fica fora do git)
 # obs: ainda fisicamente em public/ p/ o dev-seed.html funcionar via fetch("/dev-roteiros.json").

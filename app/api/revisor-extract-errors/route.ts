@@ -25,6 +25,8 @@ interface Body {
   category?: RoteiroCategory;
   revisaoMarkdown: string;
   escritaContent: string;
+  /** Id do roteiro — só atribuição no log de consumo de tokens. */
+  roteiroId?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -58,6 +60,12 @@ export async function POST(req: NextRequest) {
           thinking: "disabled",
           effort: "low",
           signal: req.signal,
+          meta: {
+            step: "revisor-extract",
+            category: body.category ?? DEFAULT_CATEGORY,
+            model: MODELS.opus,
+            ...(body.roteiroId ? { roteiroId: body.roteiroId } : {}),
+          },
         })) {
           controller.enqueue(encoder.encode(chunk));
         }

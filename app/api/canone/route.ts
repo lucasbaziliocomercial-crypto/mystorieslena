@@ -23,6 +23,8 @@ export const maxDuration = 300;
 interface Body {
   /** Texto da Premissa aprovada (output.content do step "premissa"). */
   premissa: string;
+  /** Id do roteiro — só atribuição no log de consumo de tokens. */
+  roteiroId?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -56,6 +58,11 @@ Extraia o CÂNONE DE ENTIDADES desta premissa no formato markdown estruturado de
           thinking: "disabled",
           effort: "low",
           signal: req.signal,
+          meta: {
+            step: "canone",
+            model: MODELS.opus,
+            ...(body.roteiroId ? { roteiroId: body.roteiroId } : {}),
+          },
         })) {
           controller.enqueue(encoder.encode(chunk));
         }

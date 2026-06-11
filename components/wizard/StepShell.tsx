@@ -1066,6 +1066,7 @@ export function StepShell({ step }: Props) {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 category,
+                roteiroId: roteiro.id,
                 previousOutputs: roteiro.outputs,
                 userInput: effectiveUserInput,
                 referenceImage: roteiro.referenceImage,
@@ -1403,6 +1404,7 @@ export function StepShell({ step }: Props) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             category,
+            roteiroId: roteiro.id,
             previousOutputs: roteiro.outputs,
             userInput: effectiveUserInput,
             referenceImage: roteiro.referenceImage,
@@ -1469,6 +1471,7 @@ export function StepShell({ step }: Props) {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 category,
+                roteiroId: roteiro.id,
                 revisaoMarkdown: cleanContent,
                 escritaContent,
               }),
@@ -1595,6 +1598,7 @@ export function StepShell({ step }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           category,
+          roteiroId: roteiro.id,
           previousOutputs: roteiro.outputs,
           userInput: effectiveUserInput,
           referenceImage: roteiro.referenceImage,
@@ -1689,6 +1693,7 @@ export function StepShell({ step }: Props) {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 category,
+                roteiroId: roteiro.id,
                 revisaoMarkdown: cleanContent,
                 escritaContent,
               }),
@@ -2287,6 +2292,7 @@ export function StepShell({ step }: Props) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             category,
+            roteiroId: roteiro.id,
             previousOutputs: roteiro.outputs,
             userInput: effectiveUserInput,
             referenceImage: roteiro.referenceImage,
@@ -3673,6 +3679,7 @@ function PremissaWizard() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             category,
+            ...(roteiro?.id ? { roteiroId: roteiro.id } : {}),
             userInput: trimmed,
             refineMode: true,
             currentOutput,

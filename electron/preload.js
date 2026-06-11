@@ -72,6 +72,28 @@ contextBridge.exposeInMainWorld("mystorieslena", {
     ipcRenderer.invoke("roteiros:read-backup", { name }),
 
   /**
+   * Abre dialog pra escolher uma pasta de backup externo (OneDrive/Drive).
+   * O auto-backup passa a gravar `veludo-roteiros-latest.json` lá também —
+   * cópia fora da máquina. Retorna { ok, dir } ou { ok:false, canceled:true }.
+   */
+  pickExternalBackupDir: () => ipcRenderer.invoke("backup:pick-external-dir"),
+
+  /** Retorna { ok, dir } com a pasta de backup externo (ou dir:null). */
+  getExternalBackupDir: () => ipcRenderer.invoke("backup:get-external-dir"),
+
+  /** Remove a pasta de backup externo configurada. Retorna { ok }. */
+  clearExternalBackupDir: () => ipcRenderer.invoke("backup:clear-external-dir"),
+
+  /**
+   * Anexa uma linha (JSON) de métrica de throughput ao perf.jsonl em disco.
+   * Só observabilidade — chamado ao fim de cada geração da Escrita.
+   */
+  appendPerfMetric: (line) => ipcRenderer.invoke("metrics:append", { line }),
+
+  /** Lê as últimas N métricas de throughput (mais recente primeiro). */
+  readPerfMetrics: (limit) => ipcRenderer.invoke("metrics:read", { limit }),
+
+  /**
    * Verifica se o usuário já fez login na conta Claude.
    * Retorna { loggedIn, hasBinary, binaryPath }.
    */

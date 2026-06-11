@@ -40,16 +40,28 @@ jobs:
       - name: Checkout código
         uses: actions/checkout@v4
 
-      - name: Configurar Node.js 20
+      - name: Configurar Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Node 22: os scripts de teste (scripts/test-*.mjs) importam .ts
+          # direto, o que exige strip de tipos nativo (Node >= 22). Em Node 20
+          # o `npm test` quebra com erro de extensão desconhecida.
+          node-version: 22
           cache: npm
 
       - name: Instalar dependências
         run: npm ci
         env:
           npm_config_optional: "true"
+
+      # ── Portão de qualidade: roda ANTES do build/publish ──────────────────
+      # Um erro de tipo ou parser quebrado nunca mais vai pro release sem aviso.
+      # Os dois scripts já existem no package.json e são baratos (segundos).
+      - name: Typecheck (tsc --noEmit)
+        run: npm run typecheck
+
+      - name: Testes (scripts/test-*.mjs)
+        run: npm test
 
       # Cache dos downloads do electron-builder (binario electron arm64+x64,
       # winCodeSign, nsis, nsis-resources). Sem cache, cada job rebaixa
