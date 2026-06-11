@@ -216,24 +216,35 @@ export function buildRevisorAgent({
  * Mantém o bloco <erros_detalhados> intacto — é ele que move os cards de correção
  * de 1 clique — e a lista PRINCIPAIS ERROS (o contador de erros do app usa ela
  * pro fallback de extração).
+ *
+ * ⚠️ ORDEM (NÃO reordenar sem motivo): HATER → RISCO → NOTA vêm ANTES do bloco
+ * <erros_detalhados>, e o XML é a ÚLTIMA seção. Isso casa com o system prompt
+ * ("APÓS A REVISÃO MARKDOWN" / "Depois de tudo, emita um bloco XML") e com o
+ * viés do modelo de tratar um bloco XML grande como o FIM da resposta. Quando o
+ * XML vinha no meio (com nota+hate depois dele), em revisões com muitos erros o
+ * modelo fechava </erros_detalhados> e PARAVA — derrubava exatamente a cauda
+ * (hater + risco + nota), e o app caía no fallback "nota não detectada" + hate
+ * falso-positivo (emoji 🔴 dos erros). Com a nota/hate ANTES do XML longo, elas
+ * já aterrissaram mesmo que o XML seja truncado. Bug 11/06/2026 (LENA P1, 13
+ * erros: só lista de erros, sem nota nem hate).
  */
 function buildLeanReportInstruction(): string {
   return [
     "━━━ MODO RELATÓRIO ENXUTO (PRIORIDADE sobre o formato do system prompt) ━━━",
     "",
-    "Esta revisão foca nos erros pra corrigir — MAS a nota e a avaliação de hate são essenciais e entram SEMPRE. Entregue SOMENTE estas seções, NESTA ordem, e NADA MAIS:",
+    "Esta revisão foca nos erros pra corrigir — MAS a nota e a avaliação de hate são essenciais e entram SEMPRE. Entregue SOMENTE estas seções, NESTA ordem EXATA, e NADA MAIS:",
     "",
     "1. # ❌ PRINCIPAIS ERROS — lista numerada e classificada (🟢/🟡/🟠/🔴), UMA linha curta por erro (trecho citado + qual é o problema). Sem parágrafos de análise.",
     "",
-    "2. O bloco <erros_detalhados>…</erros_detalhados> COMPLETO, no formato EXATO do system prompt — um <erro> por cada item de PRINCIPAIS ERROS, com trecho_original literal e trecho_corrigido plug-and-play.",
+    "2. ANÁLISE DE HATER — no formato do system prompt: liste TODOS os pontos que geram ódio/rejeição encontrados, onde estão e como resolver.",
     "",
-    "3. ANÁLISE DE HATER — no formato do system prompt: liste TODOS os pontos que geram ódio/rejeição encontrados, onde estão e como resolver.",
+    "3. NÍVEL DE RISCO DE HATE — 🟢 BAIXO / 🟡 MÉDIO / 🔴 ALTO, com justificativa curta.",
     "",
-    "4. NÍVEL DE RISCO DE HATE — 🟢 BAIXO / 🟡 MÉDIO / 🔴 ALTO, com justificativa curta.",
+    "4. NOTA FINAL (0 a 10) — com justificativa honesta.",
     "",
-    "5. NOTA FINAL (0 a 10) — com justificativa honesta.",
+    "5. O bloco <erros_detalhados>…</erros_detalhados> COMPLETO, no formato EXATO do system prompt — um <erro> por cada item de PRINCIPAIS ERROS, com trecho_original literal e trecho_corrigido plug-and-play. Este bloco é SEMPRE a ÚLTIMA coisa da resposta (vem DEPOIS da nota), nunca no meio.",
     "",
-    "NÃO gere nesta passada: SUGESTÕES PRÁTICAS, ANÁLISE COMO LEITOR REAL, MELHORIAS PRÁTICAS. Pule essas três seções inteiras — elas não entram aqui. (A ANÁLISE DE HATER, o NÍVEL DE RISCO DE HATE e a NOTA FINAL acima são obrigatórios mesmo nesta passada enxuta.)",
+    "NÃO gere nesta passada: SUGESTÕES PRÁTICAS, ANÁLISE COMO LEITOR REAL, MELHORIAS PRÁTICAS. Pule essas três seções inteiras — elas não entram aqui. (A ANÁLISE DE HATER, o NÍVEL DE RISCO DE HATE e a NOTA FINAL são obrigatórios mesmo nesta passada enxuta — emita as quatro primeiras seções ANTES de começar o <erros_detalhados> e NÃO encerre a resposta sem elas.)",
     "",
     "Comece direto pelo cabeçalho # ❌ PRINCIPAIS ERROS. Sem preâmbulo.",
   ].join("\n");

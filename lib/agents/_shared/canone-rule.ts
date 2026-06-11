@@ -54,6 +54,14 @@ ECONOMIA — não empilhar sobrenomes:
 • Não distribua sobrenomes à toa. Só quem realmente precisa (trama, parentesco, formalidade) ganha sobrenome; secundários menores podem ficar só com o primeiro nome.
 • Menos sobrenomes, fixos e distintos > muitos sobrenomes que mudam e se confundem.
 
+## UMA IDENTIDADE = UM NOME — NUNCA FRAGMENTAR UM PERSONAGEM (NÃO NEGOCIÁVEL)
+
+Cada personagem tem UM único nome canônico — o da PRIMEIRA aparição (ou do cânone, se houver) — e é chamado SEMPRE por ele, do primeiro ao último capítulo das DUAS Partes. A MESMA figura (mesma função, mesmas características, mesmo papel na cena) NUNCA pode ser referida por nomes diferentes — nem entre capítulos, nem dentro do mesmo capítulo, nem na mesma cena ou na mesma frase. Usar dois nomes pra uma só pessoa faz o leitor achar que são personagens distintos — é exatamente o erro que se quer impedir.
+
+• NÃO "desdobre" uma identidade em variantes (apelido novo, segundo nome, sobrenome trocado, grafia diferente) que façam parecer pessoas diferentes. Se na Parte 1 o personagem foi nomeado X, ele continua X na Parte 2 — jamais vira Y ou Z.
+• ANTES de nomear alguém numa cena, confirme: essa figura já apareceu antes? Se já, use o MESMO nome de antes. Só é um nome novo se for de verdade um personagem distinto previsto no cânone.
+• Vale para TODOS os personagens (principais, secundários, figurantes nomeados). Dois nomes pra uma pessoa só é tão grave quanto um nome pra duas pessoas.
+
 Esta regra é mais forte que qualquer outra instrução de estilo, ritmo ou criatividade.`;
 
 /**
@@ -98,6 +106,11 @@ DIVERGÊNCIAS QUE PRECISAM VIRAR ERRO NO BLOCO <erros_detalhados>:
 • Sobrenome repetido entre personagens que NÃO são parentes — **erro grave** (🔴): ou são família (e isso tem que estar claro no texto), ou um precisa de outro sobrenome.
 
 • Inconsistência interna entre capítulos (mesmo personagem aparece com idade diferente em capítulos distintos, ou nome grafado de duas formas ao longo do roteiro) — **GRAVÍSSIMO** (💀 ou 🔴 conforme a paleta) — emita um <erro> POR cada ocorrência divergente, todas apontando pra grafia canônica como trecho_corrigido.
+
+• Fragmentação de identidade — a MESMA figura (mesma função, mesmas características, mesmo papel na cena) é referida por NOMES DIFERENTES, usados de forma intercambiável entre capítulos, dentro do mesmo capítulo ou até na mesma cena/frase (como se fossem personagens distintos, quando não são) — **GRAVÍSSIMO** (💀 / 🔴 conforme a paleta). Escolha como canônico o nome da PRIMEIRA aparição do personagem (ou o do cânone, se houver) e padronize TODAS as ocorrências divergentes por ele: emita um <erro> POR cada ocorrência, trecho_original com o nome errado, trecho_corrigido com o nome canônico.
+  ↳ EXCEÇÃO DE REPETIÇÃO: se padronizar uma ocorrência fizer o MESMO nome se repetir na frase (dois personagens com o mesmo nome na mesma frase), NÃO crie essa colisão. Em vez de duplicar, troque a variante por OUTRO personagem JÁ EXISTENTE e coerente com a cena (preservando a lógica do que acontece ali) e explique a escolha no por_que_alterado.
+
+• Conferência final de nomes: antes de fechar a revisão, varra os nomes próprios das DUAS Partes — nenhuma variante incorreta pode permanecer no texto.
 
 REGRAS DURAS PRO CHECKLIST:
 

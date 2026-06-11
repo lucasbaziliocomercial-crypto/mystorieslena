@@ -159,6 +159,49 @@ export interface EvalSnapshot {
 }
 
 /**
+ * Chave do breakdown de produção. É o `StepId` do wizard + `"canone"` (a geração
+ * do Cânone de Entidades também roda pela fila e consome tempo, mas não é um step
+ * do wizard — fica entre premissa e estrutura1). Casa estruturalmente com o
+ * `QueueStep` de `store/queue.ts`, então `job.step` é atribuível direto.
+ */
+export type ProductionStepKey = StepId | "canone";
+
+/** Tempo de geração acumulado de UM step (entra no breakdown de [ProductionTime]). */
+export interface ProductionStepTime {
+  /** Soma do tempo ativo de geração deste step (ms). Re-gerar o step soma. */
+  totalMs: number;
+  /** Nº de vezes que este step foi gerado/contabilizado. */
+  generations: number;
+}
+
+/**
+ * Cronômetro de produção do roteiro — soma o tempo ATIVO de geração de todos os
+ * steps (premissa → estrutura → escrita → revisor → overview), pra a roteirista
+ * reportar pra equipe "quanto demorou só pra fazer este roteiro". Acumulado a
+ * cada step concluído na fila (`QueueRunner`); NÃO conta pausas, edição ou tempo
+ * parado (é tempo de geração, não tempo de relógio). Roteiros legados ficam
+ * undefined — o selo só aparece quando há tempo registrado. A lógica de acúmulo
+ * e formatação vive em `lib/production-time.ts` (fonte única).
+ */
+export interface ProductionTime {
+  /** Soma do tempo ativo de geração de todos os steps contabilizados (ms). */
+  totalMs: number;
+  /** Nº de gerações de step somadas (cada conclusão na fila incrementa). */
+  generations: number;
+  /** ISO da 1ª geração contabilizada (início aproximado da produção). */
+  firstStartedAt?: string;
+  /** ISO da última geração contabilizada. */
+  lastFinishedAt?: string;
+  /**
+   * Breakdown por step — quanto do total foi gasto em cada etapa. Alimenta a
+   * lista "tempo por step" no card. Cada conclusão de step soma na sua chave.
+   * Opcional pra retro-compat (roteiros contabilizados antes do breakdown só
+   * têm o total).
+   */
+  byStep?: Partial<Record<ProductionStepKey, ProductionStepTime>>;
+}
+
+/**
  * Sinopse curta de um capítulo gerado em batch — vira contexto pro próximo
  * batch (continuidade) e ponte Parte 1 → Parte 2.
  */
@@ -405,6 +448,13 @@ export interface Roteiro {
    * legados ficam undefined — o painel de qualidade só aparece quando há evals.
    */
   evals?: EvalSnapshot[];
+  /**
+   * Cronômetro de produção — soma do tempo ativo de geração de todos os steps
+   * (ver [ProductionTime]). Alimentado pelo `QueueRunner` ao concluir cada step;
+   * exibido como selo ⏱ no card da lista pra a roteirista reportar o tempo total
+   * pra equipe. Roteiros legados ficam undefined.
+   */
+  production?: ProductionTime;
   /** True quando a roteirista clicou "Aprovar cânone" — destrava avanço pra
    *  Estrutura P1 em roteiros novos. Roteiros legados sem cânone seguem
    *  funcionando mesmo com este flag false/undefined. */

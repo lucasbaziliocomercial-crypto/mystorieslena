@@ -138,6 +138,46 @@ export class EscritaPreconditionError extends Error {}
 export class EscritaFatalError extends Error {}
 
 /**
+ * Geração terminou com uma Parte INTEIRA vazia (0 capítulos gerados). NÃO é
+ * fatal no sentido de login/cota (o parcial da outra Parte é recuperável), mas
+ * também NÃO pode passar por "pronto": antes, o job era marcado `done` +
+ * notificação "Roteiro pronto ✓" com a Parte 2 em 0 palavras — falha silenciosa.
+ * Agora vira erro: a fila marca o job como falho e a UI mostra o banner
+ * "Continuar geração" (o resume gera só o que falta). Separa o CATASTRÓFICO
+ * (Parte inteira vazia) da degradação graciosa (1-2 caps faltando, que seguem
+ * nos batchWarnings com regeneração por card).
+ */
+export class EscritaIncompleteError extends Error {}
+
+/**
+ * Tempo MÁXIMO de silêncio do stream (nenhum byte recebido) antes de considerar
+ * o lote TRAVADO e abortar a tentativa. Sem isso, um stream que pendura (o
+ * processo `claude` engasga, a conexão fica meio-aberta sob cota saturada da
+ * equipe) deixava o `reader.read()` aguardando PARA SEMPRE — o job ficava
+ * "running" eternamente, segurando o slot da fila, sem nunca cair no retry nem
+ * mostrar o banner de recuperação (bug do "Gerando batch 6/6" eterno). 180s de
+ * silêncio TOTAL é patológico — um stream saudável emite tokens continuamente
+ * (gaps « 1s); só o 1º byte pode demorar quando a requisição fica na fila do
+ * servidor. Abortar→retry é NÃO-destrutivo (re-pede o MESMO lote), então mesmo
+ * um falso-positivo só custa uma tentativa. Conta como `transientRetries`
+ * (sinal de saturação), igual a um 429.
+ */
+const STREAM_STALL_TIMEOUT_MS = 180_000;
+
+/**
+ * Stream ficou em silêncio além de STREAM_STALL_TIMEOUT_MS. Tratado como
+ * TRANSIENTE (retry com backoff) no loop de batch, não como erro fatal.
+ */
+class StreamStallError extends Error {
+  constructor() {
+    super(
+      `Stream travado (sem dados por ${Math.round(STREAM_STALL_TIMEOUT_MS / 1000)}s)`,
+    );
+    this.name = "StreamStallError";
+  }
+}
+
+/**
  * Marcadores que a rota (`app/api/agent/[step]/route.ts`) injeta no corpo do
  * stream quando a SDK falha — com `res.ok=true`, então não dá pra detectar pelo
  * status HTTP. Se aparecerem, o "lote" não tem capítulos de verdade: é uma
@@ -217,22 +257,52 @@ async function readResponseText(
   // suficiente pra UI e leve no store. Sempre faz um flush final.
   let lastEmit = 0;
   let sawFirst = false;
-  for (;;) {
-    if (signal.aborted) break;
-    const { done, value } = await reader.read();
-    if (done) break;
-    acc += decoder.decode(value, { stream: true });
-    if (!sawFirst) {
-      sawFirst = true;
-      onFirstChunk?.(); // [perf] marca o TTFT (1º byte do stream)
-    }
-    if (onLive) {
-      const now = Date.now();
-      if (now - lastEmit > 80) {
-        lastEmit = now;
-        onLive(acc);
+  try {
+    for (;;) {
+      if (signal.aborted) break;
+      // Corrida entre o próximo chunk e um watchdog de silêncio. O timer é
+      // recriado a cada iteração (reseta a cada chunk), então só dispara se
+      // NENHUM byte chegar por STREAM_STALL_TIMEOUT_MS seguidos — convertendo um
+      // hang infinito num StreamStallError que o loop trata como transiente.
+      let stallTimer: ReturnType<typeof setTimeout> | undefined;
+      const stall = new Promise<never>((_, reject) => {
+        stallTimer = setTimeout(
+          () => reject(new StreamStallError()),
+          STREAM_STALL_TIMEOUT_MS,
+        );
+      });
+      let chunk: Awaited<ReturnType<typeof reader.read>>;
+      try {
+        chunk = await Promise.race([reader.read(), stall]);
+      } finally {
+        if (stallTimer) clearTimeout(stallTimer);
+      }
+      const { done, value } = chunk;
+      if (done) break;
+      acc += decoder.decode(value, { stream: true });
+      if (!sawFirst) {
+        sawFirst = true;
+        onFirstChunk?.(); // [perf] marca o TTFT (1º byte do stream)
+      }
+      if (onLive) {
+        const now = Date.now();
+        if (now - lastEmit > 80) {
+          lastEmit = now;
+          onLive(acc);
+        }
       }
     }
+  } catch (e) {
+    // Watchdog disparou: cancela o reader pra liberar a conexão pendurada e
+    // propaga pro chamador tratar como transiente (retry com backoff).
+    if (e instanceof StreamStallError) {
+      try {
+        await reader.cancel();
+      } catch {
+        /* reader já morto — ignora */
+      }
+    }
+    throw e;
   }
   if (onLive) onLive(acc);
   return acc;
@@ -333,6 +403,13 @@ export async function runEscrita(
   let batchesDone = 0; // progresso agregado (display)
   let transientRetries = 0; // 408/429/5xx — sinal de saturação de cota
   let backoffMs = 0;
+  // [perf] calibração — antes só ia pro console (linha [perf] … recalibração) e
+  // evaporava; agora acumula pra pousar no perf.jsonl e o checkup poder decidir
+  // CALIBRATION_MAX_PASSES/alvo×0,94 com dado. Só observabilidade.
+  let calibCapsOutOfTarget = 0; // caps fora do alvo ±8% (P1+P2)
+  let calibToExpand = 0; // destes, quantos estavam CURTOS (viés "escreve curto")
+  let calibToShorten = 0; // quantos estavam LONGOS
+  let calibPasses = 0; // total de chamadas Sonnet de reescrita (mede a cauda)
 
   // ═══ Loop de UMA Parte (retry/dedup por batch) — roda 1× por Parte ════════
   // Tentativas por batch: cobre falha de FORMATO (modelo não emitiu os
@@ -467,9 +544,33 @@ export async function runEscrita(
           break;
         }
 
-        const acc = await readResponseText(res, signal, onLive, () => {
-          if (ttftMs === 0) ttftMs = Date.now() - batchStart;
-        });
+        let acc = "";
+        try {
+          acc = await readResponseText(res, signal, onLive, () => {
+            if (ttftMs === 0) ttftMs = Date.now() - batchStart;
+          });
+        } catch (e) {
+          if (signal.aborted) break;
+          // Stream travou (watchdog de silêncio). Trata como TRANSIENTE: retenta
+          // com backoff em vez de pendurar o job pra sempre. Conta como saturação
+          // (igual a um 429). Esgotadas as tentativas, vira warning do lote — o
+          // loop segue, e o guard de completude no fim pega Parte inteira vazia.
+          if (e instanceof StreamStallError) {
+            if (attempt <= MAX_RETRIES_PER_BATCH) {
+              transientRetries += 1;
+              const delay = backoffDelay(attempt);
+              backoffMs += delay;
+              await sleep(delay, signal);
+              if (signal.aborted) break;
+              continue;
+            }
+            batchFatalError = `O stream do modelo travou (sem dados por ${Math.round(
+              STREAM_STALL_TIMEOUT_MS / 1000,
+            )}s) após ${MAX_RETRIES_PER_BATCH + 1} tentativas.`;
+            break;
+          }
+          throw e; // erro inesperado — propaga (a fila marca o job como falho)
+        }
         if (signal.aborted) break;
 
         // A rota injeta marcadores login/binário quando a SDK falha COM
@@ -629,6 +730,10 @@ export async function runEscrita(
     const toExpand = candidates.filter(
       (c) => countWords(c.ch.content) < c.target!,
     ).length;
+    // [perf] acumula pro perf.jsonl (compartilhado P1+P2, como transientRetries).
+    calibCapsOutOfTarget += candidates.length;
+    calibToExpand += toExpand;
+    calibToShorten += candidates.length - toExpand;
     console.info(
       `[perf] escrita: ${partLabel} — ${candidates.length} cap(s) fora do alvo → recalibração (${toExpand} expandir, ${candidates.length - toExpand} encurtar)`,
     );
@@ -680,6 +785,7 @@ export async function runEscrita(
             }
 
             try {
+              calibPasses += 1; // [perf] conta a chamada Sonnet efetiva (cauda)
               const fixRes = await fetch(`/api/escrita-fix-wordcount`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -793,7 +899,39 @@ export async function runEscrita(
     batches: totalBatches,
     transientRetries,
     backoffMs,
+    calibCapsOutOfTarget,
+    calibToExpand,
+    calibToShorten,
+    calibPasses,
   });
+
+  // ═══ Guard de completude — uma Parte INTEIRA vazia = entrega quebrada ══════
+  // O parcial (a outra Parte) já foi salvo via emitPartial acima. Se uma Parte
+  // ficou com ZERO capítulos (cota estourou no meio, modelo não respondeu, ou o
+  // stream travou e esgotou os retries), NÃO retornamos "pronto" em silêncio —
+  // antes isso deixava o job `done` + notificação "Roteiro pronto ✓" com a
+  // Parte 2 em 0 palavras (bug reportado). Lança EscritaIncompleteError → a fila
+  // marca o job como falho e a UI mostra "Continuar geração" (resume gera só o
+  // que falta). NÃO dispara em cancelamento (signal.aborted) nem em gaps
+  // PARCIAIS (1-2 caps faltando seguem no caminho gracioso dos batchWarnings).
+  if (!signal.aborted && !fatalRaised) {
+    const p1Got = new Set(
+      p1Chapters.map((c) => c.number).filter((n) => n > 0),
+    ).size;
+    const p2Got = new Set(
+      p2Chapters.map((c) => c.number).filter((n) => n > 0),
+    ).size;
+    const emptyParts: string[] = [];
+    if (totalP1 > 0 && p1Got === 0) emptyParts.push("Parte 1");
+    if (totalP2 > 0 && p2Got === 0) emptyParts.push("Parte 2");
+    if (emptyParts.length > 0) {
+      throw new EscritaIncompleteError(
+        `${emptyParts.join(" e ")} ${
+          emptyParts.length === 1 ? "ficou vazia" : "ficaram vazias"
+        } (0 capítulos gerados). A geração foi interrompida por erro de cota/rede ou o modelo não respondeu. Os capítulos já prontos estão salvos — clique em "Continuar geração" pra gerar só o que falta.`,
+      );
+    }
+  }
 
   return result;
 }

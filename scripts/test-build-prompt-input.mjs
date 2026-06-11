@@ -116,12 +116,16 @@ const BOUNDARY = `${STX}CACHE_BOUNDARY${STX}`;
   check("CASE 5: bloco 1 é text", content[0]?.type === "text");
   check("CASE 5: bloco 2 é text", content[1]?.type === "text");
   check(
-    "CASE 5: prefixo NÃO tem cache_control (nenhum breakpoint antes do último)",
-    content[0]?.cache_control === undefined,
+    "CASE 5: prefixo TEM cache_control ttl='1h' (reativa cache de prefixo cross-batch) ✨",
+    content[0]?.cache_control?.type === "ephemeral" &&
+      content[0]?.cache_control?.ttl === "1h",
+    `cache_control real: ${JSON.stringify(content[0]?.cache_control)}`,
   );
   check(
-    "CASE 5: sufixo (último bloco) TEM cache_control — evita conflito TTL 1h/5m",
-    content[1]?.cache_control?.type === "ephemeral",
+    "CASE 5: sufixo (último bloco) TEM cache_control ttl='1h' — tudo 1h, sem 5m antes (evita 400)",
+    content[1]?.cache_control?.type === "ephemeral" &&
+      content[1]?.cache_control?.ttl === "1h",
+    `cache_control real: ${JSON.stringify(content[1]?.cache_control)}`,
   );
   check(
     "CASE 5: prefixo = texto antes do sentinela (trim)",
@@ -155,12 +159,14 @@ const BOUNDARY = `${STX}CACHE_BOUNDARY${STX}`;
     content[0]?.cache_control === undefined,
   );
   check(
-    "CASE 6: prefixo (bloco 2) NÃO tem cache_control",
-    content[1]?.cache_control === undefined,
+    "CASE 6: prefixo (bloco 2) TEM cache_control ttl='1h'",
+    content[1]?.cache_control?.type === "ephemeral" &&
+      content[1]?.cache_control?.ttl === "1h",
   );
   check(
-    "CASE 6: sufixo (bloco 3, último) TEM cache_control — evita conflito TTL 1h/5m",
-    content[2]?.cache_control?.type === "ephemeral",
+    "CASE 6: sufixo (bloco 3, último) TEM cache_control ttl='1h' — tudo 1h, sem 5m antes (evita 400)",
+    content[2]?.cache_control?.type === "ephemeral" &&
+      content[2]?.cache_control?.ttl === "1h",
   );
   check(
     "CASE 6: nenhum text block retém o sentinela",

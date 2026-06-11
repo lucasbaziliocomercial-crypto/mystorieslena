@@ -1,7 +1,7 @@
 {
   "name": "mystorieslena",
   "productName": "MyStoriesLena",
-  "version": "1.0.89",
+  "version": "1.0.90",
   "description": "MyStoriesLena — Gerador de Roteiros de Romance",
   "private": true,
   "main": "electron/main.js",
@@ -10,7 +10,8 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit --incremental false",
-    "test": "node scripts/test-parse-markdown-errors.mjs && node scripts/test-build-prompt-input.mjs && node scripts/test-validate-rewrite.mjs",
+    "test": "node scripts/test-parse-markdown-errors.mjs && node scripts/test-build-prompt-input.mjs && node scripts/test-validate-rewrite.mjs && node scripts/test-lz-compress-vendored.mjs",
+    "revisao": "node scripts/revisao-rigorosa.mjs",
     "golden": "node scripts/golden-eval.mjs",
     "clean": "node -e \"for (const d of ['.next','dist-electron']) { try { require('fs').rmSync(d,{recursive:true,force:true}); console.log('removido:',d) } catch(e) { console.log('skip',d,e.message) } }\"",
     "clean:next": "node -e \"try { require('fs').rmSync('.next',{recursive:true,force:true}); console.log('.next removido') } catch(e) { console.log(e.message) }\"",

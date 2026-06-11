@@ -14,6 +14,7 @@ import { downloadFile } from "@/lib/backup";
 import type { Roteiro } from "@/types/roteiro";
 import { STEP_ORDER } from "@/types/roteiro";
 import { CATEGORIES } from "@/lib/categories";
+import { ProductionTimeBadge } from "@/components/ProductionTimeBadge";
 import type { RoteiroCategory } from "@/lib/categories/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -246,6 +247,11 @@ export function RoteiroList() {
                       })}
                     </span>
                   </div>
+                  {r.production && r.production.totalMs > 0 && (
+                    <div className="mt-1.5">
+                      <ProductionTimeBadge production={r.production} />
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1">
                   {activeJob ? (

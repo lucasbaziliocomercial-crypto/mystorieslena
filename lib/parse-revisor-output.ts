@@ -369,26 +369,50 @@ export function gravityLabel(g: RevisorErrorGravity): {
 
 /**
  * Extrai a Nota (0 a 10) do markdown do relatório do Revisor. O relatório enxuto
- * pede "NOTA FINAL (0 a 10) — …", então o modelo escreve coisas como
- * `**NOTA FINAL (0 a 10): 8/10**` ou `Nota Final: 8,5/10`. Tolera texto entre
- * "nota" e o "X/10" (a palavra "FINAL" + o engodo "(0 a 10)") e aceita decimal
- * (8,5 / 8.5) e variações de bold/espaço. Pega a ÚLTIMA ocorrência — a NOTA FINAL
- * fica perto do fim do relatório, longe de qualquer "x/10" solto na prosa.
+ * pede "NOTA FINAL (0 a 10) — …", e o modelo escreve de DUAS formas, ambas
+ * suportadas:
+ *   • com barra:  `**NOTA FINAL (0 a 10): 8/10**`, `Nota Final: 8,5/10`
+ *   • SEM barra:  `🧨 NOTA FINAL: 7,8`  ← o modelo às vezes omite o "/10"
+ *
+ * O desafio é não confundir o engodo do RANGE "(0 a 10)" (texto da instrução)
+ * com a nota. Duas passadas:
+ *   Passo 1 (alta confiança): número seguido de "/10" — o "/10" já desambigua
+ *     do "(0 a 10)" (que não tem barra). Pega a ÚLTIMA ocorrência (a NOTA FINAL
+ *     fica perto do fim, longe de "x/10" solto na prosa).
+ *   Passo 2 (fallback p/ "NOTA FINAL: 7,8" SEM barra): primeiro remove o range
+ *     "(0 a 10)"/"(0-10)" do texto, depois ancora no cabeçalho específico
+ *     "NOTA FINAL" (seguro contra "nota" solto na prosa) e pega o número logo
+ *     em seguida, na mesma linha/curtíssima distância — sem vazar pra
+ *     justificativa (que vem depois e cita "Cap 4"/nº de erros).
+ *
  * Retorna null se não achar. Usado pelo banner de veredito + abas + eval,
  * computado no display — sem persistir nada no metadata.
  */
 export function parseRevisorNota(content: string): number | null {
   if (!content) return null;
-  // Exigir "/10" é o que pula o engodo "(0 a 10)" (que não tem barra): o motor
-  // backtrack avança o gap até o "8/10" real. Bound de ~40 chars cobre
-  // "FINAL (0 a 10): " sem deixar o gap saltar pra um "/10" distante.
-  const re = /nota\b[\s\S]{0,40}?(\d+(?:[.,]\d+)?)\s*\/\s*10/gi;
+
+  const clamp = (raw: string): number | null => {
+    const n = parseFloat(raw.replace(",", "."));
+    return Number.isFinite(n) ? Math.max(0, Math.min(10, n)) : null;
+  };
+
+  // Passo 1: número com "/10" (o "/10" pula o engodo "(0 a 10)"). Última ocorrência.
   let best: number | null = null;
-  for (const m of content.matchAll(re)) {
-    const n = parseFloat(m[1]!.replace(",", "."));
-    if (Number.isFinite(n)) best = Math.max(0, Math.min(10, n));
+  for (const m of content.matchAll(/nota\b[\s\S]{0,40}?(\d+(?:[.,]\d+)?)\s*\/\s*10/gi)) {
+    const v = clamp(m[1]!);
+    if (v !== null) best = v;
   }
-  return best;
+  if (best !== null) return best;
+
+  // Passo 2: "NOTA FINAL: 7,8" sem barra. Remove o RANGE "(0 a 10)" antes (senão
+  // o "0" do range seria lido como nota), depois ancora no cabeçalho "NOTA FINAL"
+  // e pega o número logo em seguida. O gap [^\n\d letras] só admite pontuação/
+  // espaço/emoji (":", "—", "( )", "🧨") — NÃO letras nem newline: assim o número
+  // tem que estar colado ao cabeçalho (ex.: "NOTA FINAL: 7,8") e nunca cai num
+  // "Cap 4" da justificativa caso o modelo esqueça o valor da nota.
+  const cleaned = content.replace(/0\s*(?:at[ée]|a|to|[-–—])\s*10/gi, " ");
+  const m2 = /nota\s+final[^\n\dA-Za-zÀ-ÿ]{0,20}?(\d+(?:[.,]\d+)?)/i.exec(cleaned);
+  return m2 ? clamp(m2[1]!) : null;
 }
 
 /**
