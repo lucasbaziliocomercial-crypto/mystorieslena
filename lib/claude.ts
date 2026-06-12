@@ -268,6 +268,59 @@ export interface StreamClaudeParams {
 }
 
 /**
+ * Nº máximo de tentativas de UMA chamada ao SDK (1 original + 2 retries). Cobre
+ * a janela de uma corrida de refresh de token OAuth: vários processos `claude`
+ * concorrentes (revisor1‖revisor2, P1‖P2, vários jobs na fila) competem pela
+ * renovação do token em ~/.claude/.credentials.json — o perdedor leva um 401
+ * transiente. Ver streamClaudeText (recursão de retry) e isRetryableClaudeError.
+ */
+const MAX_ATTEMPTS = 3;
+
+/**
+ * Erro do SDK que vale REPETIR (transiente) em vez de estourar pro usuário como
+ * "[LOGIN NECESSÁRIO NO CLAUDE]"/"[ERRO]". É superset do `isAuthError` da rota
+ * (app/api/agent/[step]/route.ts) — tudo que hoje vira bloco de login é
+ * retentado ANTES — somado aos transientes de cota/rede que a Escrita já
+ * reconhece (espelha o regex de cota de lib/generation/run-escrita.ts):
+ *   • corrida de auth/refresh: authentication · 401 · invalid auth · unauthorized · credentials
+ *   • cota/sobrecarga:         429 · rate limit · overloaded · capacity
+ *   • rede:                    ECONNRESET · socket hang up · network · fetch failed · terminated
+ * Exportada pra teste (scripts/test-claude-retry.mjs).
+ */
+export function isRetryableClaudeError(msg: string): boolean {
+  return /authentication|401|invalid auth|unauthorized|credentials|429|rate.?limit|overloaded|capacity|ECONNRESET|socket hang up|network|fetch failed|terminated/i.test(
+    msg,
+  );
+}
+
+/**
+ * Backoff exponencial (500ms · 1s · 2s … teto 4s) + jitter aleatório de 0..base.
+ * O jitter DESSINCRONIZA as tentativas dos processos concorrentes — sem ele,
+ * todos retentariam juntos e recriariam a mesma corrida de refresh ("thundering
+ * herd"). Math.random é OK aqui (server-side; não é script de Workflow).
+ */
+function retryBackoffMs(attempt: number): number {
+  const base = Math.min(500 * 2 ** (attempt - 1), 4000);
+  return base + Math.floor(Math.random() * base);
+}
+
+/** Sleep que resolve cedo se o `signal` abortar (não trava o cancelamento). */
+function sleepWithSignal(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) return resolve();
+    const t = setTimeout(resolve, ms);
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(t);
+        resolve();
+      },
+      { once: true },
+    );
+  });
+}
+
+/**
  * Runs a single-turn generation via the Claude Agent SDK (uses the local
  * Claude Code CLI auth — the user's subscription — instead of an API key).
  *
@@ -277,9 +330,14 @@ export interface StreamClaudeParams {
  * - sem tools, sem session persist, sem setting sources
  *
  * Yields text chunks as they stream from the model.
+ *
+ * Resiliência: erros TRANSIENTES/auth antes do 1º chunk (corrida de refresh do
+ * token OAuth sob concorrência, 429, rede) são RETENTADOS com backoff via
+ * recursão — `attempt` é o contador interno, NÃO passar nas chamadas normais.
  */
 export async function* streamClaudeText(
   params: StreamClaudeParams,
+  attempt = 1,
 ): AsyncGenerator<string, void, void> {
   const abortController = new AbortController();
   const onAbort = () => abortController.abort();
@@ -317,6 +375,12 @@ export async function* streamClaudeText(
   const pathToClaudeCodeExecutable = resolveClaudeExecutable();
 
   const promptInput = buildPromptInput(params);
+
+  // True assim que QUALQUER chunk (raciocínio ou texto) já foi emitido ao cliente
+  // nesta tentativa. O retry só dispara com yieldedAny=false — erros de
+  // auth/refresh falham no handshake (antes de qualquer texto), então repetir é
+  // seguro; se já saiu prosa, NÃO repete (jamais duplica saída).
+  let yieldedAny = false;
 
   try {
     const iter = query({
@@ -370,6 +434,7 @@ export async function* streamClaudeText(
             if (thinkingClosed) continue;
             if (!thinkingOpened) {
               thinkingOpened = true;
+              yieldedAny = true;
               yield THINKING_OPEN;
             }
             yield ev.delta.thinking;
@@ -378,6 +443,7 @@ export async function* streamClaudeText(
               thinkingClosed = true;
               yield THINKING_CLOSE;
             }
+            yieldedAny = true;
             yield ev.delta.text;
           }
         }
@@ -434,6 +500,35 @@ export async function* streamClaudeText(
         }
       }
     }
+  } catch (e) {
+    // Retry de erro TRANSIENTE/auth antes de estourar pro usuário (a rota
+    // transformaria num "[LOGIN NECESSÁRIO]"/"[ERRO]" e a revisão/escrita morreria
+    // mesmo com a usuária logada). Causa nº 1: corrida de refresh do token OAuth
+    // quando vários processos `claude` rodam concorrentes — o perdedor leva um 401
+    // transiente. Repetir re-lê a credencial já renovada e segue. Só quando NADA
+    // foi emitido (yieldedAny=false), não foi cancelado e ainda há tentativa:
+    // delega a uma invocação FRESCA (promptInput/query/abortController novos) via
+    // yield*. Senão, rethrow → a rota mostra o bloco de login/erro (último recurso).
+    const m = e instanceof Error ? e.message : String(e);
+    if (
+      !yieldedAny &&
+      attempt < MAX_ATTEMPTS &&
+      !params.signal?.aborted &&
+      isRetryableClaudeError(m)
+    ) {
+      console.warn(
+        `[claude.ts] tentativa ${attempt}/${MAX_ATTEMPTS} falhou (transiente/auth), repetindo em backoff: ${m.slice(0, 160)}`,
+      );
+      await sleepWithSignal(retryBackoffMs(attempt), params.signal);
+      // O backoff pode ter terminado cedo porque o usuário CANCELOU — nesse caso
+      // NÃO dispare outra tentativa: ela criaria um query() que não observa o
+      // abort já disparado (listener pós-abort não re-dispara) e gastaria cota da
+      // assinatura compartilhada à toa.
+      if (params.signal?.aborted) return;
+      yield* streamClaudeText(params, attempt + 1);
+      return;
+    }
+    throw e;
   } finally {
     params.signal?.removeEventListener("abort", onAbort);
   }
