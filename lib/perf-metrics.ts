@@ -35,7 +35,7 @@ export interface EscritaPerfRecord {
   backoffMs: number;
   /**
    * Calibração (observabilidade pro checkup decidir CALIBRATION_MAX_PASSES /
-   * alvo×0,94 com dado). Opcionais — registros antigos do .jsonl não têm.
+   * alvo×0,99 com dado). Opcionais — registros antigos do .jsonl não têm.
    */
   /** Caps fora do alvo ±8% que dispararam reescrita Sonnet (P1+P2). */
   calibCapsOutOfTarget?: number;
