@@ -6,6 +6,15 @@ import {
   parseRevisorNota,
   parseRevisorHateRisk,
   computeRevisorEval,
+  hasCanonMeta,
+  stripCanonMeta,
+  hasCanonBanner,
+  stripCanonBanner,
+  hasEditorialNote,
+  stripEditorialNote,
+  isNoOpCorrection,
+  applyCorrections,
+  parseRevisorErrors,
 } from "../lib/parse-revisor-output.ts";
 import { appendEvalSnapshot } from "../lib/eval-log.ts";
 
@@ -182,6 +191,258 @@ for (const [input, expected] of hateCases) {
     l4.length === 3;
   console.log(`${ok ? "✅ PASS" : "❌ FAIL"} appendEvalSnapshot dedup+append (len ${l1.length}→${l2.length}→${l3.length}→${l4.length})`);
   if (ok) totalPass++; else { totalFail++; console.log(JSON.stringify({ l1, l3, l4 }, null, 2)); }
+}
+
+// ── CÂNONE nas correções (bug recorrente): o cânone JAMAIS pode entrar na prosa
+//    nem no card. stripCanonMeta (cards) limpa tarja + citação ENDURECIDA;
+//    stripCanonBanner (prosa) limpa SÓ a tarja. Prosa legítima com "o cânone"
+//    como substantivo ("o cânone bíblico", "segundo o cânone da Igreja") fica
+//    INTACTA — é o falso-positivo GRAVÍSSIMO que apagaria texto da autora. ──
+const canonStrip = [
+  // [input, esperado] — stripCanonMeta (caminho dos CARDS).
+  ["Helena entrou na sala, conforme o cânone.", "Helena entrou na sala."],
+  ["Ela sorriu (conforme o cânone).", "Ela sorriu."],
+  [
+    "Helena Marques entrou, alinhado com o CÂNONE (Helena Marques, 32 anos).",
+    "Helena Marques entrou.",
+  ],
+  // Citação com vírgula imediata depois de "cânone" (pontuação terminal) → casa.
+  ["Ele assentiu, segundo o cânone, e saiu.", "Ele assentiu, e saiu."],
+  // Tarja do bloco de cânone vazada → some (sobra a prosa real).
+  [
+    "━━━ CÂNONE DE ENTIDADES — fonte canônica ━━━\nHelena entrou.",
+    "\nHelena entrou.",
+  ],
+  // PROSA LEGÍTIMA com "cânone" SUBSTANTIVO (seguido de palavra) → INTACTA.
+  // Estes 3 são exatamente o falso-positivo que o revisor-rigoroso pegou.
+  ["Segundo o cânone da Igreja Católica, isso era pecado.", "Segundo o cânone da Igreja Católica, isso era pecado."],
+  ["De acordo com o cânone budista, o desejo é a raiz do sofrimento.", "De acordo com o cânone budista, o desejo é a raiz do sofrimento."],
+  ["Conforme o cânone bíblico, havia setenta e três livros.", "Conforme o cânone bíblico, havia setenta e três livros."],
+  ["Ela estudou o cânone literário na faculdade.", "Ela estudou o cânone literário na faculdade."],
+  ["Conforme combinado, ela saiu mais cedo.", "Conforme combinado, ela saiu mais cedo."],
+];
+for (const [input, expected] of canonStrip) {
+  const got = stripCanonMeta(input);
+  const ok = got === expected;
+  console.log(
+    `${ok ? "✅ PASS" : "❌ FAIL"} stripCanonMeta(${JSON.stringify(input.slice(0, 40))}) → ${JSON.stringify(got)}`,
+  );
+  if (ok) totalPass++; else { totalFail++; console.log(`   esperado ${JSON.stringify(expected)}`); }
+}
+// stripCanonBanner (caminho da PROSA): remove SÓ a tarja; JAMAIS a citação inline
+// (na prosa, a citação daria falso-positivo). Trava a separação dos dois caminhos.
+const bannerCases = [
+  ["━━━ CÂNONE DE ENTIDADES — fonte ━━━\nHelena.", "\nHelena."],
+  // Citação inline NA PROSA fica INTACTA (banner-only não toca).
+  ["Ela sorriu (conforme o cânone).", "Ela sorriu (conforme o cânone)."],
+  ["Segundo o cânone da Igreja, isso era pecado.", "Segundo o cânone da Igreja, isso era pecado."],
+];
+for (const [input, expected] of bannerCases) {
+  const got = stripCanonBanner(input);
+  const ok = got === expected;
+  console.log(`${ok ? "✅ PASS" : "❌ FAIL"} stripCanonBanner(${JSON.stringify(input.slice(0, 38))}) → ${JSON.stringify(got)}`);
+  if (ok) totalPass++; else { totalFail++; console.log(`   esperado ${JSON.stringify(expected)}`); }
+}
+// hasCanonMeta (cards): true só pro meta; false pra "o cânone" substantivo.
+for (const [input, expectMeta] of [
+  ["conforme o cânone", true],
+  ["CÂNONE DE ENTIDADES", true],
+  ["segundo o cânone budista", false],
+  ["o cânone literário", false],
+  ["uma tarde qualquer", false],
+]) {
+  const got = hasCanonMeta(input);
+  const ok = got === expectMeta;
+  console.log(`${ok ? "✅ PASS" : "❌ FAIL"} hasCanonMeta(${JSON.stringify(input)}) → ${got}`);
+  if (ok) totalPass++; else totalFail++;
+}
+// hasCanonBanner (prosa): só a tarja conta; citação inline NÃO.
+for (const [input, expectBanner] of [
+  ["CÂNONE DE ENTIDADES", true],
+  ["conforme o cânone", false],
+  ["Segundo o cânone da Igreja", false],
+]) {
+  const got = hasCanonBanner(input);
+  const ok = got === expectBanner;
+  console.log(`${ok ? "✅ PASS" : "❌ FAIL"} hasCanonBanner(${JSON.stringify(input)}) → ${got}`);
+  if (ok) totalPass++; else totalFail++;
+}
+// applyCorrections: trecho_corrigido contaminado por cânone NÃO chega na prosa.
+{
+  const base = "Helen entrou na sala.";
+  const errs = [
+    {
+      id: "1", numero: "1", gravidade: "gravissimo", titulo: "nome",
+      trechoOriginal: "Helen entrou na sala.",
+      trechoCorrigido: "Helena entrou na sala, conforme o cânone.",
+      porqueAlterado: "padronização",
+    },
+  ];
+  const { text, appliedIds } = applyCorrections(base, errs);
+  const ok = text === "Helena entrou na sala." && appliedIds.length === 1 && !hasCanonMeta(text);
+  console.log(`${ok ? "✅ PASS" : "❌ FAIL"} applyCorrections strips canon from prose → ${JSON.stringify(text)}`);
+  if (ok) totalPass++; else { totalFail++; console.log(JSON.stringify({ text, appliedIds }, null, 2)); }
+}
+// parseRevisorErrors: o trecho_corrigido do card já sai sem cânone.
+{
+  const xml = `<erros_detalhados>
+<erro numero="1" gravidade="gravissimo" titulo="nome">
+<trecho_original>Helen sorriu.</trecho_original>
+<trecho_corrigido>Helena sorriu (conforme o cânone).</trecho_corrigido>
+<por_que_alterado>padronização pela 1ª aparição</por_que_alterado>
+</erro>
+</erros_detalhados>`;
+  const errs = parseRevisorErrors(xml, 1);
+  const tc = errs[0]?.trechoCorrigido ?? "";
+  const ok = errs.length === 1 && tc === "Helena sorriu." && !hasCanonMeta(tc);
+  console.log(`${ok ? "✅ PASS" : "❌ FAIL"} parseRevisorErrors strips canon from card → ${JSON.stringify(tc)}`);
+  if (ok) totalPass++; else { totalFail++; console.log(JSON.stringify(errs, null, 2)); }
+}
+
+// ── NOTA EDITORIAL do Revisor entre colchetes (bug 1.0.88, "muito grave"): o
+//    Revisor, sem o nome canônico, escreve "[substitua X pelo nome do cânone…]"
+//    no lugar da prosa e o find+replace cravava o metadado na história final.
+//    hasEditorialNote detecta SÓ o colchete + marcador editorial (zero falso-
+//    positivo na prosa); a correção com nota vira INFORMATIVA (trecho_corrigido
+//    zerado) e JAMAIS é aplicada. ──
+const SOREN_NOTE =
+  '[NOME NÃO MENCIONE — substitua "Soren Malvorne" e todas as ocorrências de "Soren" pelo nome que a roteirista definir para este personagem no cânone, ou adicione-o ao cânone de entidades antes de aplicar a correção automática.]';
+for (const [input, expected] of [
+  [SOREN_NOTE, true],
+  ["[adicione ao cânone de entidades antes de prosseguir]", true],
+  ["[substitua o nome aqui]", true],
+  ["[NOME NÃO MENCIONE — definir depois]", true],
+  ["[ver ocorrências de Soren no capítulo]", true],
+  ["[nota da roteirista pendente]", true],
+  // Benignos: colchete SEM marcador editorial → NÃO casa (não vira contaminação).
+  ["[1]", false],
+  ["[risos]", false],
+  ["[...]", false],
+  // Sem colchete: "substitua"/"cânone" soltos na prosa NÃO casam (exige colchete).
+  ["Ela pediu que ele substituísse a fechadura.", false],
+  ["Segundo o cânone da Igreja, era pecado.", false],
+  ["uma tarde qualquer", false],
+]) {
+  const got = hasEditorialNote(input);
+  const ok = got === expected;
+  console.log(`${ok ? "✅ PASS" : "❌ FAIL"} hasEditorialNote(${JSON.stringify(input.slice(0, 42))}) → ${got}`);
+  if (ok) totalPass++; else totalFail++;
+}
+// stripEditorialNote (caminho da PROSA): remove a nota colapsando o espaço,
+// preserva a prosa legítima.
+for (const [input, expected] of [
+  ["Aksel subiu e [NOME NÃO MENCIONE — substitua Soren] correu atrás dele.", "Aksel subiu e correu atrás dele."],
+  // Sem nota → passthrough idêntico (early-return).
+  ["Helena entrou na sala devagar.", "Helena entrou na sala devagar."],
+  // Prosa legítima com "o cânone" substantivo (sem colchete) → intacta.
+  ["Segundo o cânone da Igreja, era pecado.", "Segundo o cânone da Igreja, era pecado."],
+]) {
+  const got = stripEditorialNote(input);
+  const ok = got === expected;
+  console.log(`${ok ? "✅ PASS" : "❌ FAIL"} stripEditorialNote(${JSON.stringify(input.slice(0, 46))}) → ${JSON.stringify(got)}`);
+  if (ok) totalPass++; else { totalFail++; console.log(`   esperado ${JSON.stringify(expected)}`); }
+}
+// parseRevisorErrors: trecho_corrigido com nota editorial → ZERADO (card vira
+// informativo); o por_que_alterado sobrevive pra a roteirista decidir.
+{
+  const xml = `<erros_detalhados>
+<erro numero="1" gravidade="gravissimo" titulo="nome fora do cânone">
+<trecho_original>e Soren correu atrás dele para alcançá-lo.</trecho_original>
+<trecho_corrigido>e ${SOREN_NOTE} — Aksel — ele disse.</trecho_corrigido>
+<por_que_alterado>"Soren Malvorne" não está no cânone; a roteirista precisa definir o nome.</por_que_alterado>
+</erro>
+</erros_detalhados>`;
+  const errs = parseRevisorErrors(xml, 2);
+  const e = errs[0];
+  const ok =
+    errs.length === 1 &&
+    e.trechoCorrigido === "" &&
+    !hasEditorialNote(e.trechoCorrigido) &&
+    e.porqueAlterado.includes("cânone");
+  console.log(`${ok ? "✅ PASS" : "❌ FAIL"} parseRevisorErrors zera trecho_corrigido com nota editorial → ${JSON.stringify(e?.trechoCorrigido)}`);
+  if (ok) totalPass++; else { totalFail++; console.log(JSON.stringify(errs, null, 2)); }
+}
+// applyCorrections: erro com nota editorial JAMAIS aplicado — a prosa fica
+// intacta e o metadado NUNCA é cravado (a queixa central da roteirista).
+{
+  const base = "Aksel subiu os degraus e Soren correu atrás dele para alcançá-lo.";
+  const errs = [
+    {
+      id: "1", numero: "1", gravidade: "gravissimo", titulo: "nome",
+      trechoOriginal: "e Soren correu atrás dele para alcançá-lo.",
+      trechoCorrigido: `e ${SOREN_NOTE} — Aksel disse.`,
+      porqueAlterado: "nome fora do cânone",
+    },
+  ];
+  const { text, appliedIds, failedIds } = applyCorrections(base, errs);
+  const ok = text === base && appliedIds.length === 0 && failedIds.includes("1") && !hasEditorialNote(text);
+  console.log(`${ok ? "✅ PASS" : "❌ FAIL"} applyCorrections NÃO aplica correção com nota editorial → prosa intacta`);
+  if (ok) totalPass++; else { totalFail++; console.log(JSON.stringify({ text, appliedIds, failedIds }, null, 2)); }
+}
+// applyCorrections sweep final: nota editorial JÁ cravada na prosa (roteiro
+// contaminado na 1.0.88) é limpa ao aplicar qualquer correção não-relacionada.
+{
+  const base = `Aksel subiu e ${SOREN_NOTE} correu atrás dele. Helen sorriu.`;
+  const errs = [
+    {
+      id: "1", numero: "1", gravidade: "interfere", titulo: "nome",
+      trechoOriginal: "Helen sorriu.",
+      trechoCorrigido: "Helena sorriu.",
+      porqueAlterado: "padronização",
+    },
+  ];
+  const { text } = applyCorrections(base, errs);
+  const ok =
+    !hasEditorialNote(text) &&
+    text.includes("Helena sorriu.") &&
+    text.includes("Aksel subiu e correu atrás dele.");
+  console.log(`${ok ? "✅ PASS" : "❌ FAIL"} applyCorrections sweep final limpa nota pré-existente da prosa → ${JSON.stringify(text)}`);
+  if (ok) totalPass++; else { totalFail++; console.log(JSON.stringify({ text }, null, 2)); }
+}
+
+// ── NO-OP (bug 12/06/2026): o Revisor cita a âncora, repete-a IDÊNTICA no
+//    trecho_corrigido e descreve a correção real só no por_que_alterado/AVISO.
+//    A engine rejeita o par igual e a UI mostrava "trecho não encontrado" num
+//    trecho que EXISTE. isNoOpCorrection detecta (normaliza só whitespace
+//    horizontal, preserva quebras) → o parser zera o trecho_corrigido (card
+//    informativo). ──
+for (const [a, b, expected, nome] of [
+  ["Marco Rinaldi não dizia obrigado.", "Marco Rinaldi não dizia obrigado.", true, "idêntico"],
+  ["Eu fui   para a mesa.\n", "Eu fui para a mesa.", true, "só whitespace horizontal difere"],
+  // Substituição real (palavras diferentes) → NÃO é no-op.
+  ["com a planilha aberta na minha frente vazia", "com a planilha aberta na frente dele, vazia", false, "substituição real"],
+  // Re-quebra de parágrafo ("a b" → "a\n\nb") É mudança real → NÃO é no-op.
+  ["Ele entrou. Ela saiu.", "Ele entrou.\n\nEla saiu.", false, "re-quebra de parágrafo"],
+  // Inserção (âncora + texto novo) → MAIS LONGO → NÃO é no-op.
+  ["Ela fechou a porta.", "Ela fechou a porta.\n\nNa manhã seguinte, o café estava pronto.", false, "inserção âncora"],
+  // Troca só de aspas (« por ") É correção legítima → NÃO é no-op.
+  ['Ele disse «oi».', 'Ele disse "oi".', false, "troca de aspas"],
+]) {
+  const got = isNoOpCorrection(a, b);
+  const ok = got === expected;
+  console.log(`${ok ? "✅ PASS" : "❌ FAIL"} isNoOpCorrection [${nome}] → ${got}`);
+  if (ok) totalPass++; else { totalFail++; console.log(`   esperado ${expected}`); }
+}
+// parseRevisorErrors: par no-op → trecho_corrigido ZERADO (card informativo);
+// o por_que_alterado/AVISO com a correção real sobrevive pra a roteirista.
+{
+  const para = "Eu fui para a minha mesa e refiz a coluna F. Levou vinte minutos.";
+  const xml = `<erros_detalhados>
+<erro numero="2" gravidade="interfere" parte="1" capitulo="3" titulo="Frase truncada sobre a planilha">
+<trecho_original>${para}</trecho_original>
+<trecho_corrigido>${para}</trecho_corrigido>
+<por_que_alterado>AVISO: o erro real é a frase anterior "com a planilha aberta na minha frente vazia" — substituir por "com a planilha aberta na frente dele, vazia".</por_que_alterado>
+</erro>
+</erros_detalhados>`;
+  const errs = parseRevisorErrors(xml, 1);
+  const e = errs[0];
+  const ok =
+    errs.length === 1 &&
+    e.trechoCorrigido === "" &&
+    e.trechoOriginal === para &&
+    e.porqueAlterado.includes("AVISO:");
+  console.log(`${ok ? "✅ PASS" : "❌ FAIL"} parseRevisorErrors zera trecho_corrigido em par no-op → ${JSON.stringify(e?.trechoCorrigido)}`);
+  if (ok) totalPass++; else { totalFail++; console.log(JSON.stringify(errs, null, 2)); }
 }
 
 console.log(`\n${totalPass} passed, ${totalFail} failed`);

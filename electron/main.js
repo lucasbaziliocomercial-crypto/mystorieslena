@@ -781,19 +781,20 @@ function createWindow() {
         type: "error",
         title: "MyStoriesLena travou",
         message: "Ocorreu um erro interno na interface.",
-        detail: `Tentei recarregar ${MAX_SILENT_RELOADS} vezes mas continua quebrando. Posso tentar mais uma, ou você pode fechar e abrir o app de novo (seus roteiros estão salvos).`,
-        buttons: ["Recarregar", "Fechar app"],
+        detail: `Tentei recarregar ${MAX_SILENT_RELOADS} vezes em pouco tempo. Vou recarregar mais uma vez — seus roteiros estão salvos. Se continuar, feche e abra o app pela janela.`,
+        buttons: ["Recarregar"],
         defaultId: 0,
-        cancelId: 1,
         noLink: true,
       })
-      .then((r) => {
-        if (r.response === 0 && appUrl && mainWindow && !mainWindow.isDestroyed()) {
-          // Reset do contador — ela escolheu tentar de novo, dá folga total.
-          crashCount = 0;
+      .then(() => {
+        // NUNCA fechamos o app da roteirista por conta própria. Antes daqui
+        // saía um app.quit() quando ela apertava "Fechar app"/Esc — e isso
+        // virava o "app fechou sozinho do nada". Agora SEMPRE recarrega; se ela
+        // quiser mesmo encerrar, usa o X da janela. Reset do contador dá folga
+        // total na próxima janela de 60s.
+        crashCount = 0;
+        if (appUrl && mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.loadURL(appUrl);
-        } else {
-          app.quit();
         }
       })
       .catch(() => {
@@ -1072,6 +1073,13 @@ async function boot() {
           process.platform === "darwin" && !process.env.CSC_LINK;
         autoUpdater.autoDownload = !isMacAdhoc;
         autoUpdater.autoInstallOnAppQuit = !isMacAdhoc;
+        // Download diferencial (blockmap) quebrava com "sha512 checksum
+        // mismatch" no log → o electron-updater re-baixava o instalador INTEIRO
+        // toda hora (churn de disco/memória) e às vezes deixava um .exe
+        // ausente/corrompido → "Cannot run installer: ENOENT …Setup.exe" na hora
+        // de instalar (o app fechava pra atualizar e não voltava). Forçar
+        // download FULL é mais robusto; o NSIS é pequeno. Vale Windows e Mac.
+        autoUpdater.disableDifferentialDownload = true;
         wireUpdaterEvents();
         // checkForUpdates (sem AndNotify) só verifica — não dispara download
         // automático, então evita o erro feio no Mac.
@@ -2061,7 +2069,29 @@ ipcMain.handle("claude:logout", () => {
   }
 });
 
+// Single-instance lock — só no exe REAL (packaged/LIVE). Sem ele, um
+// duplo-clique no ícone (comum quando o app demora a abrir) ou o relaunch do
+// updater sobe uma SEGUNDA instância: duas brigando pelo mesmo localStorage
+// (veludo:roteiros) e pelas portas, corrompendo estado e podendo fazer uma
+// fechar a outra ("app fechou sozinho"). A 2ª instância foca a janela que já
+// existe e sai. Precisa rodar ANTES do whenReady. Dev cru (não-packaged) fica
+// livre pro autor rodar várias.
+const isSecondInstance = app.isPackaged && !app.requestSingleInstanceLock();
+if (isSecondInstance) {
+  app.quit();
+} else if (app.isPackaged) {
+  app.on("second-instance", () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
+
 app.whenReady().then(() => {
+  // A 2ª instância já chamou app.quit() acima — não sobe outra janela/servidor.
+  if (isSecondInstance) return;
   // No macOS, em modo dev (`electron .`), o ícone do Dock por padrão é o do
   // framework Electron (não o do app). O `BrowserWindow.icon` afeta só a
   // janela. Pra ver o ícone customizado também no Dock durante dev, setamos
@@ -2081,6 +2111,14 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
+  // Diagnóstico (o app "fechou sozinho" na roteirista e não tínhamos rastro):
+  // registra que TODAS as janelas fecharam antes de encerrar. Se sumir de novo,
+  // o main.log diferencia "janela fechou → quit" daqui de um quit do updater
+  // (before-quit). isQuitting=false aqui = ninguém pediu quit explícito.
+  console.warn(
+    `[lifecycle] window-all-closed (isQuitting=${!!app.isQuitting}) → ` +
+      `${process.platform !== "darwin" ? "app.quit()" : "no-op (darwin)"}`,
+  );
   if (process.platform !== "darwin") app.quit();
 });
 
@@ -2089,6 +2127,10 @@ app.on("activate", () => {
 });
 
 app.on("before-quit", () => {
+  // Diagnóstico: marca o início do encerramento REAL (updater, quit explícito,
+  // ou cascata do window-all-closed). Par com o log do window-all-closed pra
+  // cravar a causa de um fechamento inesperado no main.log.
+  console.warn("[lifecycle] before-quit");
   // Sinaliza pro watchdog NAO tentar respawnar quando o server morrer durante
   // shutdown (kill abaixo dispara `exit` com code != 0). Tambem fecha o
   // arquivo de log do servidor pra flush final do buffer.

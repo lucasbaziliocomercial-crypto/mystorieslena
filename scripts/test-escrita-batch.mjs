@@ -243,6 +243,24 @@ eq(
   "FORMATO REAL: alvo nos parênteses do header da Parte 1",
 );
 
+// REGRESSÃO (bug 12/06/2026): faixa de SUB-CENA no corpo (comprimento do
+// trecho ✦ do POV masculino) NÃO pode sequestrar o alvo do capítulo. O alvo
+// vem do HEADER (~2.400), não da média de "237-297" (= 267). Antes do fix
+// header-first, o Cap gerava ~270 palavras e a calibração não pegava.
+eq(
+  extractChapterTargets(`## Capítulo 4 — A mulher que devia me odiar (~2.400 palavras — ritmo respirado)
+
+**Narrador(es):** FMC (corpo do capítulo) + 1 trecho MMC de 237-297 palavras (flashback)
+
+Sábado à tarde. A cena se desenrola no café.
+
+**✦ MARCO** (trecho curto, ~220 palavras)
+
+Flashback do dia da ameaça.`),
+  [{ number: 4, target: 2400 }],
+  "faixa de sub-cena no corpo NÃO sequestra o alvo do header (267 → 2.400)",
+);
+
 console.log("\n─── targetRange / isWithinTarget ───");
 
 eq(targetRange(2500), { min: 2425, max: 2575 }, "±3% de 2500");

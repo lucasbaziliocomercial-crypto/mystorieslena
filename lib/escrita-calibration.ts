@@ -44,3 +44,17 @@ export const CALIBRATION_CONCURRENCY = 5;
  * capítulos realmente fora — não desacelera o caso comum.
  */
 export const CALIBRATION_MAX_PASSES = 3;
+
+/**
+ * Máximo de passes do BALANÇO DE TOTAL da Parte (`balancePartTotal` em
+ * `run-escrita.ts`). A calibração por-capítulo acima só toca caps com desvio
+ * >±CALIBRATION_THRESHOLD do alvo INDIVIDUAL — mas a Escrita mira ×0,97 e os caps
+ * caem ~3% curtos DENTRO do ±8%, então a SOMA da Parte fecha abaixo do piso do
+ * `partTotalRange` e nada a puxava de volta. O balanço expande os caps mais
+ * curtos (ou encurta os mais longos) até o total entrar na faixa, mirando o MEIO
+ * da faixa pra absorver a imprecisão do Sonnet. Cada cap é limitado ao seu
+ * PRÓPRIO alvo, então a soma nunca cruza pro outro lado — 2 passes bastam: o 1º
+ * fecha o grosso, o 2º cobre o resíduo de quem o Sonnet expandiu de menos. Se
+ * mesmo assim não fechar, para gracioso (total levemente fora » muito fora).
+ */
+export const BALANCE_MAX_PASSES = 2;

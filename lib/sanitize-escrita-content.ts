@@ -23,7 +23,14 @@
  * Funções puras, sem dependência de DOM/storage — testável por node.
  */
 
-import { hasXmlCruft, stripXmlCruft } from "./parse-revisor-output.ts";
+import {
+  hasXmlCruft,
+  stripXmlCruft,
+  hasCanonBanner,
+  stripCanonBanner,
+  hasEditorialNote,
+  stripEditorialNote,
+} from "./parse-revisor-output.ts";
 
 /**
  * Linha standalone que é PURA contagem de palavras (ex.: `(2.097 palavras)`,
@@ -67,6 +74,44 @@ export function isWordCountLine(rawLine: string): boolean {
 }
 
 /**
+ * Marca de EDIÇÃO / STAGE DIRECTION entre colchetes ocupando a LINHA inteira —
+ * o modelo da Escrita às vezes "dirige" a cena em vez de narrá-la:
+ *   `[Volta para Calla.]`  ·  `[POV: Damiano]`  ·  `[Transição de cena]`
+ *   `[Corte para o flashback]`  ·  `[Retoma a perspectiva da Luna]`
+ * É METADADO cravado na prosa que quebra a imersão e JAMAIS pode ir pro roteiro
+ * final (mesma família da contagem de palavras / relatório do Revisor). A
+ * roteirista reportou um `[Volta para Calla.]` cravado num roteiro de teste.
+ *
+ * PRECISO de propósito — a roteirista odeia metadado E remoção de prosa legítima
+ * (REGRA Nº 1). Só casa quando AS DUAS coisas valem: (a) a linha É um colchete
+ * INTEIRO (depois de tirar ênfase markdown/aspas em volta); (b) o miolo tem um
+ * SINAL inequívoco de direção/edição (POV, cena, transição, corte, flashback,
+ * "volta/retoma/retorna…", narração) ou de cânone/revisor. Assim NÃO toca:
+ *   • num colchete no MEIO da frase ("Ele leu a placa: [SAÍDA].");
+ *   • numa placa/bilhete em caixa-alta que o personagem lê ("[FECHADO PARA
+ *     REFORMA]") — sem sinal de direção, fica;
+ *   • em "[1]" / "[...]";
+ *   • no `✦ NOME` (POV) nem nos separadores `---`/`***`/`═━─` — esses não usam
+ *     colchete, então a marcação de POV/cena legítima (e o verde do export) fica
+ *     intacta.
+ * O Revisor ainda sinaliza (card informativo "metadado na prosa") qualquer marca
+ * que não bata aqui — defesa em profundidade, sem auto-remover prosa duvidosa.
+ */
+const STAGE_DIRECTION_SIGNAL =
+  /(?:^|[^a-zà-ÿ])(?:pov|perspectiva|narra(?:r|ndo|dor|[çc][ãa]o)|cena|transi[çc][ãa]o|corte|flashback|flash-back|volt[ao][a-zà-ÿ]*|retom[a-zà-ÿ]+|retorn[a-zà-ÿ]+|c[âa]none|substitu[a-zà-ÿ]*|roteirist[a-zà-ÿ]*|revisor[a-zà-ÿ]*)(?:$|[^a-zà-ÿ])/i;
+
+export function isStageDirectionLine(rawLine: string): boolean {
+  const trimmed = rawLine.trim();
+  if (!trimmed) return false;
+  // Tira ênfase markdown / aspas / blockquote em volta da linha inteira.
+  const core = trimmed.replace(/^[>*_"'\s]+/, "").replace(/[*_"'\s]+$/, "");
+  // (a) linha = um colchete inteiro (1-200 chars de miolo, sem `]` interno).
+  if (!/^\[[^\]\n]{1,200}\]$/.test(core)) return false;
+  // (b) miolo tem sinal de direção/edição (senão é placa/bilhete legítimo → fica).
+  return STAGE_DIRECTION_SIGNAL.test(core);
+}
+
+/**
  * Âncoras INEQUÍVOCAS de início de relatório do Revisor. Romance jamais contém
  * nenhuma delas. O relatório é SEMPRE apêndice (vem depois da prosa), então
  * achar qualquer âncora significa cortar dali até o fim. `i` (e `m` onde faz
@@ -87,8 +132,11 @@ export function hasEscritaContamination(text: string): boolean {
   if (!text) return false;
   if (REPORT_ANCHORS.some((re) => re.test(text))) return true;
   if (hasXmlCruft(text)) return true;
+  if (hasCanonBanner(text)) return true;
+  if (hasEditorialNote(text)) return true;
   for (const line of text.split(/\r?\n/)) {
     if (isWordCountLine(line)) return true;
+    if (isStageDirectionLine(line)) return true;
   }
   return false;
 }
@@ -96,7 +144,8 @@ export function hasEscritaContamination(text: string): boolean {
 /**
  * Remove a contaminação preservando a prosa e a estrutura de parágrafos:
  *   1) corta o relatório do Revisor (da 1ª âncora forte até o fim do texto);
- *   2) remove linhas-soltas de contagem de palavras;
+ *   2) remove linhas-soltas de contagem de palavras + marcas de direção/edição
+ *      entre colchetes ("[Volta para Calla.]", "[POV: X]");
  *   3) tira tags XML soltas do schema do Revisor (defesa);
  *   4) colapsa só o excesso de linhas em branco que as remoções geraram.
  *
@@ -119,14 +168,23 @@ export function stripEscritaContamination(text: string): string {
   }
   if (cutAt !== -1) out = out.slice(0, cutAt);
 
-  // 2) Linhas standalone de contagem de palavras.
+  // 2) Linhas standalone de contagem de palavras + marcas de direção/edição
+  //    entre colchetes ("[Volta para Calla.]", "[POV: X]", "[Transição]").
   out = out
     .split(/\r?\n/)
-    .filter((line) => !isWordCountLine(line))
+    .filter((line) => !isWordCountLine(line) && !isStageDirectionLine(line))
     .join("\n");
 
-  // 3) Tags XML soltas (`<erro>`, `</trecho_corrigido>`, etc.).
-  out = stripXmlCruft(out);
+  // 3) Tags XML soltas (`<erro>`, `</trecho_corrigido>`, etc.) + a tarja de
+  //    cânone "CÂNONE DE ENTIDADES" + NOTAS EDITORIAIS do Revisor entre colchetes
+  //    ("[substitua X pelo nome do cânone…]", "[NOME NÃO MENCIONE…]") que tenham
+  //    vazado pra prosa (cura roteiros já contaminados na 1.0.88). Só a TARJA de
+  //    cânone (inequívoca) — a citação inline NÃO varre a prosa aqui (falso-
+  //    positivo com "o cânone" substantivo); a nota editorial é segura (colchete
+  //    + marcador editorial, que romance jamais usa). ORDEM: stripEditorialNote
+  //    ANTES do stripCanonBanner — a nota costuma conter "ao cânone de entidades"
+  //    e o banner comeria o `]` de fechamento, deixando meio colchete na prosa.
+  out = stripCanonBanner(stripEditorialNote(stripXmlCruft(out)));
 
   // 4) Normaliza só o excesso de linhas em branco que sobrou das remoções.
   return out.replace(/\n{3,}/g, "\n\n").trimEnd();

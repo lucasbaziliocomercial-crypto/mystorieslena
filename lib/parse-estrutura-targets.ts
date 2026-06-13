@@ -55,10 +55,10 @@ export function splitChapterBlocks(
   return blocks;
 }
 
-/** Tenta extrair um número de palavras de um bloco de texto. */
-export function extractTargetFromBlock(body: string): number | undefined {
+/** Tenta extrair um número de palavras de um trecho de texto (header OU corpo). */
+function extractTargetFromText(text: string): number | undefined {
   // Normaliza separador de milhar: "2.500" → "2500" (mas "2.5" continua "2.5")
-  const normalized = body.replace(/(\d)\.(\d{3}\b)/g, "$1$2");
+  const normalized = text.replace(/(\d)\.(\d{3}\b)/g, "$1$2");
 
   // Padrão 1: faixa "X-Y palavras" ou "X a Y palavras"
   const range =
@@ -81,6 +81,31 @@ export function extractTargetFromBlock(body: string): number | undefined {
   }
 
   return undefined;
+}
+
+/**
+ * Extrai o alvo de palavras de um bloco de capítulo.
+ *
+ * O alvo AUTORITATIVO vive no HEADER (1ª linha do bloco):
+ *   `## Capítulo N — Título (~2.400 palavras — ritmo Y)`
+ * Anotações de SUB-CENA no CORPO — ex.: "1 trecho MMC de 237-297 palavras"
+ * (comprimento do trecho `✦` do POV masculino na máfia/alpha-king) — descrevem
+ * um PEDAÇO do capítulo, não o alvo dele. Por isso lê-se o HEADER PRIMEIRO; só
+ * se o header não declarar alvo é que varre o corpo inteiro (ex.: milionário-3p,
+ * cujos headers não têm "(~X palavras)").
+ *
+ * ⚠️ Bug 12/06/2026: o parser varria o bloco inteiro e a faixa de sub-cena
+ * "237-297 palavras" sequestrava o alvo do Cap 4 — virava 267 (= média de
+ * 237 e 297) em vez de 2.400. A Escrita gerava ~270 palavras pra bater nesse
+ * alvo falso e a calibração ±8% (270 vs 267) achava que estava no alvo, então
+ * um capítulo de 270 palavras era entregue. Ler o header primeiro elimina isso.
+ */
+export function extractTargetFromBlock(body: string): number | undefined {
+  const nl = body.indexOf("\n");
+  const header = nl === -1 ? body : body.slice(0, nl);
+  const fromHeader = extractTargetFromText(header);
+  if (fromHeader !== undefined) return fromHeader;
+  return extractTargetFromText(body);
 }
 
 export interface ChapterTarget {

@@ -57,13 +57,14 @@ const SINGLE_RE = new RegExp(
 );
 
 /**
- * Reescreve o PRIMEIRO token de alvo do bloco pra `newTarget`. Tenta faixa
- * (`A-B palavras`) antes de número único — MESMA ordem do `extractTargetFromBlock`,
+ * Reescreve o PRIMEIRO token de alvo de um TRECHO pra `newTarget`. Tenta faixa
+ * (`A-B palavras`) antes de número único — MESMA ordem do `extractTargetFromText`,
  * pra o token reescrito ser exatamente o que a Escrita lê depois. Numa faixa,
  * escala os dois extremos pro mesmo fator (preserva o formato de faixa).
+ * Retorna `null` se nada casar neste trecho.
  */
-function rewriteTargetInBlock(body: string, newTarget: number): string {
-  const rm = RANGE_RE.exec(body);
+function rewriteTargetInText(text: string, newTarget: number): string | null {
+  const rm = RANGE_RE.exec(text);
   if (rm) {
     const a = parseNum(rm[1]!);
     const b = parseNum(rm[3]!);
@@ -72,25 +73,84 @@ function rewriteTargetInBlock(body: string, newTarget: number): string {
     const na = Math.max(1, Math.round(a * f));
     const nb = Math.max(1, Math.round(b * f));
     return (
-      body.slice(0, rm.index) +
+      text.slice(0, rm.index) +
       fmtMilhar(na) +
       rm[2]! +
       fmtMilhar(nb) +
       rm[4]! +
-      body.slice(rm.index + rm[0].length)
+      text.slice(rm.index + rm[0].length)
     );
   }
-  const sm = SINGLE_RE.exec(body);
+  const sm = SINGLE_RE.exec(text);
   if (sm) {
     return (
-      body.slice(0, sm.index) +
+      text.slice(0, sm.index) +
       sm[1]! +
       fmtMilhar(newTarget) +
       sm[3]! +
-      body.slice(sm.index + sm[0].length)
+      text.slice(sm.index + sm[0].length)
     );
   }
-  return body; // nada pra reescrever — não deve acontecer (exigimos alvos presentes)
+  return null; // nada pra reescrever neste trecho
+}
+
+/**
+ * Reescreve o alvo de palavras de um bloco de capítulo PELO HEADER (1ª linha),
+ * caindo pro corpo só se o header não declarar alvo — ESPELHO EXATO do leitor
+ * `extractTargetFromBlock` (`parse-estrutura-targets`).
+ *
+ * ⚠️ Por que header-first: uma anotação de SUB-CENA no corpo (ex.: o trecho ✦ do
+ * POV masculino na máfia/alpha-king, "1 trecho MMC de 237-297 palavras") descreve
+ * um PEDAÇO do capítulo, não o alvo dele. Se o escritor reescrevesse essa faixa em
+ * vez do header (como fazia antes), o header continuaria com o número velho que o
+ * leitor (header-first) lê — leitor e escritor discordavam e o normalize INFLAVA a
+ * estrutura (lia a faixa de sub-cena como alvo → soma artificialmente baixa →
+ * reescalava tudo pra cima). Bug "normalize infla a Estrutura", 12/06/2026.
+ */
+function rewriteTargetInBlock(body: string, newTarget: number): string {
+  const nl = body.indexOf("\n");
+  const header = nl === -1 ? body : body.slice(0, nl);
+  const rest = nl === -1 ? "" : body.slice(nl);
+  const rewrittenHeader = rewriteTargetInText(header, newTarget);
+  if (rewrittenHeader !== null) return rewrittenHeader + rest;
+  // Fallback: header sem alvo (ex.: milionário-3p, alvo no corpo).
+  return rewriteTargetInText(body, newTarget) ?? body;
+}
+
+/**
+ * Sincroniza a linha-RESUMO da Estrutura ("**Soma das contagens declaradas:**
+ * A + B + … = TOTAL palavras") com os alvos REESCALADOS, pra ela bater com os
+ * cabeçalhos dos capítulos. O modelo escreve esse resumo à mão e às vezes erra a
+ * conta (declara capítulos somando 15.500 e escreve "= 13.500"); de qualquer forma
+ * ele ficaria defasado depois do reescalonamento. Reescreve SÓ essa linha (metadado
+ * da Estrutura — NUNCA a prosa/história) e só quando a quantidade de números bate
+ * com o nº de capítulos (senão devolve o texto intacto). Não é a fonte que a Escrita
+ * lê (isso é o header) — é só pra não confundir a roteirista.
+ */
+function rewriteFooterSum(
+  text: string,
+  targets: number[],
+  total: number,
+): string {
+  const labelRe =
+    /Soma das contagens declaradas|Confirma[çc][ãa]o final de palavras|Soma total declarada/i;
+  const listRe = /([\d.]+(?:\s*\+\s*[\d.]+)+)(\s*=\s*\*{0,2}\s*)([\d.]+)/;
+  const newList = targets.map(fmtMilhar).join(" + ");
+  let changed = false;
+  const lines = text.split("\n").map((line) => {
+    if (!labelRe.test(line)) return line;
+    const m = listRe.exec(line);
+    if (!m || m[1]!.split("+").length !== targets.length) return line;
+    changed = true;
+    return (
+      line.slice(0, m.index) +
+      newList +
+      m[2]! +
+      fmtMilhar(total) +
+      line.slice(m.index + m[0]!.length)
+    );
+  });
+  return changed ? lines.join("\n") : text;
 }
 
 /**
@@ -151,5 +211,9 @@ export function normalizeEstruturaTargets(
   const newText = prefix + rewrittenBodies.join("");
   const sumAfter = newTargets.reduce((a, b) => a + b, 0);
 
-  return { text: newText, rescaled: true, sumBefore, sumAfter };
+  // Sincroniza o rodapé-resumo com os alvos reescalados (só a linha "Soma das
+  // contagens declaradas: …"); se não houver, devolve `newText` intacto.
+  const finalText = rewriteFooterSum(newText, newTargets, target);
+
+  return { text: finalText, rescaled: true, sumBefore, sumAfter };
 }

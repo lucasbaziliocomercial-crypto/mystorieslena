@@ -41,6 +41,7 @@ import {
   registerJob,
   unregisterJob,
   abortAllJobs,
+  hasJobController,
 } from "@/lib/generation/job-control";
 import {
   isRevisorStep,
@@ -182,6 +183,31 @@ export function QueueRunner() {
   const drainRef = useRef<() => void>(() => {});
   drainRef.current = () => {
     const running = runningRef.current;
+
+    // Recupera jobs FANTASMA antes de drenar: marcados `running` na fila mas SEM
+    // AbortController vivo (e que ESTE runner não iniciou) — sobra de um abort no
+    // unmount (`abortAllJobs`), crash ou hot-reload. Sem isso o job fica `running`
+    // pra sempre, o StepShell desabilita o botão "Gerar" (`disabled={!!stepJob}`) e
+    // a roteirista vê "nada acontece". Reset pra `queued`+`resume` (o motor da
+    // Escrita pula os batches já feitos) — mesma cura que o `loadJobs` faz no
+    // reload, mas cobrindo o MEIO da sessão. Idempotente e sem loop: após o reset
+    // o job vira `queued` (não casa de novo aqui); ao re-drenar vira `running` COM
+    // controller registrado (também não casa).
+    for (const j of useQueue.getState().jobs) {
+      if (
+        j.status === "running" &&
+        !running.has(jobKey(j)) &&
+        !hasJobController(j.id)
+      ) {
+        updateJob(j.id, {
+          status: "queued",
+          progress: undefined,
+          startedAt: undefined,
+          resume: true,
+        });
+      }
+    }
+
     if (running.size >= MAX_CONCURRENT) return;
 
     const queued = useQueue

@@ -199,8 +199,8 @@ export const escritaAgent: Agent = {
               .map((n, i) => {
                 const t = batch.chapterTargets![i]!;
                 const margin = Math.max(30, Math.round(t * 0.03));
-                const aim = Math.round(t * 0.94);
-                return `   • Capítulo ${n}: MIRE em ${aim.toLocaleString("pt-BR")} palavras (feche AQUI ou logo abaixo) — TETO ABSOLUTO ${(t + margin).toLocaleString("pt-BR")} (JAMAIS ultrapasse) — piso ${(t - margin).toLocaleString("pt-BR")}`;
+                const aim = Math.round(t * 0.97);
+                return `   • Capítulo ${n}: MIRE em ${aim.toLocaleString("pt-BR")} palavras (feche AQUI ou logo acima, sem ultrapassar o TETO) — TETO ABSOLUTO ${(t + margin).toLocaleString("pt-BR")} (JAMAIS ultrapasse) — piso ${(t - margin).toLocaleString("pt-BR")}`;
               })
               .join("\n")
           : "";

@@ -32,26 +32,54 @@ import {
 
 const SANS = "Arial, 'Helvetica Neue', Helvetica, sans-serif";
 
+// background-color: transparent explícito em TODO elemento — ver STYLE_NO_HIGHLIGHT
+// abaixo: sem ele o Google Docs herda o destaque verde do MMC no paste e pinta o
+// roteiro inteiro (mesmo mecanismo de herança do font-weight abaixo).
 const STYLE_BODY =
-  `font-family: ${SANS}; line-height: 1.5; color: #000; font-size: 11pt; font-weight: 400;`;
+  `font-family: ${SANS}; line-height: 1.5; color: #000; font-size: 11pt; font-weight: 400; background-color: transparent;`;
 // font-weight: 400 explícito no <p> impede o Google Docs de herdar o weight 700
 // do <h1> de Capítulo anterior durante o paste (bug visto no Revisor onde
 // todo o body saia em negrito). font-family redundante aqui pra travar a fonte
-// caso o Docs decida não herdar do body.
+// caso o Docs decida não herdar do body. background-color: transparent pela
+// mesma razão, mas pro destaque verde do MMC (ver STYLE_NO_HIGHLIGHT).
 const STYLE_PARA =
-  `margin: 0 0 11pt 0; text-align: justify; line-height: 1.5; font-size: 11pt; font-weight: 400; font-family: ${SANS};`;
+  `margin: 0 0 11pt 0; text-align: justify; line-height: 1.5; font-size: 11pt; font-weight: 400; font-family: ${SANS}; background-color: transparent;`;
 const STYLE_H_CHAPTER =
-  `font-family: ${SANS}; font-size: 20pt; font-weight: 700; color: #000; margin: 20pt 0 6pt 0; line-height: 1.15; text-align: left;`;
+  `font-family: ${SANS}; font-size: 20pt; font-weight: 700; color: #000; margin: 20pt 0 6pt 0; line-height: 1.15; text-align: left; background-color: transparent;`;
 const STYLE_PART_DIVIDER =
-  `text-align: center; margin: 36pt 0 24pt 0; font-family: ${SANS}; font-size: 14pt; font-weight: 700; color: #000;`;
+  `text-align: center; margin: 36pt 0 24pt 0; font-family: ${SANS}; font-size: 14pt; font-weight: 700; color: #000; background-color: transparent;`;
 const STYLE_POV_HEADING =
-  `font-family: ${SANS}; font-size: 12pt; font-weight: 700; color: #000; margin: 14pt 0 8pt 0; line-height: 1.3; text-align: left;`;
+  `font-family: ${SANS}; font-size: 12pt; font-weight: 700; color: #000; margin: 14pt 0 8pt 0; line-height: 1.3; text-align: left; background-color: transparent;`;
 const STYLE_HR =
   "border: none; border-top: 1px solid #999; opacity: 0.5; margin: 24pt auto; width: 40%;";
 // Verde Google Docs "Light green 3" — destaque marca-texto pros parágrafos do
 // POV do MMC. Aplicado em <span> inline (não no <p>) porque o Docs trata
 // background-color em span como destaque de texto e em block como caixa.
 const STYLE_HIGHLIGHT_MMC = "background-color: #d9ead3";
+// Destaque NEUTRO = fundo BRANCO explícito — wrap inline pra TODO texto que NÃO é
+// prosa do MMC (prosa da heroína + TODOS os títulos h1/h2/h3).
+// ⚠️ TRAVA DO DESTAQUE VERDE — não remover, e NÃO trocar branco por `transparent`:
+// O Google Docs, ao colar, HERDA/RETÉM o destaque de uma colagem anterior (ou do
+// run do MMC) pros runs que não declaram cor de fundo PRÓPRIA — daí o verde do
+// MMC (ou de um paste antigo) vazava e pintava o roteiro inteiro, INCLUSIVE a
+// Parte 1 (que não tem verde algum no HTML) — o bug recorrente "roteiro todo
+// verde ao copiar". `transparent` NÃO resolve: o Docs IGNORA `transparent` como
+// "sem destaque" e deixa o verde retido aparecer (testado — continuou verde).
+// BRANCO (#ffffff) o Docs HONRA como cor de destaque real e SOBRESCREVE o verde
+// herdado; no papel branco = invisível (= "sem cor"). Dar a CADA run uma cor
+// própria (verde só no MMC, branco no resto) faz o verde do MMC ser a ÚNICA cor
+// visível, independente do estado do doc de destino. NÃO muda QUEM fica verde
+// (isMmcPov intacto). O PDF (Chromium) já renderiza certo; branco é no-op nele.
+const STYLE_NO_HIGHLIGHT = "background-color: #ffffff";
+
+/**
+ * Envolve `inner` num <span> de fundo BRANCO (destaque "nenhum" que o Google Docs
+ * honra e que SOBRESCREVE verde herdado/retido — ver STYLE_NO_HIGHLIGHT). Usado
+ * em TODO run que não é a prosa do MMC: prosa da heroína + todos os títulos.
+ */
+function noHighlight(inner: string): string {
+  return `<span style="${STYLE_NO_HIGHLIGHT}">${inner}</span>`;
+}
 
 // Símbolo "marcador de POV" — o prompt da Escrita instrui ✦ (U+2726) mas o
 // LLM às vezes emite ♦ (U+2666), visualmente parecido mas codepoint diferente.
@@ -507,7 +535,9 @@ export function escritaContentToHtml(
     // sobrado no cabeçalho (ex.: roteiro editado à mão cujo content não
     // passou pelo heal de storage).
     const chapterTitle = stripChapterTitleAnnotation(titleRaw);
-    out.push(`<h2 style="${STYLE_H_CHAPTER}">${escapeHtml(chapterTitle)}</h2>`);
+    out.push(
+      `<h2 style="${STYLE_H_CHAPTER}">${noHighlight(escapeHtml(chapterTitle))}</h2>`,
+    );
   };
 
   const flushPara = () => {
@@ -540,9 +570,14 @@ export function escritaContentToHtml(
         currentPov !== null &&
         !matchesFmc &&
         (matchesMmc || femaleLeadCanonical !== null);
+      // MMC → destaque verde; qualquer outro POV (heroína inclusa) → fundo BRANCO
+      // explícito (noHighlight), NUNCA o inner cru. O wrap branco é o que impede o
+      // Google Docs de herdar/reter o verde pro resto da prosa no paste (ver
+      // STYLE_NO_HIGHLIGHT). A FMC continua SEM cor visível — branco no papel
+      // branco —, então o verde do MMC não vaza pra ela.
       const content = isMmcPov
         ? `<span style="${STYLE_HIGHLIGHT_MMC}">${inner}</span>`
-        : inner;
+        : noHighlight(inner);
       // Rótulo do POV FEMININO (heroína) na Parte 2: quando ela narra SEM
       // marcador ✦ (o modelo a trata como narradora-padrão), o trecho fica
       // sem identificação nenhuma no export. Emite um título "✦ NOME — POV
@@ -562,7 +597,7 @@ export function escritaContentToHtml(
         const fmcLabel = femaleLeadName
           ? `✦ ${escapeHtml(femaleLeadName)} — POV feminino`
           : "✦ POV feminino";
-        out.push(`<h3 style="${STYLE_POV_HEADING}">${fmcLabel}</h3>`);
+        out.push(`<h3 style="${STYLE_POV_HEADING}">${noHighlight(fmcLabel)}</h3>`);
         fmcSectionLabeled = true;
       }
       out.push(`<p style="${STYLE_PARA}">${content}</p>`);
@@ -639,7 +674,7 @@ export function escritaContentToHtml(
           roleTag = " — POV masculino";
       }
       out.push(
-        `<h3 style="${STYLE_POV_HEADING}">${escapeHtml(h3[1])}${roleTag}</h3>`,
+        `<h3 style="${STYLE_POV_HEADING}">${noHighlight(escapeHtml(h3[1]) + roleTag)}</h3>`,
       );
       continue;
     }
@@ -675,7 +710,7 @@ export function escritaContentToHtml(
       const isFirstPart = !out.some((s) => /class="part-divider"/.test(s));
       const breakStyle = isFirstPart ? "" : "; page-break-before: always";
       out.push(
-        `<h1 class="part-divider" style="${STYLE_PART_DIVIDER}${breakStyle}">${escapeHtml(h1[1])}</h1>`,
+        `<h1 class="part-divider" style="${STYLE_PART_DIVIDER}${breakStyle}">${noHighlight(escapeHtml(h1[1]))}</h1>`,
       );
       continue;
     }
@@ -685,7 +720,7 @@ export function escritaContentToHtml(
     if (bullet) {
       flushPara();
       out.push(
-        `<p style="margin: 4px 0 4px 16px;">• ${inlineFormat(bullet[1])}</p>`,
+        `<p style="margin: 4px 0 4px 16px;">${noHighlight("• " + inlineFormat(bullet[1]))}</p>`,
       );
       continue;
     }

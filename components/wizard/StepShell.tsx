@@ -4471,9 +4471,16 @@ function BatchWarningsBanner({
     (sum, w) => sum + (w.duplicatesRemoved ?? 0),
     0,
   );
+  const totalInternalDup = nonFatal.reduce(
+    (sum, w) => sum + (w.internalDuplicateChapters?.length ?? 0),
+    0,
+  );
   const missingWarnings = nonFatal.filter((w) => w.missing.length > 0);
   const duplicateWarnings = nonFatal.filter(
     (w) => (w.duplicatesRemoved ?? 0) > 0,
+  );
+  const internalDupWarnings = nonFatal.filter(
+    (w) => (w.internalDuplicateChapters?.length ?? 0) > 0,
   );
   return (
     <div className="flex flex-col gap-3">
@@ -4507,7 +4514,7 @@ function BatchWarningsBanner({
           </div>
         </div>
       )}
-      {(totalMissing > 0 || totalDuplicates > 0) && (
+      {(totalMissing > 0 || totalDuplicates > 0 || totalInternalDup > 0) && (
     <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 flex gap-3">
       <AlertTriangle className="size-5 flex-none text-amber-700 mt-0.5" />
       <div className="flex flex-col gap-2 text-sm">
@@ -4560,6 +4567,33 @@ function BatchWarningsBanner({
             <p className="text-amber-800/80 text-xs">
               O agente re-emitiu capítulos que já existiam — a versão mais
               recente foi mantida e as anteriores descartadas.
+            </p>
+          </>
+        )}
+        {totalInternalDup > 0 && (
+          <>
+            <p className="font-medium text-amber-900">
+              {totalInternalDup === 1
+                ? "1 capítulo tinha um bloco duplicado por dentro — removido automaticamente"
+                : `${totalInternalDup} capítulos tinham bloco duplicado por dentro — removidos automaticamente`}
+            </p>
+            <ul className="text-amber-900/90 list-disc pl-5 space-y-0.5">
+              {internalDupWarnings.map((w, i) => (
+                <li key={`intdup-${w.batchIndex}-${i}`}>
+                  <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-amber-200/60 mr-1">
+                    {w.part} · Par {w.batchIndex}
+                  </span>
+                  capítulo
+                  {(w.internalDuplicateChapters?.length ?? 0) === 1 ? " " : "s "}
+                  <strong>{(w.internalDuplicateChapters ?? []).join(", ")}</strong>
+                </li>
+              ))}
+            </ul>
+            <p className="text-amber-800/80 text-xs">
+              O agente reiniciou o capítulo no meio e reescreveu cenas que já
+              tinha escrito (a segunda metade refazia a primeira). O trecho
+              repetido foi cortado e a primeira versão, mantida — antes isso
+              passava direto e só aparecia na revisão.
             </p>
           </>
         )}

@@ -14,6 +14,19 @@ export function unregisterJob(jobId: string) {
   controllers.delete(jobId);
 }
 
+/**
+ * True se o job ainda tem um AbortController VIVO no registro — i.e., a tarefa
+ * async está de fato em andamento. Um job marcado `running` na fila SEM
+ * controller aqui é um FANTASMA: a tarefa morreu (abort no unmount via
+ * `abortAllJobs`, crash, hot-reload do dev) mas o status ficou preso em
+ * `running`. O `QueueRunner` usa isto pra recuperar fantasmas (running→queued),
+ * senão o `StepShell` desabilita o botão "Gerar" pra sempre (`disabled={!!stepJob}`)
+ * e a roteirista vê "nada acontece".
+ */
+export function hasJobController(jobId: string): boolean {
+  return controllers.has(jobId);
+}
+
 export function abortJob(jobId: string) {
   controllers.get(jobId)?.abort();
 }

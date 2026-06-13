@@ -314,6 +314,11 @@ Reconhecível como o próprio batimento dentro do meu peito. Thoren.
 // ============================================================================
 
 const GREEN_SPAN = '<span style="background-color: #d9ead3">';
+// Wrap NEUTRO = fundo BRANCO que envolve TODO texto não-MMC (prosa da heroína +
+// títulos) — trava anti-vazamento do verde no paste do Google Docs (branco
+// SOBRESCREVE verde herdado/retido; `transparent` o Docs ignora). Ver
+// STYLE_NO_HIGHLIGHT em lib/export-html.ts.
+const NO_HIGHLIGHT_SPAN = '<span style="background-color: #ffffff">';
 
 function assertEq(label, actual, expected) {
   const ok = actual === expected;
@@ -369,6 +374,73 @@ function runAsserts() {
     // Copiando Parte 1 isolada: maleLeadName: null (CopyPartButton path).
     const htmlP1 = escritaContentToHtml(parte1, { maleLeadName: null });
     allOk = assertNotContains("HTML da Parte 1 isolada NÃO tem destaque", htmlP1, GREEN_SPAN) && allOk;
+  }
+
+  console.log("\n— anti-vazamento do verde no paste do Google Docs (BUG 'roteiro todo verde ao copiar') —");
+  {
+    // O Docs HERDA/RETÉM o destaque (do run do MMC OU de uma colagem anterior no
+    // doc) pros runs que não têm cor de fundo PRÓPRIA — daí o verde pintava o
+    // roteiro inteiro, INCLUSIVE a Parte 1 e os TÍTULOS (que não têm verde no
+    // HTML). A trava: TODO texto não-MMC (prosa + títulos) sai dentro de
+    // <span style="background-color: #ffffff"> — branco SOBRESCREVE o verde
+    // herdado (transparent o Docs ignora). Ver STYLE_NO_HIGHLIGHT.
+    const html = escritaContentToHtml(ROTEIRO_COMPLETO);
+    const { parte1, parte2 } = splitRoteiroByParts(ROTEIRO_COMPLETO);
+    const mmc = detectMaleLeadFromFullRoteiro(ROTEIRO_COMPLETO);
+    const htmlP2 = escritaContentToHtml(parte2, { maleLeadName: mmc, forceParte2: true });
+    const htmlP1 = escritaContentToHtml(parte1, { maleLeadName: null });
+
+    // NENHUM parágrafo de prosa pode sair "pelado" (texto colado no <p> sem um
+    // <span> de background): seria exatamente o run que o Docs pinta de verde.
+    // O estilo de prosa começa com `margin: 0 0 11pt` (o bullet usa outro), então
+    // o regex pega só parágrafos de prosa que NÃO abrem com <span>.
+    const nakedRe = /<p style="margin: 0 0 11pt[^>]*">(?!<span)/g;
+    const nakedFull = (html.match(nakedRe) || []).length;
+    const nakedP2 = (htmlP2.match(nakedRe) || []).length;
+    const nakedP1 = (htmlP1.match(nakedRe) || []).length;
+    allOk = assertEq("Roteiro completo: 0 parágrafos de prosa sem <span> de fundo", nakedFull, 0) && allOk;
+    allOk = assertEq("Parte 2 isolada (CopyPart): 0 parágrafos pelados", nakedP2, 0) && allOk;
+    allOk = assertEq("Parte 1 isolada (CopyPart): 0 parágrafos pelados", nakedP1, 0) && allOk;
+
+    // NENHUM título (h1/h2/h3) pode sair "pelado" — o título do capítulo também
+    // saía verde no print da roteirista (herança do Docs). Todo heading abre com
+    // o <span> branco logo após o `>`.
+    const nakedHeadRe = /<h[123][^>]*>(?!<span)/g;
+    const nakedHeadFull = (html.match(nakedHeadRe) || []).length;
+    const nakedHeadP1 = (htmlP1.match(nakedHeadRe) || []).length;
+    allOk = assertEq("Roteiro completo: 0 títulos h1/h2/h3 sem <span> de fundo", nakedHeadFull, 0) && allOk;
+    allOk = assertEq("Parte 1 isolada: 0 títulos pelados (o título do cap não fica verde)", nakedHeadP1, 0) && allOk;
+
+    // A prosa da FMC sai com fundo BRANCO explícito — não verde, mas também não
+    // pelada. (Parte 2 começa pelo POV da FMC = Iris.)
+    allOk = assertContains(
+      "Prosa da FMC (Iris) sai com fundo branco explícito",
+      htmlP2,
+      `${NO_HIGHLIGHT_SPAN}Quinta-feira, vinte e três e trinta`,
+    ) && allOk;
+    allOk = assertEq(
+      "Prosa da FMC (Iris) NÃO está no destaque verde",
+      htmlP2.includes(`${GREEN_SPAN}Quinta-feira, vinte e três e trinta`),
+      false,
+    ) && allOk;
+    // E o título do capítulo da Parte 1 sai branco (não verde) — sintoma do print.
+    allOk = assertContains(
+      "Título do Capítulo 1 da Parte 1 sai com fundo branco (não verde)",
+      htmlP1,
+      `${NO_HIGHLIGHT_SPAN}Capítulo 1 — A Frase no Corredor</span></h2>`,
+    ) && allOk;
+    // E a Parte 1 inteira (toda FMC) sai neutra explícita, nunca pelada.
+    allOk = assertContains(
+      "Prosa da Parte 1 sai com fundo branco explícito",
+      htmlP1,
+      `${NO_HIGHLIGHT_SPAN}A primeira coisa que ele tinha jurado`,
+    ) && allOk;
+    // E o MMC continua verde (a trava NÃO mexe em QUEM fica verde).
+    allOk = assertContains(
+      "MMC (Caspian) continua com destaque verde",
+      htmlP2,
+      `${GREEN_SPAN}Eu vi a mala antes de ela entrar`,
+    ) && allOk;
   }
 
   console.log("\n— so-fmc: roteiro sem ✦ markers —");
@@ -684,11 +756,13 @@ Quem ele é: Mafioso italiano.
     // SEM marcador ✦, agora ganha o rótulo "✦ Sieva — POV feminino" (mesmo
     // formato do masculino, mas SEM verde) no começo do trecho dela. Antes
     // ficava sem identificação nenhuma — era a queixa da roteirista.
-    allOk = assertContains("POV feminino: rótulo '✦ Sieva — POV feminino'", html, ">✦ Sieva — POV feminino</h3>") && allOk;
+    // O rótulo sai DENTRO do <span> branco (noHighlight) — não-verde e não-pelado.
+    allOk = assertContains("POV feminino: rótulo '✦ Sieva — POV feminino'", html, `>${NO_HIGHLIGHT_SPAN}✦ Sieva — POV feminino</span></h3>`) && allOk;
     allOk = assertNotContains("Rótulo da FMC NÃO é verde", html, `${GREEN_SPAN}✦ Sieva`) && allOk;
     // POV MASCULINO identificável: o cabeçalho do Alpha (✦ THOREN) ganha a
-    // etiqueta "— POV masculino" na Parte 2 (o verde fica na PROSA, não aqui).
-    allOk = assertContains("POV masculino: cabeçalho '✦ THOREN — POV masculino'", html, "✦ THOREN — POV masculino</h3>") && allOk;
+    // etiqueta "— POV masculino" na Parte 2 (o verde fica na PROSA, não aqui;
+    // o cabeçalho sai com fundo branco como os outros títulos).
+    allOk = assertContains("POV masculino: cabeçalho '✦ THOREN — POV masculino'", html, `>${NO_HIGHLIGHT_SPAN}✦ THOREN — POV masculino</span></h3>`) && allOk;
   }
 
   console.log("\n— POV feminino P2: nome da heroína AUSENTE → fallback '✦ POV feminino' —");
@@ -704,7 +778,7 @@ Quem ele é: Mafioso italiano.
       femaleLeadName: null,
       forceParte2: true,
     });
-    allOk = assertContains("Sem nome da FMC → fallback '✦ POV feminino'", html, ">✦ POV feminino</h3>") && allOk;
+    allOk = assertContains("Sem nome da FMC → fallback '✦ POV feminino'", html, `>${NO_HIGHLIGHT_SPAN}✦ POV feminino</span></h3>`) && allOk;
     const fmcGreen = html.includes(`${GREEN_SPAN}A pedra do calabouço gelava`);
     allOk = assertEq("Heroína sem nome ainda NÃO fica verde", fmcGreen, false) && allOk;
   }
@@ -809,6 +883,35 @@ A primeira luz entrou pela janela e eu estava enrolada no peito dele, sem calcul
     ) && allOk;
   }
 
+  console.log("\n— Filtro: marca de direção/edição '[Volta para Calla.]' não vai pra exportação —");
+  {
+    // Stage directions que o modelo crava na prosa (bug reportado pela roteirista,
+    // Erro #12 "Metadado/instrução de roteiro cravado na prosa"). Devem SUMIR.
+    const direcoes = [
+      "[Volta para Calla.]",
+      "[POV: Damiano]",
+      "[POV de Calla]",
+      "[Transição de cena]",
+      "[Corte para o flashback]",
+      "[Retoma a perspectiva da Luna]",
+      "*[Volta para Calla.]*",
+    ];
+    for (const tag of direcoes) {
+      const raw = `# PARTE 2\n\n## Capítulo 1 — Fim\n\nEle subiu os degraus dois a dois.\n\n${tag}\n\n✦ CALLA\n\nEu o observei de longe.\n`;
+      const html = escritaContentToHtml(raw);
+      allOk = assertNotContains(`HTML não contém a marca '${tag}'`, html, tag.replace(/^\*|\*$/g, "")) && allOk;
+      // A prosa em volta E o marcador de POV ✦ CALLA continuam presentes.
+      allOk = assertContains(`HTML mantém a prosa antes da marca (${tag})`, html, "Ele subiu os degraus dois a dois.") && allOk;
+      allOk = assertContains(`HTML mantém a prosa depois da marca (${tag})`, html, "Eu o observei de longe.") && allOk;
+    }
+
+    // Sanity NEGATIVA: placa/bilhete em caixa-alta que o personagem lê (sem sinal
+    // de direção) NÃO pode ser removida — é conteúdo, não metadado.
+    const rawPlaca = `# PARTE 2\n\n## Capítulo 1\n\nEla parou diante da porta.\n\n[FECHADO PARA REFORMA]\n\nO coração afundou.\n`;
+    const htmlPlaca = escritaContentToHtml(rawPlaca);
+    allOk = assertContains("Placa '[FECHADO PARA REFORMA]' (sem sinal de direção) NÃO é removida", htmlPlaca, "FECHADO PARA REFORMA") && allOk;
+  }
+
   console.log("\n— alpha-king: capítulo com UM '#' só (legado) vira <h2>, não divisor de PARTE —");
   {
     // Alpha-king e roteiros antigos emitem `# Capítulo N — …` com um único `#`.
@@ -817,8 +920,10 @@ A primeira luz entrou pela janela e eu estava enrolada no peito dele, sem calcul
     const raw = `# PARTE 1\n\n# Capítulo 1 — A sombra do salão (~1.900 palavras — ritmo rápido)\n\nAcordei antes do sol.\n\n# Capítulo 2 — O baile lunar\n\nA porta estava aberta.`;
     const { parte1 } = splitRoteiroByParts(raw);
     const html = escritaContentToHtml(parte1, { maleLeadName: null });
-    allOk = assertContains("Capítulo 1 vira <h2>", html, ">Capítulo 1 — A sombra do salão</h2>") && allOk;
-    allOk = assertContains("Capítulo 2 vira <h2>", html, ">Capítulo 2 — O baile lunar</h2>") && allOk;
+    // O título sai DENTRO do <span> de fundo branco (noHighlight) — assim o verde
+    // herdado/retido do Docs não pinta o título do capítulo.
+    allOk = assertContains("Capítulo 1 vira <h2> (título embrulhado em branco)", html, `>${NO_HIGHLIGHT_SPAN}Capítulo 1 — A sombra do salão</span></h2>`) && allOk;
+    allOk = assertContains("Capítulo 2 vira <h2> (título embrulhado em branco)", html, `>${NO_HIGHLIGHT_SPAN}Capítulo 2 — O baile lunar</span></h2>`) && allOk;
     allOk = assertNotContains("Nenhum part-divider em capítulo de '#' só", html, "part-divider") && allOk;
     allOk = assertNotContains("Nenhum page-break forçado entre capítulos", html, "page-break-before") && allOk;
     allOk = assertNotContains("Anotação de palavras some do título", html, "1.900 palavras") && allOk;
