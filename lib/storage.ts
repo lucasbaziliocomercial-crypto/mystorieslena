@@ -53,6 +53,36 @@ const REFIMG_PREFIX = "veludo:refimg:";
 const lastWrittenRefImg = new Map<string, string>();
 
 /**
+ * Prefixo das chaves laterais que guardam o `history` (pilhas de snapshots de
+ * cada step) de cada roteiro, FORA do blob `veludo:roteiros`. Mesmo motivo da
+ * imagem (`REFIMG_PREFIX`): o `history` era ~55% da biblioteca (~4,8 MB de 9 MB)
+ * e entrava em TODA serialização/compressão a cada save — com vários roteiros
+ * gerando em paralelo (checkpoint a cada ~2,5 s por job), isso travava a main
+ * thread e segurava a leitura do stream. Como o `history` muda RARAMENTE (só ao
+ * regerar/aplicar correção), movê-lo pra chave própria deixa os saves do
+ * streaming comprimirem só os `outputs` (~metade do tamanho), sem perder nada.
+ *
+ * O valor é comprimido (`COMPRESSED_PREFIX` + lz-string) porque cru (~0,6 MB ×
+ * Nroteiros) estouraria a quota do localStorage; como a escrita é rara, comprimir
+ * de vez em quando é barato. Invariante: o cache em memória SEMPRE tem o `history`
+ * reidratado (`hydrateHistory` no read, que também REMOVE o marcador
+ * `historyExternal`); só o blob persistido grava `history: undefined` +
+ * `historyExternal: true`.
+ */
+const HISTORY_PREFIX = "veludo:history:";
+
+/**
+ * Rastreia, por id, o ÚLTIMO objeto `history` já gravado na chave lateral — por
+ * identidade de referência (`===`), não por valor. Quando o roteiro é salvo SEM
+ * mexer no `history` (caso do streaming: `setOutput` só troca `outputs`, então o
+ * spread `{...r}` mantém a MESMA referência de `history`), `stripHistory` detecta
+ * "já persistido" em O(1) e NÃO reescreve a chave (reescrever ~0,6 MB a cada save
+ * reintroduziria o custo que estamos eliminando). Só quando o `history` vira um
+ * objeto novo (push/restore/delete de snapshot) é que regrava. Limpo no reset/import.
+ */
+const lastWrittenHistory = new Map<string, Roteiro["history"]>();
+
+/**
  * Sentinel que marca um valor comprimido com lz-string. Sem isso, não dá pra
  * distinguir um JSON cru (formato legado, escrito por versões ≤ 1.0.51) de
  * uma string UTF-16 comprimida — leitura quebraria pra qualquer um dos dois.
@@ -499,6 +529,49 @@ function hydrateRefImage(r: Roteiro): Roteiro {
   return r;
 }
 
+/**
+ * Reidrata o `history` a partir da chave lateral (`HISTORY_PREFIX + id`). Roda no
+ * pipeline de leitura, DEPOIS do blob ser descomprimido, e por ÚLTIMO (depois de
+ * `hydrateRefImage`) pra a semente de `lastWrittenHistory` casar com a identidade
+ * final do objeto no cache. Casos:
+ *  • `historyExternal !== true` → no-op (roteiro LEGADO com history inline, ou sem
+ *    history); o 1º save migra pra chave lateral via `stripHistory`. NÃO semeia o
+ *    rastreador (queremos que o 1º save grave a chave).
+ *  • `historyExternal === true` → lê a chave lateral, descomprime+parseia, reidrata
+ *    E semeia `lastWrittenHistory` (já persistido → o 1º save não reescreve). REMOVE
+ *    o marcador `historyExternal` (ele é só do blob; nunca entra no cache/backup).
+ *  • Falha (chave sumiu/corrompida/parse) → degrada pra `history` vazio SÓ neste
+ *    roteiro (remove o marcador, NÃO semeia, NÃO lança, NÃO bloqueia a leitura). O
+ *    próximo `stripHistory` vê `history` undefined → limpa a chave órfã. Perde-se só
+ *    a pilha de "desfazer" (cap 2) deste roteiro — NUNCA o roteiro (`outputs`).
+ */
+function hydrateHistory(r: Roteiro): Roteiro {
+  if (r.historyExternal !== true) return r;
+  try {
+    const raw = window.localStorage.getItem(HISTORY_PREFIX + r.id);
+    if (raw) {
+      const history = JSON.parse(
+        raw.startsWith(COMPRESSED_PREFIX)
+          ? (decompressFromUTF16(raw.slice(COMPRESSED_PREFIX.length)) ?? "")
+          : raw,
+      ) as Roteiro["history"];
+      // O marcador é só do blob — sai do objeto em memória.
+      const next: Roteiro = { ...r, history };
+      delete next.historyExternal;
+      lastWrittenHistory.set(r.id, history);
+      return next;
+    }
+  } catch {
+    /* chave lateral corrompida/ausente — degrada pra history vazio neste roteiro */
+  }
+  // Chave ausente/corrompida: remove o marcador e zera o history SÓ neste roteiro
+  // (degrada vazio, sem bloquear a leitura da biblioteca; o `outputs` fica intacto).
+  const next: Roteiro = { ...r };
+  delete next.historyExternal;
+  delete next.history;
+  return next;
+}
+
 // O corpo do Web Worker de compressão (compressor lz-string vendorizado +
 // handler de mensagem) vive em `lib/lz-compress-worker-source.ts` (módulo SEM
 // dependências, pra ser embutível no worker E testável via node). Importado
@@ -659,24 +732,80 @@ function stripRefImage(r: Roteiro): Roteiro {
 }
 
 /**
- * Serializa pro blob `veludo:roteiros` com as imagens movidas pras chaves
- * laterais. É o que os writers usam (saveRoteiro / performPendingSave /
+ * Tira o `history` do roteiro ANTES de ele entrar no blob comprimido, gravando-o
+ * (comprimido) na chave lateral. Retorna um CLONE raso com `history: undefined` +
+ * `historyExternal: true` (o cache em memória, intocado, segue com o history
+ * reidratado). Espelha `stripRefImage`. Pontos:
+ *  • `storageReadBlocked` (blob em quarentena) → não mexe em nada.
+ *  • Sem history (ausente ou `{}`) → passa direto; se sobrou chave lateral de um
+ *    history apagado, limpa.
+ *  • History INALTERADO (mesma referência já gravada) → só tira do blob, SEM
+ *    reescrever a chave nem comprimir. Este é o caminho QUENTE do streaming
+ *    (`setOutput` não toca `history`), então a maioria dos saves cai aqui.
+ *  • History NOVO (push/restore/delete de snapshot) → comprime e grava a chave,
+ *    semeia o rastreador, e tira do blob.
+ *  • Falha de quota ao gravar → MANTÉM inline (nunca perde o history).
+ */
+function stripHistory(r: Roteiro): Roteiro {
+  if (storageReadBlocked) return r;
+  const h = r.history;
+  if (!h || Object.keys(h).length === 0) {
+    if (lastWrittenHistory.has(r.id)) {
+      try {
+        window.localStorage.removeItem(HISTORY_PREFIX + r.id);
+      } catch {
+        /* best-effort */
+      }
+      lastWrittenHistory.delete(r.id);
+    }
+    // Sem history: garante que o blob não carregue um marcador órfão.
+    if (r.historyExternal) {
+      const next: Roteiro = { ...r };
+      delete next.historyExternal;
+      return next;
+    }
+    return r;
+  }
+  if (lastWrittenHistory.get(r.id) === h) {
+    return { ...r, history: undefined, historyExternal: true };
+  }
+  try {
+    window.localStorage.setItem(
+      HISTORY_PREFIX + r.id,
+      COMPRESSED_PREFIX + compressToUTF16(JSON.stringify(h)),
+    );
+    lastWrittenHistory.set(r.id, h);
+    return { ...r, history: undefined, historyExternal: true };
+  } catch {
+    // Quota etc — não dá pra mover; mantém inline pra NUNCA perder o history.
+    return r;
+  }
+}
+
+/**
+ * Serializa pro blob `veludo:roteiros` com as imagens E o `history` movidos pras
+ * chaves laterais. É o que os writers usam (saveRoteiro / performPendingSave /
  * deleteRoteiro / import). `serialize` puro continua existindo pra backup/export,
- * que DEVE manter a imagem inline (cópia completa de segurança).
+ * que DEVE manter imagem e history inline (cópia completa de segurança).
  */
 function serializeForBlob(roteiros: Roteiro[]): string {
-  return serialize(roteiros.map(stripRefImage));
+  return serialize(roteiros.map((r) => stripHistory(stripRefImage(r))));
 }
 
 /**
  * Parte síncrona (main thread) do save para o caminho do worker: aplica
- * `stripRefImage` (que escreve as chaves laterais de imagem — precisa de
- * localStorage, indisponível no worker) e devolve só o JSON. A compressão
- * pesada vai pro worker depois. NÃO usar no caminho síncrono — lá `serializeForBlob`
- * já faz strip + compress de uma vez.
+ * `stripRefImage` + `stripHistory` (que escrevem as chaves laterais de imagem e
+ * de history — precisam de localStorage, indisponível no worker) e devolve só o
+ * JSON. A compressão pesada do blob vai pro worker depois. NÃO usar no caminho
+ * síncrono — lá `serializeForBlob` já faz strip + compress de uma vez.
+ *
+ * Nota: num save que MUDA o history, paga-se aqui um compress síncrono de ~0,6 MB
+ * só daquele history (dezenas de ms, RARO — ver `stripHistory`), em vez do freeze
+ * de vários segundos do blob inteiro. Os saves do streaming não mexem no history,
+ * então caem no atalho por-identidade e não pagam nada.
  */
 function stripAndStringify(roteiros: Roteiro[]): string {
-  return JSON.stringify(roteiros.map(stripRefImage));
+  return JSON.stringify(roteiros.map((r) => stripHistory(stripRefImage(r))));
 }
 
 function deserialize(raw: string): Roteiro[] {
@@ -761,7 +890,8 @@ function readFromStorage(): Roteiro[] {
       .map(migrateLegacy)
       .map(pruneHistory)
       .map(sanitizeRoteiroXmlCruft)
-      .map(hydrateRefImage);
+      .map(hydrateRefImage)
+      .map(hydrateHistory);
   } catch (e) {
     // raw existia e era não-vazio, mas não parseou. Retornar [] em silêncio
     // (comportamento antigo) faria o próximo save apagar a biblioteca toda.
@@ -791,6 +921,7 @@ function getCache(): Roteiro[] {
 export function resetRoteirosCache() {
   roteirosCache = null;
   lastWrittenRefImg.clear();
+  lastWrittenHistory.clear();
   // Derruba o worker de compressão: import/restore reconstroem a biblioteca, e
   // compressões em voo viram stale. Um worker novo é criado no próximo save.
   rejectAllWorkerPending(new Error("reset"));
@@ -890,10 +1021,12 @@ export function importLibraryFromString(raw: string): number {
     .map(pruneHistory)
     .map(sanitizeRoteiroXmlCruft);
 
-  // Restaurar substitui a biblioteca inteira — zera o rastreador de imagens já
-  // gravadas pra as chaves laterais serem (re)escritas a partir do backup. O
-  // cache fica com as imagens inline (do backup), então segue reidratado.
+  // Restaurar substitui a biblioteca inteira — zera os rastreadores de imagem e
+  // history já gravados pras chaves laterais serem (re)escritas a partir do
+  // backup. O cache fica com imagem e history inline (do backup), então segue
+  // reidratado; o `serializeForBlob(sanitized)` abaixo estrai pras chaves laterais.
   lastWrittenRefImg.clear();
+  lastWrittenHistory.clear();
 
   try {
     window.localStorage.setItem(KEY, serializeForBlob(sanitized));
@@ -940,6 +1073,8 @@ function safeSetItem(value: string) {
   // QuotaExceededError e disparamos um custom event pra UI mostrar dialog.
   try {
     window.localStorage.setItem(KEY, value);
+    // Blob persistido — o cache está em dia com o disco.
+    cacheDirty = false;
   } catch (e) {
     if (isQuotaExceededError(e)) {
       console.error("[storage] localStorage cheio:", e);
@@ -1022,12 +1157,28 @@ function drainPendingIntoCache(): Roteiro[] | null {
     else all.push(updated);
   }
   pendingRoteiros.clear();
+  // O cache mudou e ainda não foi pro disco — marca pra a rede de segurança do
+  // unload (ver `cacheDirty`/`flushPendingSave`). Zerado no `safeSetItem` de sucesso.
+  cacheDirty = true;
   return all;
 }
 
 /** Trava de não-reentrância do caminho async (uma compressão no worker por vez). */
 let saveInFlight = false;
 let resaveQueued = false;
+
+/**
+ * "O cache em memória tem mutação que ainda NÃO bateu no disco." Setado quando
+ * `drainPendingIntoCache` move pendentes pro cache; zerado quando `safeSetItem`
+ * grava o blob com sucesso. Existe pra a Fase 2 (navegação assíncrona) ser segura:
+ * `setRoteiro`/`setCurrentStep`/`reset` passaram a usar o caminho async (worker,
+ * não-bloqueante), então o drain pro cache é síncrono mas a compressão fica no ar.
+ * Se a janela fechar nesse intervalo, `flushPendingSave` (beforeunload/pagehide)
+ * vê `cacheDirty` e grava o cache inteiro SÍNCRONO antes de morrer — durabilidade
+ * preservada. Fecha também a janela drain↔setItem que já existia no caminho do
+ * `QueueRunner` (requestPendingSaveFlush).
+ */
+let cacheDirty = false;
 
 /**
  * Caminho QUENTE/idle (streaming): comprime FORA da main thread (worker). A main
@@ -1116,6 +1267,15 @@ export function flushPendingSave() {
   if (!isBrowser()) return;
   cancelPendingSaveTimers();
   performPendingSaveSync();
+  // Rede de segurança do caminho ASSÍNCRONO (navegação/fila): se um
+  // `performPendingSave` já drenou os pendentes pro cache mas a compressão no
+  // worker ainda não bateu no disco, `pendingRoteiros` está vazio (o sync acima
+  // foi no-op) PORÉM o cache tem mutação não-persistida. Grava o cache inteiro
+  // síncrono AGORA pra a última edição ir pro disco antes da janela morrer. Só
+  // dispara quando há sujeira real (`cacheDirty`), então em fluxo normal é no-op.
+  if (cacheDirty) {
+    safeSetItem(serializeForBlob(getCache()));
+  }
 }
 
 /**
@@ -1138,13 +1298,19 @@ export function deleteRoteiro(id: string) {
   const all = getCache();
   const idx = all.findIndex((r) => r.id === id);
   if (idx >= 0) all.splice(idx, 1);
-  // Limpa a chave lateral da imagem (não deixa órfã ocupando quota).
+  // Limpa as chaves laterais (imagem + history) — não deixa órfãs ocupando quota.
   try {
     window.localStorage.removeItem(REFIMG_PREFIX + id);
   } catch {
     /* best-effort */
   }
+  try {
+    window.localStorage.removeItem(HISTORY_PREFIX + id);
+  } catch {
+    /* best-effort */
+  }
   lastWrittenRefImg.delete(id);
+  lastWrittenHistory.delete(id);
   safeSetItem(serializeForBlob(all));
 }
 
@@ -1189,10 +1355,12 @@ export interface PruneCacheResult {
  *     do load normalmente já capou; fica aqui caso algo escape).
  *  3. **Recompacta o blob em disco no formato enxuto AGORA**: mesmo sem mudança no
  *     cache (já podado no load), o blob `veludo:roteiros` em disco pode ainda estar
- *     no formato antigo (history 5, imagem inline) até o próximo save. Reescrever
- *     via `serializeForBlob` aplica o formato enxuto (imagens nas chaves laterais,
- *     history 2) na hora. Idempotente: só grava se o blob mudaria (compara strings),
- *     então rodar de novo logo em seguida quase não acha o que fazer.
+ *     no formato antigo (history 5, imagem/history inline) até o próximo save.
+ *     Reescrever via `serializeForBlob` aplica o formato enxuto (imagem E history
+ *     nas chaves laterais, history capado em 2) na hora — o `afterBytes` cai bastante
+ *     porque o history (~55% da biblioteca) sai do blob. Idempotente: só grava se o
+ *     blob mudaria (compara strings), então rodar de novo logo em seguida quase não
+ *     acha o que fazer.
  *
  * Respeita `storageReadBlocked` (não escreve em estado de corrupção). Atualiza o
  * cache em memória in-place pra a UI refletir sem reload.

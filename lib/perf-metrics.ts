@@ -5,7 +5,7 @@
  * que o QueueRunner persiste num `.jsonl` em disco (via IPC do Electron). O
  * painel (`components/MetricsPanel.tsx`) lê de volta pra mostrar a curva de
  * tempo/palavras/429 ao longo das gerações — assim dá pra afinar
- * `MAX_CONCURRENT`/`CALIBRATION_CONCURRENCY` com dado, não no chute.
+ * `MAX_CONCURRENT_STREAMS`/`CALIBRATION_CONCURRENCY` com dado, não no chute.
  *
  * Só observabilidade. Fora do Electron (browser / `npm run dev`) vira no-op —
  * não há onde gravar o arquivo.
@@ -35,7 +35,7 @@ export interface EscritaPerfRecord {
   backoffMs: number;
   /**
    * Calibração (observabilidade pro checkup decidir CALIBRATION_MAX_PASSES /
-   * alvo×0,94 com dado). Opcionais — registros antigos do .jsonl não têm.
+   * alvo×0,99 com dado). Opcionais — registros antigos do .jsonl não têm.
    */
   /** Caps fora do alvo ±8% que dispararam reescrita Sonnet (P1+P2). */
   calibCapsOutOfTarget?: number;

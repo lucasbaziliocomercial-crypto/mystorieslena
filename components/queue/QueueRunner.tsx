@@ -5,7 +5,7 @@
  *
  * Roda a Escrita de roteiros FORA do componente da aba, então a geração
  * **sobrevive a trocar/fechar a guia** e **roda concorrente** com outras abas
- * (até MAX_CONCURRENT ao mesmo tempo). Isso atende ao pedido de "deixar várias
+ * (até MAX_CONCURRENT_STREAMS streams ao mesmo tempo). Isso atende ao pedido de "deixar várias
  * histórias gerando ao mesmo tempo pra otimizar tempo".
  *
  * - Escreve o resultado no storage por id pelo caminho coalescido/idle
@@ -16,8 +16,8 @@
  * - Cada job tem seu AbortController (registro em `job-control.ts`) pra cancelar.
  *
  * NOTA: compartilha a cota da assinatura — N gerações ao mesmo tempo dividem o
- * mesmo limite, então cada uma pode ficar mais lenta. MAX_CONCURRENT limita o
- * paralelismo pra não estourar cota/CPU.
+ * mesmo limite, então cada uma pode ficar mais lenta. MAX_CONCURRENT_STREAMS
+ * limita o paralelismo (em streams Opus) pra não estourar cota/CPU.
  */
 import { useEffect, useRef } from "react";
 import { useQueue } from "@/store/queue";
@@ -50,12 +50,18 @@ import {
   type StepOutput,
 } from "@/types/roteiro";
 
-// Máx. de jobs de geração rodando ao mesmo tempo. Cada job de Escrita agora usa
-// 2 streams Opus em paralelo (Parte 1 ‖ Parte 2 em run-escrita.ts), então 2 jobs
-// = ~4 streams Opus de batch concorrentes — perto dos 3 de antes, sem estourar a
-// cota da assinatura COMPARTILHADA (equipe na mesma conta). É um knob: afine pelos
-// logs `[perf]` do run-escrita — poucos 429 → pode subir; muitos 429 → baixe.
-const MAX_CONCURRENT = 2;
+// Teto de concorrência por STREAMS Opus (não por jobs). Cada job de Escrita usa
+// 2 streams em paralelo (Parte 1 ‖ Parte 2 em run-escrita.ts); todo outro step
+// (estrutura/revisor/premissa/canone/overview) usa 1. O teto 4 = o pico de hoje
+// de 2 Escritas (2×2), então NÃO eleva o pico de Opus na assinatura COMPARTILHADA
+// (equipe na mesma conta) — mas libera os steps leves de um 2º projeto a rodarem
+// JÁ ao lado de uma Escrita pesada (1 Escrita=2 + 2 leves=2 = 4), em vez de o
+// contador de JOBS=2 travar tudo. É um knob: afine pelos logs `[perf]` do
+// run-escrita — poucos 429 → pode subir; muitos 429 → baixe.
+const MAX_CONCURRENT_STREAMS = 4;
+
+// Custo em streams Opus por job. Só a Escrita roda 2 streams (P1‖P2); o resto, 1.
+const jobStreamCost = (step: string) => (step === "escrita" ? 2 : 1);
 
 function notifyDone(title: string) {
   if (typeof window === "undefined") return;
@@ -175,10 +181,14 @@ export function QueueRunner() {
   // Lock por STEP (não por roteiro) pra que revisor1 e revisor2 do MESMO roteiro
   // rodem em paralelo — cada um grava uma chave de step distinta em outputs, e
   // `applyStepOutput` re-lê o roteiro fresco e síncrono antes de gravar (sem
-  // janela de interleave). `MAX_CONCURRENT` ainda limita o paralelismo total.
+  // janela de interleave). `MAX_CONCURRENT_STREAMS` ainda limita o paralelismo total.
   const runningRef = useRef<Set<string>>(new Set());
   const jobKey = (j: { roteiroId: string; step: string }) =>
     `${j.roteiroId}:${j.step}`;
+  // Soma dos custos em STREAMS dos jobs que ESTE runner iniciou (espelha o
+  // runningRef: +custo ao adicionar, −custo no finally). O gate é por stream,
+  // não por contagem de jobs — uma Escrita pesa 2, os steps leves pesam 1.
+  const loadRef = useRef(0);
 
   const drainRef = useRef<() => void>(() => {});
   drainRef.current = () => {
@@ -208,7 +218,7 @@ export function QueueRunner() {
       }
     }
 
-    if (running.size >= MAX_CONCURRENT) return;
+    if (loadRef.current >= MAX_CONCURRENT_STREAMS) return;
 
     const queued = useQueue
       .getState()
@@ -217,9 +227,15 @@ export function QueueRunner() {
       );
 
     for (const job of queued) {
-      if (running.size >= MAX_CONCURRENT) break;
+      const cost = jobStreamCost(job.step);
+      // Não cabe no orçamento de streams? Tenta o PRÓXIMO job (mais leve) em vez
+      // de parar a fila — assim um step leve não fica preso atrás de uma Escrita
+      // que não cabe (head-of-line skip; sem starvation prática, o nº de steps
+      // por projeto é finito).
+      if (loadRef.current + cost > MAX_CONCURRENT_STREAMS) continue;
 
       running.add(jobKey(job));
+      loadRef.current += cost;
       const abort = new AbortController();
       registerJob(job.id, abort);
       updateJob(job.id, {
@@ -367,6 +383,7 @@ export function QueueRunner() {
           });
         } finally {
           running.delete(jobKey(job));
+          loadRef.current -= jobStreamCost(job.step);
           unregisterJob(job.id);
           // Limpa o preview ao vivo deste step (terminou/abortou/falhou) — só
           // se o roteiro ainda é o aberto. Os capítulos finais já foram pro output.

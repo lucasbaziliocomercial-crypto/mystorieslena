@@ -214,7 +214,11 @@ export const escritaAgent: Agent = {
               .map((n, i) => {
                 const t = batch.chapterTargets![i]!;
                 const margin = Math.max(30, Math.round(t * 0.03));
-                const aim = Math.round(t * 0.97);
+                // Mira 1% abaixo do alvo (era 3% — ×0,97): os caps vinham curtos
+                // demais e disparavam reescrita de calibração pra EXPANDIR (↑),
+                // gastando tempo/cota. Aproximar do alvo reduz o nº de reescritas;
+                // a precisão FINAL segue ±8% (calibração) + balanço de total.
+                const aim = Math.round(t * 0.99);
                 return `   • Capítulo ${n}: MIRE em ${aim.toLocaleString("pt-BR")} palavras (feche AQUI ou logo acima, sem ultrapassar o TETO) — TETO ABSOLUTO ${(t + margin).toLocaleString("pt-BR")} (JAMAIS ultrapasse) — piso ${(t - margin).toLocaleString("pt-BR")}`;
               })
               .join("\n")

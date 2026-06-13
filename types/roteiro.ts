@@ -439,6 +439,21 @@ export interface Roteiro {
   /** Histórico de gerações por step. Cada step tem sua própria pilha de snapshots. */
   history?: Partial<Record<StepId, StepGenerationSnapshot[]>>;
   /**
+   * Marcador APENAS do blob persistido (`veludo:roteiros`): quando `true`, o
+   * `history` deste roteiro foi movido pra a chave lateral `veludo:history:<id>`
+   * (fora do blob quente, igual à imagem de referência) — o blob grava
+   * `history: undefined` + esta flag. Cortar o `history` (~55% da biblioteca) do
+   * blob deixa cada save comprimir ~metade do tamanho na main thread; como o
+   * `history` muda raramente, os saves do streaming param de pagar por ele.
+   *
+   * Invariante: NUNCA entra no cache em memória nem no backup — `hydrateHistory`
+   * (no read) reidrata o `history` da chave lateral e REMOVE esta flag, então só
+   * o blob persistido a carrega. Roteiros legados (history inline) ficam sem ela
+   * até o 1º save migrar. Ver `HISTORY_PREFIX`/`stripHistory`/`hydrateHistory` em
+   * `lib/storage.ts`.
+   */
+  historyExternal?: true;
+  /**
    * Cânone de Entidades — bloco markdown estruturado com nomes próprios,
    * idades, profissões, lugares, datas e relações fixados a partir da
    * Premissa. Vira fonte canônica injetada em TODOS os steps seguintes

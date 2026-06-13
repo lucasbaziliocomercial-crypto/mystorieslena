@@ -126,6 +126,37 @@ has(read("lib/storage.ts"), "veludo:roteiros")
   ? ok("KEY veludo:roteiros intacta em lib/storage.ts")
   : bad("KEY veludo:roteiros NÃO encontrada em lib/storage.ts — NUNCA renomear");
 
+// ── Storage: history em chaves laterais (perf — não re-comprimir ~9 MB por save) ──
+// O history (~55% da biblioteca) mora em `veludo:history:<id>` FORA do blob quente,
+// pra os saves do streaming pararem de re-comprimir a biblioteca inteira na main
+// thread (causa do travamento com vários roteiros gerando juntos). Travas anti-
+// regressão: a chave existe, o rastreador por-identidade existe (skip do caminho
+// quente), o delete limpa a chave (senão vaza quota), o strip mantém inline em
+// falha de quota (nunca perde), e o backup segue lendo o cache (cópia COMPLETA
+// com history inline). Ver `target`/`refimg` como precedente do mesmo padrão.
+console.log("\n[Storage] history nas chaves laterais (perf)");
+{
+  const st = read("lib/storage.ts") ?? "";
+  has(st, 'HISTORY_PREFIX = "veludo:history:"')
+    ? ok("HISTORY_PREFIX veludo:history: presente")
+    : bad("lib/storage.ts: HISTORY_PREFIX (veludo:history:) sumiu — history voltou pro blob quente");
+  has(st, "lastWrittenHistory")
+    ? ok("rastreador lastWrittenHistory presente (skip por identidade no streaming)")
+    : bad("lib/storage.ts: lastWrittenHistory sumiu — saves do streaming voltam a reescrever o history");
+  has(st, "function stripHistory(") && has(st, "function hydrateHistory(")
+    ? ok("stripHistory + hydrateHistory presentes")
+    : bad("lib/storage.ts: stripHistory/hydrateHistory sumiram — history volta pro blob quente");
+  has(st, "removeItem(HISTORY_PREFIX")
+    ? ok("deleteRoteiro limpa a chave lateral de history")
+    : bad("lib/storage.ts: deleteRoteiro NÃO remove HISTORY_PREFIX — chave lateral órfã vaza quota");
+  has(st, "NUNCA perder o history")
+    ? ok("stripHistory mantém inline em falha de quota (não perde o history)")
+    : bad("lib/storage.ts: stripHistory sem fallback keep-inline — risco de perder history em quota");
+  /serializeLibraryForBackup[\s\S]*?getCache\(\)/.test(st)
+    ? ok("serializeLibraryForBackup lê getCache() (backup completo, history inline)")
+    : bad("lib/storage.ts: serializeLibraryForBackup não lê mais getCache() — backup pode sair sem history");
+}
+
 // ── countWords única fonte: aviso brando (split de nome != contagem; semântico fica c/ o subagente) ──
 console.log("\n[Contagem] countWords como única fonte");
 const wc = read("lib/word-count.ts");

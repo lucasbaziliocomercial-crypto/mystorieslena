@@ -2121,7 +2121,7 @@ export function StepShell({ step }: Props) {
   // "Gerar as duas Partes" — enfileira revisor1 E revisor2 do ZERO de uma vez.
   // O lock do QueueRunner é por `${roteiroId}:${step}`, então as duas rodam ao
   // mesmo tempo na fila (cada uma grava sua própria chave de step; limitado por
-  // MAX_CONCURRENT). ~Corta pela metade o wall-clock da revisão (antes 7+7
+  // MAX_CONCURRENT_STREAMS). ~Corta pela metade o wall-clock da revisão (antes 7+7
   // sequencial). A P2 roda SEM o relatório consolidado da P1 como contexto nesta
   // 1ª passada — re-rodar a P2 depois (enxuta/rápida) pega inconsistências
   // cruzadas. Snapshot do input "Ajustes opcionais" de cada step. `enqueue` é
