@@ -5,7 +5,7 @@
  * que o QueueRunner persiste num `.jsonl` em disco (via IPC do Electron). O
  * painel (`components/MetricsPanel.tsx`) lê de volta pra mostrar a curva de
  * tempo/palavras/429 ao longo das gerações — assim dá pra afinar
- * `MAX_CONCURRENT`/`CALIBRATION_CONCURRENCY` com dado, não no chute.
+ * `MAX_CONCURRENT_STREAMS`/`CALIBRATION_CONCURRENCY` com dado, não no chute.
  *
  * Só observabilidade. Fora do Electron (browser / `npm run dev`) vira no-op —
  * não há onde gravar o arquivo.

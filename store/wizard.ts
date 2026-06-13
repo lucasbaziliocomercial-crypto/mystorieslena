@@ -11,7 +11,7 @@ import type {
   StepOutput,
 } from "@/types/roteiro";
 import { STEP_ORDER, REVISOR_STEPS, isRevisorStep } from "@/types/roteiro";
-import { scheduleSave, flushPendingSave, HISTORY_CAP } from "@/lib/storage";
+import { scheduleSave, requestPendingSaveFlush, HISTORY_CAP } from "@/lib/storage";
 import {
   applyCorrections,
   computeRevisorEval,
@@ -213,19 +213,24 @@ export const useWizard = create<WizardState>((set, get) => ({
     set((s) => ({ queueLiveStream: { ...s.queueLiveStream, [step]: text } })),
 
   setRoteiro: (r) => {
-    // Flush antes de trocar — o roteiro anterior em mem pode ter pendências
-    // que ainda não bateram no localStorage por causa do debounce.
-    flushPendingSave();
+    // Antes de trocar, drena os pendentes do roteiro anterior pro cache (síncrono)
+    // e manda a compressão pro worker (não-bloqueante) — trocar de projeto não
+    // trava mais a UI (antes era flush SÍNCRONO = comprimir a biblioteca inteira
+    // na main thread). A durabilidade no fechamento real do app segue garantida
+    // pelo flush síncrono do beforeunload/pagehide (StorageQuotaGuard) + a guarda
+    // `cacheDirty` em lib/storage.ts.
+    requestPendingSaveFlush();
     // Limpa o preview ao vivo: ele é específico do roteiro anterior. Se o novo
     // roteiro tiver um job rodando, o QueueRunner volta a alimentar.
     set({ roteiro: r, queueLiveStream: {} });
   },
 
   setCurrentStep: (step) => {
-    // Antes de navegar, garante que qualquer rascunho/output pendente do
-    // step atual já está em localStorage. O scheduleSave debouncer pode ter
-    // até 600ms enfileirado — sem flush, fechar o roteiro/app rápido perderia.
-    flushPendingSave();
+    // Antes de navegar, drena o rascunho/output pendente do step pro cache
+    // (síncrono) e offloada a compressão pro worker — alternar entre steps não
+    // trava mais a UI. O fechamento real (beforeunload/pagehide) faz flush
+    // síncrono e a guarda `cacheDirty` cobre o que ficou no ar no worker.
+    requestPendingSaveFlush();
     set((s) => {
       if (!s.roteiro) return s;
       return { roteiro: persist({ ...s.roteiro, currentStep: step }) };
@@ -812,10 +817,11 @@ export const useWizard = create<WizardState>((set, get) => ({
     }),
 
   reset: () => {
-    // Flush antes de zerar — o roteiro que estava em mem pode ter mutações
-    // pendentes não persistidas. Sem isso, "Voltar à lista" logo após digitar
-    // perderia a última edição.
-    flushPendingSave();
+    // Antes de zerar, drena as pendências do roteiro pro cache (síncrono) +
+    // compressão no worker (não-bloqueante) — "Voltar à lista" não trava. O
+    // beforeunload/pagehide (síncrono) + a guarda `cacheDirty` garantem a
+    // durabilidade se o app fechar logo em seguida.
+    requestPendingSaveFlush();
     set({
       roteiro: null,
       isGenerating: false,

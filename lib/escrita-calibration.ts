@@ -58,3 +58,29 @@ export const CALIBRATION_MAX_PASSES = 3;
  * mesmo assim não fechar, para gracioso (total levemente fora » muito fora).
  */
 export const BALANCE_MAX_PASSES = 2;
+
+/**
+ * Teto GLOBAL de streams de GERAÇÃO (Opus) concorrentes entre TODOS os jobs da
+ * fila. Cada job de Escrita roda Parte 1 ‖ Parte 2 = 2 streams; com o teto
+ * `MAX_CONCURRENT_STREAMS = 4` do QueueRunner (Escrita custa 2 via `jobStreamCost`),
+ * DUAS Escritas ao mesmo tempo disparavam até 4 streams Opus disputando a
+ * assinatura ÚNICA da equipe — a rota então injetava `[ERRO]` de cota no corpo do
+ * stream e a run inteira abortava em branco. Este teto (aplicado por um
+ * `createLimiter` MÓDULO-LEVEL em
+ * `run-escrita.ts`, compartilhado entre invocações) mantém o total de streams de
+ * geração em ~2: um job sozinho (2 streams) fica INALTERADO; dois jobs se
+ * intercalam dentro do teto e AMBOS terminam. É um knob — se os logs `[perf]`
+ * mostrarem pouca contenção (poucos `transientRetries`), pode subir; se aparecer
+ * `[ERRO]` de cota, baixe.
+ */
+export const GEN_STREAM_CONCURRENCY = 2;
+
+/**
+ * Teto (ms) do backoff exponencial do retry de COTA na geração — vs os 8s dos
+ * transientes comuns (rede/429-HTTP/stall/formato). A cota da assinatura renova
+ * mais devagar que um burst de 429, então um `[ERRO]` de cota (res.ok=true,
+ * tratado como transiente desde o fix do "dois ao mesmo tempo dá branco") espera
+ * mais entre tentativas: 1s→2s→4s→8s→16s (teto 30s) ao longo das tentativas,
+ * dando à assinatura compartilhada tempo real de recuperar.
+ */
+export const QUOTA_BACKOFF_CAP_MS = 30_000;

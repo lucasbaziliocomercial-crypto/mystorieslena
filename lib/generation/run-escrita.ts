@@ -59,6 +59,8 @@ import {
   CALIBRATION_CONCURRENCY,
   CALIBRATION_MAX_PASSES,
   BALANCE_MAX_PASSES,
+  GEN_STREAM_CONCURRENCY,
+  QUOTA_BACKOFF_CAP_MS,
 } from "@/lib/escrita-calibration";
 
 export type EscritaProgress =
@@ -183,6 +185,27 @@ class StreamStallError extends Error {
 }
 
 /**
+ * Teto GLOBAL de streams de GERAÇÃO (Opus) entre TODOS os jobs da fila. Vive no
+ * escopo de MÓDULO (compartilhado por todas as invocações de `runEscrita`), então
+ * limita o paralelismo TOTAL — não só dentro de um job. Cada job roda P1 ‖ P2 =
+ * 2 streams; com o teto `MAX_CONCURRENT_STREAMS = 4` do QueueRunner (Escrita custa
+ * 2), DUAS Escritas ao mesmo tempo disparavam 4 streams Opus na assinatura ÚNICA
+ * da equipe → a rota injetava `[ERRO]` de cota e a run abortava em branco. Com o
+ * teto, um job sozinho (2 streams) fica
+ * INALTERADO e dois jobs se intercalam — ambos terminam.
+ *
+ * ⚠️ Criado SEM `opts.signal` DE PROPÓSITO: se um signal vinculado abortar, o
+ * `createLimiter` faz TODA tarefa futura resolver `undefined` (concurrency.ts) —
+ * como cada job tem seu PRÓPRIO AbortController, vincular o signal de um job
+ * envenenaria o limitador pro outro. O cancelamento por-job já flui pelo `signal`
+ * passado a `fetch`/`readResponseText` lá dentro (rejeita AbortError → o limitador
+ * libera o slot no ramo de reject e serve o outro job). Como nenhum signal é
+ * vinculado, o retorno `undefined` nunca ocorre — daí os casts `as Response`/
+ * `as string` nos call sites serem sãos.
+ */
+const genStreamLimiter = createLimiter(GEN_STREAM_CONCURRENCY);
+
+/**
  * Marcadores que a rota (`app/api/agent/[step]/route.ts`) injeta no corpo do
  * stream quando a SDK falha — com `res.ok=true`, então não dá pra detectar pelo
  * status HTTP. Se aparecerem, o "lote" não tem capítulos de verdade: é uma
@@ -227,6 +250,20 @@ function detectErroMarker(text: string): string | null {
     : `Erro ao gerar o lote: ${detail || "falha desconhecida na SDK do Claude"}.`;
 }
 
+/**
+ * `true` quando o `[ERRO]` injetado é de COTA/rate-limit (transiente) — vs um
+ * erro genuíno da SDK/binário (fatal). Espelha a heurística `isQuota` interna do
+ * `detectErroMarker` (regex idêntica), mas como predicado, pra o loop de batch
+ * decidir RETRY (cota) vs ABORT (resto) sem mudar a assinatura do `detectErroMarker`
+ * (que segue retornando a mensagem amigável usada no caminho fatal).
+ */
+function isQuotaErroMarker(text: string): boolean {
+  const generic = /\[ERRO\]\s*([\s\S]*)$/.exec(text);
+  if (!generic) return false;
+  const detail = generic[1]?.trim().slice(0, 300) ?? "";
+  return /rate.?limit|quota|usage|limit|429|overloaded|capacity/i.test(detail);
+}
+
 /** Sleep que resolve cedo se o signal abortar (não trava o cancelamento). */
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
@@ -243,9 +280,17 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-/** Backoff exponencial com teto (1s, 2s, 4s, … até 8s) por tentativa. */
-function backoffDelay(attempt: number): number {
-  return Math.min(1000 * 2 ** (attempt - 1), 8000);
+/**
+ * Backoff exponencial com teto por tentativa. Transientes comuns (rede, 429-HTTP,
+ * stall, formato) usam teto 8s. O retry de COTA (`quota=true`) usa um teto maior
+ * (`QUOTA_BACKOFF_CAP_MS`) porque a cota da assinatura renova mais devagar que um
+ * burst de 429 — esperar mais entre tentativas dá folga real à cota compartilhada.
+ */
+function backoffDelay(attempt: number, quota = false): number {
+  return Math.min(
+    1000 * 2 ** (attempt - 1),
+    quota ? QUOTA_BACKOFF_CAP_MS : 8000,
+  );
 }
 
 async function readResponseText(
@@ -490,7 +535,11 @@ export async function runEscrita(
 
         let res: Response;
         try {
-          res = await fetch(`/api/agent/escrita`, {
+          // Aquisição do stream sob o teto GLOBAL (genStreamLimiter): com 2 jobs
+          // na fila, mantém o total de streams Opus em ~2 em vez de 4 (evita o
+          // [ERRO] de cota que abortava a run). Sem signal vinculado → cast são.
+          res = (await genStreamLimiter(() =>
+          fetch(`/api/agent/escrita`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -519,7 +568,8 @@ export async function runEscrita(
                 : {}),
             }),
             signal,
-          });
+          })
+          )) as Response;
         } catch (e) {
           // Erro de rede (conexão caiu, DNS, fetch abortado por timeout do SO).
           if (signal.aborted) break;
@@ -555,9 +605,13 @@ export async function runEscrita(
 
         let acc = "";
         try {
-          acc = await readResponseText(res, signal, onLive, () => {
+          // Leitura do stream também sob o teto GLOBAL — segura o slot pela vida
+          // do stream (não só o handshake), que é onde a cota é de fato consumida.
+          acc = (await genStreamLimiter(() =>
+          readResponseText(res, signal, onLive, () => {
             if (ttftMs === 0) ttftMs = Date.now() - batchStart;
-          });
+          })
+          )) as string;
         } catch (e) {
           if (signal.aborted) break;
           // Stream travou (watchdog de silêncio). Trata como TRANSIENTE: retenta
@@ -598,16 +652,38 @@ export async function runEscrita(
           parsed.chapters.every((c) => c.number === 0);
         const noRealChapters = parsed.chapters.length === 0 || fallbackOnly;
 
-        // Lote sem capítulo de verdade. Três caminhos:
+        // Lote sem capítulo de verdade. Quatro caminhos:
         if (noRealChapters) {
-          // 1) Erro real da SDK (cota/servidor) injetado como `[ERRO]` → aborta
-          //    a run inteira com a causa (não adianta seguir, vai falhar igual).
+          // 1) `[ERRO]` de COTA/rate-limit (res.ok=true) → TRANSIENTE: NÃO seta
+          //    fatalRaised (a OUTRA Parte segue gerando) e retenta com backoff de
+          //    cota. Antes isto era tratado como FATAL e abortava a run inteira no
+          //    1º toque de cota — a causa do "dois ao mesmo tempo dá branco": com
+          //    2 jobs (4 streams) a cota estourava logo nos 1ºs lotes e tudo morria
+          //    vazio. Agora espera a cota liberar e segue (junto com o genStreamLimiter
+          //    que reduz a contenção na origem).
+          if (isQuotaErroMarker(acc)) {
+            if (attempt <= MAX_RETRIES_PER_BATCH) {
+              transientRetries += 1;
+              const delay = backoffDelay(attempt, true);
+              backoffMs += delay;
+              await sleep(delay, signal);
+              if (signal.aborted) break;
+              continue;
+            }
+            // Esgotou → lote falho NÃO-fatal: vira warning (o guard de completude
+            // no fim pega Parte inteira vazia; o resume regenera só o que falta).
+            // Mesma semântica do StreamStall esgotado — degrada gracioso, não aborta.
+            batchFatalError = `Limite de uso da assinatura Claude persistiu após ${MAX_RETRIES_PER_BATCH + 1} tentativas. Aguarde alguns minutos e clique em "Continuar geração".`;
+            break;
+          }
+          // 2) `[ERRO]` NÃO-cota (erro genuíno da SDK/binário) → FATAL: aborta a
+          //    run com a causa (não adianta seguir, vai falhar igual).
           const erroReason = detectErroMarker(acc);
           if (erroReason) {
             fatalRaised = true;
             throw new EscritaFatalError(erroReason);
           }
-          // 2) Só formato inválido / resposta vazia → retenta com backoff.
+          // 3) Só formato inválido / resposta vazia → retenta com backoff.
           if (attempt <= MAX_RETRIES_PER_BATCH) {
             const delay = backoffDelay(attempt);
             backoffMs += delay;
@@ -615,7 +691,7 @@ export async function runEscrita(
             if (signal.aborted) break;
             continue;
           }
-          // 3) Esgotou as tentativas → registra o motivo e pula este lote.
+          // 4) Esgotou as tentativas → registra o motivo e pula este lote.
           batchFatalError = fallbackOnly
             ? `O modelo não seguiu o formato esperado (sem cabeçalhos "## Capítulo N — Título") após ${MAX_RETRIES_PER_BATCH + 1} tentativas.`
             : `O modelo retornou resposta vazia para o lote após ${MAX_RETRIES_PER_BATCH + 1} tentativas.`;
