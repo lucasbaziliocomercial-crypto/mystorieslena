@@ -40,13 +40,17 @@ import {
   planBatches,
   type BatchPlan,
 } from "@/lib/parse-estrutura-chapters";
-import { extractChapterTargets } from "@/lib/parse-estrutura-targets";
+import {
+  extractChapterTargets,
+  partTotalRange,
+} from "@/lib/parse-estrutura-targets";
 import { parseEscritaBatch } from "@/lib/parse-escrita-batch";
 import {
   concatenateChapters,
   parseEscritaChaptersDirect,
 } from "@/lib/parse-escrita-output";
 import { canonPart, dedupChaptersLast } from "@/lib/dedup-chapters";
+import { stripInternalDuplication } from "@/lib/strip-internal-duplication";
 import { countWords } from "@/lib/word-count";
 import type { EscritaPerfRecord } from "@/lib/perf-metrics";
 import { createLimiter } from "@/lib/concurrency";
@@ -54,6 +58,7 @@ import {
   CALIBRATION_THRESHOLD,
   CALIBRATION_CONCURRENCY,
   CALIBRATION_MAX_PASSES,
+  BALANCE_MAX_PASSES,
 } from "@/lib/escrita-calibration";
 
 export type EscritaProgress =
@@ -463,6 +468,10 @@ export async function runEscrita(
       let batchFatalError: string | null = null;
       const batchStart = Date.now();
       let ttftMs = 0;
+      // Capítulos deste batch em que cortamos uma duplicação INTERNA (modelo
+      // reiniciou o cap e re-emitiu cenas sem novo cabeçalho). Acumula entre
+      // tentativas; vira warning visível no fim do batch.
+      const internalDupChaptersThisBatch: number[] = [];
 
       while (chaptersToRequest.length > 0 && attempt <= MAX_RETRIES_PER_BATCH) {
         if (signal.aborted) break;
@@ -615,6 +624,21 @@ export async function runEscrita(
 
         if (signal.aborted) break;
 
+        // Costura de DUPLICAÇÃO INTERNA na origem (antes de acumular): o modelo
+        // às vezes "reinicia" o capítulo e re-emite um bloco grande de cenas SEM
+        // novo cabeçalho — o cap fica com a segunda metade refazendo a primeira.
+        // O dedupChaptersLast (abaixo) NÃO pega isso: é UM cap com number N, o
+        // lixo está no corpo. Sem este corte, escapava pra prosa final e só o
+        // Revisor acusava "Cap. N — bloco inteiro repetido". Determinístico e de
+        // alta precisão (só corta restart inequívoco — ver strip-internal-duplication).
+        for (const ch of parsed.chapters) {
+          const stripped = stripInternalDuplication(ch.content);
+          if (stripped.trimmed) {
+            ch.content = stripped.content;
+            if (ch.number > 0) internalDupChaptersThisBatch.push(ch.number);
+          }
+        }
+
         localChapters.push(...parsed.chapters);
         localSynopses.push(...parsed.synopses);
 
@@ -673,6 +697,18 @@ export async function runEscrita(
           expected: [],
           missing: [],
           duplicatesRemoved: dedupResult.removed,
+        });
+      }
+
+      // Warning de DUPLICAÇÃO INTERNA cortada neste batch (visibilidade > silêncio
+      // — a roteirista reclamava de não ver nos cards). Números únicos.
+      if (internalDupChaptersThisBatch.length > 0) {
+        accWarnings.push({
+          batchIndex: b.batchIndex,
+          part: b.part,
+          expected: [],
+          missing: [],
+          internalDuplicateChapters: [...new Set(internalDupChaptersThisBatch)],
         });
       }
 
@@ -866,20 +902,186 @@ export async function runEscrita(
     );
   };
 
-  // ═══ Roda as duas Partes EM PARALELO; cada uma CALIBRA ao terminar ════════
+  // ═══ Balanço de TOTAL da Parte — fecha o que a calibração por-cap não fecha ══
+  // A calibração ACIMA só toca caps cujo desvio passa de ±CALIBRATION_THRESHOLD do
+  // alvo INDIVIDUAL. Mas a Escrita mira ×0,97 e os caps caem ~3% curtos DENTRO do
+  // ±8% — então a SOMA da Parte fecha abaixo do piso do `partTotalRange` (ex.: P1
+  // mira ~11.155 < piso 11.300) e NADA a puxava de volta (a "fase 2 — balanço de
+  // total" que o CLAUDE.md atribuía ao Revisor nunca existiu no código). Aqui está,
+  // na ORIGEM (Escrita), pra a roteirista ver o total já dentro da faixa no
+  // "Capítulo gerado". Expande os caps mais curtos (ou encurta os mais longos) via
+  // /api/escrita-fix-wordcount (Sonnet) até o total entrar na faixa, mirando o MEIO
+  // da faixa pra absorver a imprecisão do Sonnet. Cada cap é limitado ao seu
+  // PRÓPRIO alvo (a soma dos alvos = alvo da Parte ≥ meio-da-faixa), então a soma
+  // nunca cruza pro outro lado nem estoura o teto individual. Idempotente: se já
+  // está na faixa, retorna na hora. Usa o limitador COMPARTILHADO (mesmo teto).
+  const balancePartTotal = async (
+    partLabel: "Parte 1" | "Parte 2",
+    partChapters: EscritaChapter[],
+    partSynopses: EscritaSynopsis[],
+    targets: number[],
+  ): Promise<void> => {
+    if (signal.aborted || fatalRaised) return;
+    const { min, max } = partTotalRange(partLabel, category);
+    const aim = Math.round((min + max) / 2); // meio da faixa = ponto seguro dentro
+
+    for (let pass = 0; pass < BALANCE_MAX_PASSES; pass++) {
+      if (signal.aborted || fatalRaised) return;
+
+      const numbered = partChapters.filter((c) => c.number >= 1);
+      const total = numbered.reduce((s, c) => s + countWords(c.content), 0);
+      if (total >= min && total <= max) return; // já na faixa — nada a fazer
+
+      const below = total < min;
+      // Caps com "folga" na direção necessária (rumo ao PRÓPRIO alvo): abaixo do
+      // alvo se precisa EXPANDIR, acima se precisa ENCURTAR. Mais folga primeiro.
+      const cands = numbered
+        .map((c) => {
+          const t = targets[c.number - 1] ?? null;
+          const cur = countWords(c.content);
+          return { c, t, cur };
+        })
+        .filter(
+          (x): x is { c: EscritaChapter; t: number; cur: number } =>
+            x.t != null,
+        )
+        .map((x) => ({ ...x, room: below ? x.t - x.cur : x.cur - x.t }))
+        .filter((x) => x.room > 20)
+        .sort((a, b) => b.room - a.room);
+      if (cands.length === 0) return; // sem cap razoável pra ajustar — deixa o resto
+
+      // Aloca o déficit/excedente até o `aim` nos caps com mais folga, sem passar
+      // do alvo individual de cada um (cap = não cruza o teto da Parte).
+      let remaining = Math.abs(aim - total);
+      const picks: { ch: EscritaChapter; t: number; cur: number; newTarget: number }[] = [];
+      for (const cand of cands) {
+        if (remaining <= 0) break;
+        const alloc = Math.min(cand.room, remaining);
+        if (alloc < 30) continue; // ajuste insignificante — pula
+        picks.push({
+          ch: cand.c,
+          t: cand.t,
+          cur: cand.cur,
+          newTarget: below ? cand.cur + alloc : cand.cur - alloc,
+        });
+        remaining -= alloc;
+      }
+      if (picks.length === 0) return;
+
+      console.info(
+        `[perf] escrita: ${partLabel} — balanço de total ${total} ${below ? "<" : ">"} faixa [${min}-${max}] → ajustando ${picks.length} cap(s) rumo a ${aim}`,
+      );
+
+      await Promise.all(
+        picks.map((pick) =>
+          calibLimiter(async () => {
+            if (signal.aborted || fatalRaised) return;
+            if (hooks.beforeUnit) await hooks.beforeUnit();
+            if (signal.aborted || fatalRaised) return;
+
+            const idx = partChapters.findIndex(
+              (x) => x.number === pick.ch.number,
+            );
+            if (idx < 0) return;
+            const cur = countWords(partChapters[idx]!.content);
+            // Margem do alvo PEDIDO (newTarget, ≤ alvo individual) — bate com a
+            // faixa que o /api/escrita-fix-wordcount enforça ("NUNCA ultrapasse
+            // newTarget+3%"), pra o aceite não dar folga acima do que foi pedido.
+            const margin = Math.max(30, Math.round(pick.newTarget * 0.03));
+
+            hooks.onProgress?.({
+              kind: "calibrating",
+              currentIndex: 1,
+              totalToCalibrate: picks.length,
+              part: partLabel,
+              chapter: pick.ch.number,
+            });
+
+            const neighborSynopses = partSynopses
+              .filter((s) => Math.abs(s.number - pick.ch.number) <= 1)
+              .map((s) => ({
+                number: s.number,
+                part: s.part,
+                synopsis: s.synopsis,
+              }));
+
+            try {
+              const fixRes = await fetch(`/api/escrita-fix-wordcount`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  category,
+                  ...(input.roteiroId ? { roteiroId: input.roteiroId } : {}),
+                  chapter: {
+                    number: pick.ch.number,
+                    title: partChapters[idx]!.title,
+                    part: partLabel,
+                    content: partChapters[idx]!.content,
+                  },
+                  currentWords: cur,
+                  targetWords: pick.newTarget,
+                  premissa: previousOutputs.premissa?.content,
+                  neighborSynopses,
+                }),
+                signal,
+              });
+              if (!fixRes.ok || !fixRes.body) return;
+              const fixAcc = await readResponseText(fixRes, signal);
+              if (signal.aborted) return;
+              const parsedFix = parseEscritaChaptersDirect(fixAcc);
+              const newCh = parsedFix.find((p) => p.number === pick.ch.number);
+              if (!newCh?.content) return;
+
+              // Só aceita se andou na direção pedida E ficou DENTRO da faixa do
+              // alvo PEDIDO (newTarget ± margem). Como newTarget ≤ alvo individual
+              // e Σ(newTargets) ≤ aim (meio da faixa), a soma da Parte fica ≤ aim +
+              // margens dos poucos caps tocados < teto da Parte — nunca cruza pro
+              // outro lado, mesmo se o Sonnet desobedecer o próprio teto.
+              const newWords = countWords(newCh.content);
+              const movedRight = below ? newWords > cur : newWords < cur;
+              const bounded = below
+                ? newWords <= pick.newTarget + margin
+                : newWords >= pick.newTarget - margin;
+              if (!movedRight || !bounded) return;
+
+              const idx2 = partChapters.findIndex(
+                (x) => x.number === pick.ch.number,
+              );
+              if (idx2 >= 0) {
+                partChapters[idx2] = {
+                  ...partChapters[idx2]!,
+                  content: newCh.content,
+                  title: newCh.title ?? partChapters[idx2]!.title,
+                  generatedAt: new Date().toISOString(),
+                };
+                emitPartial();
+              }
+            } catch (e) {
+              if ((e as Error).name === "AbortError") return;
+              // best-effort — o próximo passe reconta e tenta de novo
+            }
+          }),
+        ),
+      );
+    }
+  };
+
+  // ═══ Roda as duas Partes EM PARALELO; cada uma CALIBRA + BALANCEIA ao terminar ═
   // onLiveText só na Parte 1 (um stream coerente; dois embaralhariam o preview).
-  // O `.then(calibratePart)` faz a calibração da P1 sobrepor a cauda da P2.
+  // O `.then(calibratePart→balancePartTotal)` faz o ajuste da P1 sobrepor a cauda
+  // da P2 (aproveita a cota ociosa). Ordem: 1º calibra os outliers ±8% por cap, 2º
+  // balanceia o TOTAL da Parte (fecha o resíduo sistemático do ×0,97).
   const batchesPhaseStart = Date.now();
   await Promise.all([
     // P1 é a fundação — não recebe contexto cruzado (5º arg ausente).
-    runPartLoop(planP1, p1Chapters, p1Synopses, hooks.onLiveText).then(() =>
-      calibratePart("Parte 1", p1Chapters, p1Synopses, targetsP1),
-    ),
+    runPartLoop(planP1, p1Chapters, p1Synopses, hooks.onLiveText)
+      .then(() => calibratePart("Parte 1", p1Chapters, p1Synopses, targetsP1))
+      .then(() => balancePartTotal("Parte 1", p1Chapters, p1Synopses, targetsP1)),
     // P2 recebe, a cada batch, as sinopses da P1 já prontas naquele instante
     // (best-effort, sem bloquear) — costura a continuidade cruzada na origem.
-    runPartLoop(planP2, p2Chapters, p2Synopses, undefined, () => [
-      ...p1Synopses,
-    ]).then(() => calibratePart("Parte 2", p2Chapters, p2Synopses, targetsP2)),
+    runPartLoop(planP2, p2Chapters, p2Synopses, undefined, () => [...p1Synopses])
+      .then(() => calibratePart("Parte 2", p2Chapters, p2Synopses, targetsP2))
+      .then(() => balancePartTotal("Parte 2", p2Chapters, p2Synopses, targetsP2)),
   ]);
   const totalMs = Date.now() - batchesPhaseStart;
   console.info(

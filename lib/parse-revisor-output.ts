@@ -99,6 +99,158 @@ export function sanitizeXmlCruft(text: string): string {
 }
 
 /**
+ * Contaminação de CÂNONE que o Revisor às vezes vaza pra DENTRO de um
+ * `trecho_corrigido` (e daí pra prosa via `applyCorrections`) ou ecoa no
+ * relatório. A roteirista relatou "o cânone entrando no meio das correções"; o
+ * prompt do Revisor já proíbe (`canone-rule.ts`), e isto é a defesa em
+ * profundidade no código (mesmo padrão do XML cruft acima).
+ *
+ * DOIS níveis de agressividade — por causa do risco de FALSO-POSITIVO que apaga
+ * prosa legítima da autora:
+ *  • A TARJA "CÂNONE DE ENTIDADES" é inequívoca (romance jamais a contém) →
+ *    segura até pra rodar sobre a PROSA inteira (heal de storage / export). Use
+ *    `stripCanonBanner` / `hasCanonBanner` nesse caminho.
+ *  • A CITAÇÃO inline ("conforme o cânone") é DELICADA: "o cânone" é substantivo
+ *    legítimo ("o cânone bíblico", "segundo o cânone da Igreja"). Por isso a
+ *    citação SÓ casa quando "cânone" é seguido IMEDIATAMENTE de pontuação/
+ *    parêntese/fim (como uma citação meta termina) — NUNCA de uma palavra (que
+ *    indicaria substantivo real) — e SÓ deve ser aplicada nos CARDS do Revisor
+ *    (`trecho_corrigido`), via `stripCanonMeta`, JAMAIS varrendo a prosa inteira.
+ */
+const CANON_BANNER_RE =
+  /[ \t]*[━—–-]*[ \t]*C[ÂA]NONE\s+DE\s+ENTIDADES\b[^\n]*/gi;
+// Citação inline. O lookahead `(?=… )` exige que "cânone" termine em pontuação/
+// fecha-parêntese/abre-parêntese/fim-de-linha — assim "conforme o cânone." e
+// "alinhado com o CÂNONE (Helena, 32)" casam, mas "segundo o cânone budista" e
+// "o cânone bíblico" (cânone = substantivo real, seguido de palavra) NÃO casam.
+const CANON_CITATION_RE =
+  /[ \t]*[,—–-]?[ \t]*(?:conforme|alinhad[oa][ \t]+(?:com|ao)|de[ \t]+acordo[ \t]+com|segundo)[ \t]+o[ \t]+c[âa]none\b(?=[ \t]*[.,;:!?)\]]|[ \t]*\(|[ \t]*$)(?:[ \t]*\([^)\n]*\))?/gi;
+
+function reTest(re: RegExp, text: string): boolean {
+  re.lastIndex = 0;
+  return re.test(text);
+}
+
+/** Só a TARJA do bloco de cânone — SEGURA pra varrer a prosa (zero falso-positivo). */
+export function hasCanonBanner(text: string): boolean {
+  return !!text && reTest(CANON_BANNER_RE, text);
+}
+
+/** Remove só a tarja "CÂNONE DE ENTIDADES" (preserva prosa e quebras de linha). */
+export function stripCanonBanner(text: string): string {
+  if (!text || !hasCanonBanner(text)) return text;
+  CANON_BANNER_RE.lastIndex = 0;
+  return text.replace(CANON_BANNER_RE, "");
+}
+
+/** Tarja + citação inline (endurecida) — SÓ pros CARDS do Revisor, NÃO pra prosa. */
+export function hasCanonMeta(text: string): boolean {
+  return (
+    !!text && (reTest(CANON_BANNER_RE, text) || reTest(CANON_CITATION_RE, text))
+  );
+}
+
+/**
+ * Remove contaminação de cânone (tarja + citação inline endurecida) preservando
+ * as quebras de parágrafo. SÓ pros cards do Revisor (`trecho_corrigido`) — a
+ * citação inline NÃO deve varrer a prosa inteira (risco de falso-positivo com
+ * "o cânone" substantivo). Pro caminho da prosa use `stripCanonBanner`.
+ */
+export function stripCanonMeta(text: string): string {
+  if (!text || !hasCanonMeta(text)) return text;
+  CANON_BANNER_RE.lastIndex = 0;
+  CANON_CITATION_RE.lastIndex = 0;
+  return text
+    .replace(CANON_BANNER_RE, "")
+    .replace(CANON_CITATION_RE, "")
+    .replace(/\([ \t]*\)/g, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/[ \t]+([.,;!?])/g, "$1")
+    .replace(/,[ \t]*,/g, ",");
+}
+
+/**
+ * NOTA EDITORIAL do Revisor vazada pra DENTRO de um `trecho_corrigido` (e daí
+ * pra prosa via `applyCorrections`). Quando o Revisor NÃO sabe o nome canônico
+ * de um personagem (nome ausente do cânone), ele às vezes escreve uma INSTRUÇÃO
+ * entre COLCHETES no lugar da prosa, ex.:
+ *   "[NOME NÃO MENCIONE — substitua "Soren Malvorne" e todas as ocorrências de
+ *    "Soren" pelo nome que a roteirista definir no cânone, ou adicione-o ao
+ *    cânone de entidades antes de aplicar a correção automática.]"
+ * Se isso entra na correção, o find+replace CRAVA o metadado na narrativa final
+ * — exatamente a queixa "muito grave" da roteirista (bug recorrente da 1.0.88).
+ * O prompt do Revisor (`canone-rule.ts`) JÁ proíbe e manda emitir erro
+ * INFORMATIVO nesses casos; isto é a defesa em profundidade no código (mesmo
+ * padrão do XML cruft / tarja de cânone acima).
+ *
+ * Detecção SEGURA (zero falso-positivo sobre prosa): um span entre colchetes
+ * `[...]` QUE CONTÉM um marcador editorial inequívoco (roteirista / cânone /
+ * "correção automática" / substitua / "ocorrências de" / "NOME NÃO MENCIONE").
+ * Romance jamais usa `[...]` com essas palavras — diferente de "o cânone"
+ * substantivo solto na prosa (que NÃO casa, por não estar entre colchetes nem
+ * acompanhado desses verbos de instrução).
+ *
+ * Tratamento: nos CARDS do Revisor, um `trecho_corrigido` com nota editorial é
+ * INAPLICÁVEL → o parser ZERA o campo (o card vira INFORMATIVO e a roteirista
+ * decide; mesma receita do invariante "uma identidade = um nome"). Na PROSA
+ * (heal de storage/export + última defesa do `applyCorrections`) a nota é
+ * removida com `stripEditorialNote`.
+ */
+const EDITORIAL_NOTE_RE =
+  /\[[^\]]*?(?:roteirista|c[âa]none|corre[çc][ãa]o\s+autom[áa]tica|substitu\w*|ocorr[êe]ncias?\s+de|nome\s+n[ãa]o\s+menc\w*)[^\]]*?\]/gi;
+
+/** True se o texto contém uma nota editorial do Revisor entre colchetes. */
+export function hasEditorialNote(text: string): boolean {
+  return !!text && reTest(EDITORIAL_NOTE_RE, text);
+}
+
+/**
+ * Remove notas editoriais entre colchetes preservando as quebras de linha da
+ * prosa (só colapsa whitespace horizontal e conserta espaço antes de
+ * pontuação — NÃO mexe em `\n`, pra não fundir parágrafos). Pro caminho da
+ * PROSA (heal/export/última defesa). Nos CARDS, o parser ZERA o trecho_corrigido
+ * em vez de chamar isto (correção inaplicável → informativa).
+ */
+export function stripEditorialNote(text: string): string {
+  if (!text || !hasEditorialNote(text)) return text;
+  EDITORIAL_NOTE_RE.lastIndex = 0;
+  return text
+    .replace(EDITORIAL_NOTE_RE, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/[ \t]+([.,;:!?])/g, "$1")
+    .replace(/[ \t]+\n/g, "\n");
+}
+
+/**
+ * NO-OP: trecho_corrigido é, na prática, IDÊNTICO ao trecho_original — a
+ * "correção" não muda nada. Padrão do bug (12/06/2026): o Revisor cita um
+ * parágrafo como âncora, repete-o INALTERADO no trecho_corrigido e descreve a
+ * correção REAL só na prosa do por_que_alterado (ex.: começando com
+ * "AVISO: substituir 'X' por 'Y'"). A engine de find+replace rejeita o par
+ * (original === corrigido), MAS a UI classificava o card como "literal" e
+ * mostrava um botão "Aplicar" fadado a falhar com "trecho não encontrado" —
+ * mesmo o trecho EXISTINDO no roteiro (queixa da roteirista). Tratamento (mesma
+ * receita do hasEditorialNote): zera o trecho_corrigido → card vira INFORMATIVO
+ * (a roteirista lê o por_que_alterado/AVISO e decide, ou regenera a revisão).
+ *
+ * Normaliza só whitespace HORIZONTAL + zero-width e PRESERVA as quebras de
+ * linha (uma correção que só RE-QUEBRA parágrafos — "a b" → "a\n\nb" — É mudança
+ * real e NÃO é no-op). NÃO normaliza aspas/travessões: trocar « por " ou – por —
+ * é correção legítima. INSERÇÕES (trecho_corrigido = âncora + texto novo) têm
+ * conteúdo a mais, então nunca casam aqui.
+ */
+export function isNoOpCorrection(original: string, corrigido: string): boolean {
+  if (!original || !corrigido) return false;
+  const norm = (s: string) =>
+    s
+      .replace(/[​-‍﻿]/g, "")
+      .replace(/[ \t]+/g, " ")
+      .replace(/[ \t]*\n[ \t]*/g, "\n")
+      .trim();
+  return norm(original) === norm(corrigido);
+}
+
+/**
  * Remove o bloco <erros_detalhados>...</erros_detalhados> do conteúdo bruto,
  * devolvendo o texto principal "limpo" (markdown da revisão sem o XML).
  */
@@ -162,11 +314,30 @@ export function parseRevisorErrors(
     // sanitização, applyCorrections grava o XML cru dentro do roteiro
     // final da Escrita e a roteirista vê tags cravadas na narrativa.
     const trechoOriginal = trechoOriginalRaw
-      ? sanitizeXmlCruft(trechoOriginalRaw)
+      ? stripEditorialNote(sanitizeXmlCruft(trechoOriginalRaw))
       : undefined;
-    const trechoCorrigido = trechoCorrigidoRaw
-      ? sanitizeXmlCruft(trechoCorrigidoRaw)
-      : undefined;
+    // trecho_corrigido com NOTA EDITORIAL do Revisor entre colchetes
+    // ("[substitua X pelo nome do cânone…]", "[NOME NÃO MENCIONE…]") é
+    // INAPLICÁVEL — aplicá-lo cravaria o metadado na prosa (queixa "muito grave"
+    // da roteirista). Zera o campo → card INFORMATIVO (sem botão Aplicar; a
+    // roteirista decide), com o motivo seguindo no por_que_alterado. Senão,
+    // limpa cânone-meta + XML cruft como antes.
+    const trechoCorrigidoClean = !trechoCorrigidoRaw
+      ? undefined
+      : hasEditorialNote(trechoCorrigidoRaw)
+        ? ""
+        : stripCanonMeta(sanitizeXmlCruft(trechoCorrigidoRaw));
+    // NO-OP: trecho_corrigido idêntico ao trecho_original (depois de limpo) não
+    // é correção aplicável — o Revisor citou a âncora, repetiu-a INALTERADA e
+    // pôs a correção real só no por_que_alterado/AVISO. Zera → card INFORMATIVO
+    // (mesma receita do hasEditorialNote): sem botão fadado a "trecho não
+    // encontrado" num trecho que EXISTE no roteiro (bug 12/06/2026).
+    const trechoCorrigido =
+      trechoCorrigidoClean &&
+      trechoOriginal &&
+      isNoOpCorrection(trechoOriginal, trechoCorrigidoClean)
+        ? ""
+        : trechoCorrigidoClean;
     const porqueAlterado = porqueAlteradoRaw
       ? sanitizeXmlCruft(porqueAlteradoRaw)
       : undefined;
@@ -636,9 +807,21 @@ export function applyCorrections(
     // conteúdo (pré-fix do parseRevisorErrors), re-sanitiza antes do splice
     // pra GARANTIR que tags XML nunca entrem na narrativa final da Escrita.
     const original = sanitizeXmlCruft(err.trechoOriginal ?? "");
-    const corrigido = sanitizeXmlCruft(err.trechoCorrigido ?? "");
+    const corrigido = stripCanonMeta(sanitizeXmlCruft(err.trechoCorrigido ?? ""));
 
     if (!original) {
+      failedIds.push(err.id);
+      continue;
+    }
+    // Defesa crítica contra metadado na prosa: um trecho_corrigido com NOTA
+    // EDITORIAL do Revisor entre colchetes ("[substitua X pelo nome do cânone…]")
+    // — card antigo salvo em 1.0.88, antes do parser zerar — CRAVARIA o metadado
+    // na narrativa final. JAMAIS aplica. Checa o RAW (não o `corrigido` já
+    // processado): a nota costuma conter "ao cânone de entidades", que o
+    // stripCanonMeta acima removeria junto com o `]` de fechamento, escondendo a
+    // nota do detector. Idem corrigido VAZIO: trocar o trecho por nada apagaria
+    // a prosa (é card informativo, não correção).
+    if (!corrigido || hasEditorialNote(err.trechoCorrigido ?? "")) {
       failedIds.push(err.id);
       continue;
     }
@@ -674,10 +857,17 @@ export function applyCorrections(
 
   // Última linha de defesa: mesmo que TODAS as camadas anteriores tenham
   // falhado e algum trecho_corrigido tenha conseguido injetar tags do schema
-  // (`<trecho_original>`, `</trecho_corrigido>`, etc.) no texto, removemos
-  // antes de devolver. Usa `stripXmlCruft` (não `sanitize`) pra NÃO mexer
-  // em whitespace/parágrafos do roteiro — só apaga as tags cravadas.
-  text = stripXmlCruft(text);
+  // (`<trecho_original>`, `</trecho_corrigido>`, etc.), a tarja "CÂNONE DE
+  // ENTIDADES" ou uma NOTA EDITORIAL entre colchetes no texto, removemos antes
+  // de devolver. Aqui `text` é a PROSA INTEIRA, então usamos só `stripCanonBanner`
+  // (tarja inequívoca) — NÃO a citação inline, que sobre prosa daria falso-
+  // positivo com "o cânone" substantivo. `stripEditorialNote` é seguro na prosa
+  // (colchete + marcador editorial). ORDEM IMPORTA: stripEditorialNote ANTES do
+  // stripCanonBanner — a nota costuma conter "ao cânone de entidades", e se o
+  // banner rodasse primeiro comeria o `]` de fechamento e deixaria meio colchete
+  // cravado. Tira o colchete INTEIRO primeiro, depois a tarja solta. Usa `strip*`
+  // (não `sanitize`) pra NÃO mexer em whitespace/parágrafos do roteiro.
+  text = stripCanonBanner(stripEditorialNote(stripXmlCruft(text)));
 
   return { text, appliedIds, failedIds };
 }

@@ -24,6 +24,7 @@ import {
   gravityLabel,
   hashEscritaContent,
   inferPartFromContent,
+  isNoOpCorrection,
 } from "@/lib/parse-revisor-output";
 import {
   applySuggestionToScope,
@@ -59,6 +60,12 @@ function classifyError(
   const original = err.trechoOriginal?.trim();
   const fix = err.trechoCorrigido?.trim();
   if (!original || !fix) return "informativo";
+  // Par no-op (corrigido idêntico ao original): a correção não muda nada e a
+  // engine de find+replace a rejeita. NÃO é "literal" — vira informativo (a
+  // roteirista lê o por_que_alterado/AVISO). Cobre erros já salvos ANTES do fix
+  // no parser, que não passam por re-parse (bug "trecho não encontrado" num
+  // trecho que existe, 12/06/2026).
+  if (isNoOpCorrection(original, fix)) return "informativo";
   return findTrechoInText(escritaContent, original) ? "literal" : "unmatched";
 }
 
@@ -422,7 +429,17 @@ export function RevisorErrorsView({ errors, escritaSnapshotHash }: Props) {
     // antigas), tenta inferir buscando o trecho no roteiro.
     const parte =
       err.parte ?? inferPartFromContent(escritaContent, err.trechoOriginal);
-    const enrichedErr = parte ? { ...err, parte } : err;
+    let enrichedErr = parte ? { ...err, parte } : err;
+    // Erros já salvos antes do fix no parser: par no-op (corrigido idêntico ao
+    // original) → zera o corrigido pra virar card informativo limpo (sem a caixa
+    // "Trecho corrigido" duplicada nem botão fadado ao "trecho não encontrado").
+    if (
+      !err.applied &&
+      enrichedErr.trechoCorrigido?.trim() &&
+      isNoOpCorrection(enrichedErr.trechoOriginal ?? "", enrichedErr.trechoCorrigido)
+    ) {
+      enrichedErr = { ...enrichedErr, trechoCorrigido: "" };
+    }
     // Aplicados não têm kind no map; lê o kind ou cai pro default
     // "literal" (irrelevante quando applied=true).
     const kind: ErrorKind = err.applied

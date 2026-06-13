@@ -133,6 +133,39 @@ wc && has(wc, "export") && /countWords/.test(wc)
   ? ok("lib/word-count.ts exporta countWords")
   : warn("lib/word-count.ts: confirmar manualmente que countWords segue como única fonte");
 
+// ── Word-count guard: normalize LÊ e REESCREVE o alvo pelo HEADER (header-first) ──
+// Bug 12/06/2026 "normalize infla a Estrutura": o LEITOR (extractTargetFromBlock) e o
+// ESCRITOR (rewriteTargetInBlock) PRECISAM concordar que o alvo do capítulo vive no
+// HEADER (1ª linha). Se um deles voltar a varrer o CORPO primeiro, uma faixa de
+// sub-cena do trecho ✦ ("237-297 palavras") é lida/reescrita como alvo e o normalize
+// reescala a estrutura inteira PRA CIMA (totais estouram a faixa da Parte). Trava as
+// duas pontas em sincronia — ver `target_capitulo_vem_do_header` na memória.
+console.log("\n[Word-count] normalize header-first (leitor + escritor em sincronia)");
+{
+  const windowAfter = (txt, decl, n = 700) => {
+    if (txt == null) return "";
+    const i = txt.indexOf(decl);
+    return i === -1 ? "" : txt.slice(i, i + n);
+  };
+  const NL = 'indexOf("\\n")';
+  // LEITOR: extractTargetFromBlock deve ler o header (1ª linha) ANTES do corpo.
+  const rdr = windowAfter(read("lib/parse-estrutura-targets.ts"), "function extractTargetFromBlock(");
+  rdr.includes(NL) && /extractTargetFromText\(\s*header\s*\)/.test(rdr)
+    ? ok("leitor extractTargetFromBlock é header-first")
+    : bad("lib/parse-estrutura-targets.ts: extractTargetFromBlock NÃO é header-first (faixa de sub-cena pode sequestrar o alvo)");
+  // ESCRITOR: rewriteTargetInBlock deve reescrever o header ANTES do fallback pro corpo.
+  const norm = read("lib/normalize-estrutura-targets.ts");
+  const wtr = windowAfter(norm, "function rewriteTargetInBlock(");
+  wtr.includes(NL) && /rewriteTargetInText\(\s*header\s*,/.test(wtr)
+    ? ok("escritor rewriteTargetInBlock é header-first")
+    : bad("lib/normalize-estrutura-targets.ts: rewriteTargetInBlock NÃO é header-first (reescreve a faixa de sub-cena em vez do header → estrutura infla)");
+  // Rodapé-resumo ("Soma das contagens declaradas: …") sincronizado no reescalonamento
+  // (pedido da roteirista 12/06): sem isso a linha volta a mostrar a soma velha e confunde.
+  norm && /function rewriteFooterSum\(/.test(norm) && /rewriteFooterSum\(\s*newText/.test(norm)
+    ? ok("rodapé-resumo sincronizado no reescalonamento (rewriteFooterSum)")
+    : bad("lib/normalize-estrutura-targets.ts: rewriteFooterSum sumiu/não é chamado no reescalonamento (rodapé volta a confundir)");
+}
+
 // ── Veredito ──
 console.log(`\n${"-".repeat(60)}`);
 console.log(`Resultado estático: ${passes} OK · ${warns} avisos · ${fails} reprovações`);

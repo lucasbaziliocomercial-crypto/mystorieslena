@@ -230,6 +230,18 @@ export interface BatchMissingChapters {
    */
   duplicatesRemoved?: number;
   /**
+   * Capítulos deste batch em que a Escrita removeu uma DUPLICAÇÃO INTERNA — o
+   * modelo "reiniciou" no meio do cap e re-emitiu um bloco grande de cenas SEM
+   * novo cabeçalho (a segunda metade refazia a primeira). Diferente de
+   * `duplicatesRemoved` (capítulos INTEIROS repetidos), aqui o cap é um só e o
+   * lixo estava no corpo — antes isso escapava pra prosa final e só o Revisor
+   * pegava. `stripInternalDuplication` corta na origem (mantém a 1ª ocorrência,
+   * deleta o restart até o fim) e registra os números aqui. Renderizado no
+   * banner amarelo com o mesmo peso de `duplicatesRemoved` — visibilidade >
+   * silêncio (a roteirista reclamava de "não consigo ver nos cards").
+   */
+  internalDuplicateChapters?: number[];
+  /**
    * Erro fatal do batch (HTTP/rede/parser sem cabeçalhos depois de todos os
    * retries). Quando presente, o loop NÃO aborta — registra esse aviso e
    * segue pro próximo batch (P2 não pode ser pulada por falha em P1, nem
