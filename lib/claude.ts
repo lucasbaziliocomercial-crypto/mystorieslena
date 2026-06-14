@@ -294,6 +294,24 @@ export function isRetryableClaudeError(msg: string): boolean {
 }
 
 /**
+ * O SDK completou SEM erro porém NÃO emitiu nenhum texto/raciocínio (um `result`
+ * subtype `success` com conteúdo vazio). É a manifestação SILENCIOSA da corrida
+ * de refresh do token OAuth sob concorrência (o processo `claude` perdedor às
+ * vezes devolve um result success VAZIO em vez de lançar 401) — escapava do
+ * retry (que só via erro LANÇADO) E do watchdog de stall (não há hang, o stream
+ * fecha na hora), então o passo (cânone/estrutura/revisor/escrita) saía EM
+ * BRANCO quando se geram DOIS ao mesmo tempo, sem erro nenhum. Tratado como
+ * transiente: `streamClaudeText` retenta (query fresca) e, esgotadas as
+ * tentativas, vira erro claro (a rota → [ERRO] recuperável) em vez de vazio mudo.
+ */
+class EmptyResultError extends Error {
+  constructor() {
+    super("Claude Agent SDK: resposta vazia (result success sem conteúdo)");
+    this.name = "EmptyResultError";
+  }
+}
+
+/**
  * Backoff exponencial (500ms · 1s · 2s … teto 4s) + jitter aleatório de 0..base.
  * O jitter DESSINCRONIZA as tentativas dos processos concorrentes — sem ele,
  * todos retentariam juntos e recriariam a mesma corrida de refresh ("thundering
@@ -500,6 +518,15 @@ export async function* streamClaudeText(
         }
       }
     }
+
+    // "Sucesso vazio": o for-await terminou SEM erro, mas o modelo não emitiu
+    // NENHUM texto/raciocínio (yieldedAny=false). Lança pro catch tratar como
+    // transiente (retry com query fresca) — é a causa silenciosa do "gera dois ao
+    // mesmo tempo e um sai em branco" (ver EmptyResultError). Só quando NÃO foi
+    // abortado (abort = cancelamento intencional da usuária, não erro).
+    if (!yieldedAny && !params.signal?.aborted) {
+      throw new EmptyResultError();
+    }
   } catch (e) {
     // Retry de erro TRANSIENTE/auth antes de estourar pro usuário (a rota
     // transformaria num "[LOGIN NECESSÁRIO]"/"[ERRO]" e a revisão/escrita morreria
@@ -510,14 +537,19 @@ export async function* streamClaudeText(
     // delega a uma invocação FRESCA (promptInput/query/abortController novos) via
     // yield*. Senão, rethrow → a rota mostra o bloco de login/erro (último recurso).
     const m = e instanceof Error ? e.message : String(e);
+    const isEmpty = e instanceof EmptyResultError;
     if (
       !yieldedAny &&
       attempt < MAX_ATTEMPTS &&
       !params.signal?.aborted &&
-      isRetryableClaudeError(m)
+      (isEmpty || isRetryableClaudeError(m))
     ) {
       console.warn(
-        `[claude.ts] tentativa ${attempt}/${MAX_ATTEMPTS} falhou (transiente/auth), repetindo em backoff: ${m.slice(0, 160)}`,
+        `[claude.ts] tentativa ${attempt}/${MAX_ATTEMPTS} ${
+          isEmpty
+            ? "retornou VAZIA (result success sem conteúdo)"
+            : "falhou (transiente/auth)"
+        }, repetindo em backoff: ${m.slice(0, 160)}`,
       );
       await sleepWithSignal(retryBackoffMs(attempt), params.signal);
       // O backoff pode ter terminado cedo porque o usuário CANCELOU — nesse caso
@@ -527,6 +559,15 @@ export async function* streamClaudeText(
       if (params.signal?.aborted) return;
       yield* streamClaudeText(params, attempt + 1);
       return;
+    }
+    // Vazio que esgotou as tentativas → erro CLARO (a rota vira [ERRO] recuperável,
+    // a roteirista regenera) em vez de devolver string vazia muda, que seria salva
+    // como "passo em branco" silencioso. Abort durante o caminho já retornou acima.
+    if (isEmpty) {
+      if (params.signal?.aborted) return;
+      throw new Error(
+        `O modelo não retornou conteúdo (resposta vazia após ${MAX_ATTEMPTS} tentativas). Tente gerar de novo.`,
+      );
     }
     throw e;
   } finally {
