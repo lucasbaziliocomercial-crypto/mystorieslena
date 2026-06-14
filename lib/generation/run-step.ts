@@ -56,6 +56,32 @@ export interface RunPremissaParams {
   briefing?: string;
 }
 
+/**
+ * Teto de silêncio do stream: se NENHUM byte chegar nesse intervalo, o watchdog
+ * em `readResponseText` aborta o read travado. Mesmo valor da Escrita
+ * (`run-escrita.ts`) — 180s cobre folgado o maior gap real entre chunks sob carga.
+ */
+const STREAM_STALL_TIMEOUT_MS = 180_000;
+
+/**
+ * Stream ficou em silêncio além de `STREAM_STALL_TIMEOUT_MS`. Sem isto, um stream
+ * de chamada única (Estrutura/Revisor/Overview/Premissa/Cânone) que pendura sob
+ * carga concorrente (duas gerações na MESMA conta OAuth) deixava o job "running"
+ * pra sempre, com a saída em branco e sem aviso — o slot da fila ficava preso e a
+ * roteirista via "uma das duas em branco". Convertido num erro recuperável pelo
+ * chamador (o `QueueRunner` marca o job como `error` e o botão "Gerar" volta).
+ */
+class StreamStallError extends Error {
+  constructor() {
+    super(
+      `O stream do modelo travou (sem dados por ${Math.round(
+        STREAM_STALL_TIMEOUT_MS / 1000,
+      )}s). Tente gerar de novo.`,
+    );
+    this.name = "StreamStallError";
+  }
+}
+
 async function readResponseText(
   res: Response,
   signal: AbortSignal,
@@ -66,25 +92,113 @@ async function readResponseText(
   let acc = "";
   // Throttle por tempo (~80ms ≈ 12 updates/s) — leve no store, suave na UI.
   let lastEmit = 0;
-  for (;;) {
-    if (signal.aborted) break;
-    const { done, value } = await reader.read();
-    if (done) break;
-    acc += decoder.decode(value, { stream: true });
-    if (onLive) {
-      const now = Date.now();
-      if (now - lastEmit > 80) {
-        lastEmit = now;
-        // CRU (com marcadores) pro preview ao vivo — a UI separa o raciocínio
-        // esmaecido. O retorno limpo abaixo é o que vira conteúdo salvo.
-        onLive(acc);
+  try {
+    for (;;) {
+      if (signal.aborted) break;
+      // Watchdog de silêncio: corrida entre o próximo chunk e um timer recriado a
+      // CADA iteração (reseta a cada byte que chega). Só dispara se NENHUM byte
+      // chegar por STREAM_STALL_TIMEOUT_MS seguidos, convertendo um hang infinito
+      // num StreamStallError. Espelha run-escrita.ts (lá os batches têm watchdog;
+      // os steps de chamada única não tinham — era o buraco do "duas ao mesmo
+      // tempo, uma fica em branco").
+      let stallTimer: ReturnType<typeof setTimeout> | undefined;
+      const stall = new Promise<never>((_, reject) => {
+        stallTimer = setTimeout(
+          () => reject(new StreamStallError()),
+          STREAM_STALL_TIMEOUT_MS,
+        );
+      });
+      let chunk: Awaited<ReturnType<typeof reader.read>>;
+      try {
+        chunk = await Promise.race([reader.read(), stall]);
+      } finally {
+        if (stallTimer) clearTimeout(stallTimer);
+      }
+      const { done, value } = chunk;
+      if (done) break;
+      acc += decoder.decode(value, { stream: true });
+      if (onLive) {
+        const now = Date.now();
+        if (now - lastEmit > 80) {
+          lastEmit = now;
+          // CRU (com marcadores) pro preview ao vivo — a UI separa o raciocínio
+          // esmaecido. O retorno limpo abaixo é o que vira conteúdo salvo.
+          onLive(acc);
+        }
       }
     }
+  } catch (e) {
+    // Watchdog disparou: cancela o reader pra liberar a conexão pendurada e
+    // propaga. O QueueRunner trata como erro recuperável (job → error, sem
+    // pendurar o slot da fila pra sempre).
+    if (e instanceof StreamStallError) {
+      try {
+        await reader.cancel();
+      } catch {
+        /* reader já morto — ignora */
+      }
+    }
+    throw e;
   }
   if (onLive) onLive(acc);
   // Retorna o conteúdo final SEM o raciocínio (thinking). Pros steps sem
   // thinking (Revisor/Premissa/Overview), splitThinking é identidade.
   return splitThinking(acc).content;
+}
+
+/**
+ * Nº de re-tentativas automáticas quando o STREAM TRAVA (`StreamStallError`) num
+ * passo de chamada única. Self-heal sem a roteirista reclicar: o stall costuma ser
+ * engasgo transiente da conta compartilhada sob 2 gerações concorrentes, e uma
+ * requisição NOVA quase sempre volta a fluir. Bounded (pior caso raro).
+ */
+const MAX_STALL_RETRIES = 2;
+
+/** Sleep que resolve cedo se o signal abortar (não trava o cancelamento). */
+function sleep(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal.aborted) return resolve();
+    const t = setTimeout(resolve, ms);
+    signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(t);
+        resolve();
+      },
+      { once: true },
+    );
+  });
+}
+
+/**
+ * Roda `fn` e, se o stream TRAVAR (`StreamStallError`), refaz a chamada INTEIRA até
+ * `MAX_STALL_RETRIES` com um backoff curto (abort-aware). Self-heal pro caso "duas
+ * gerações concorrentes, uma engasga" — a roteirista não precisa reclicar. SÓ o
+ * stall é retentado; QUALQUER outro erro (HTTP, abort, erro de conteúdo) propaga na
+ * hora (não mascara falha real). Esgotadas as tentativas, o stall propaga e o
+ * `QueueRunner` marca o job como erro recuperável. `onPhase` avisa a re-tentativa.
+ */
+async function withStallRetry<T>(
+  fn: () => Promise<T>,
+  signal: AbortSignal,
+  onPhase?: (label: string) => void,
+): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (signal.aborted || (e as Error).name === "AbortError") throw e;
+      if (e instanceof StreamStallError && attempt < MAX_STALL_RETRIES) {
+        onPhase?.(
+          `O modelo engasgou — tentando de novo (${attempt + 1}/${MAX_STALL_RETRIES})…`,
+        );
+        await sleep(1500 * (attempt + 1), signal);
+        if (signal.aborted) throw e;
+        continue;
+      }
+      throw e;
+    }
+  }
 }
 
 /**
@@ -106,10 +220,20 @@ export async function runStreamingStep(
 ): Promise<StepOutput> {
   const r = getRoteiro(roteiroId);
   if (!r) throw new Error("Roteiro não encontrado (foi excluído?).");
-  if (isRevisorStep(step))
-    return runRevisorStep(r, step, userInput, hooks, previousRevisorErrors);
-  if (step === "overview") return runOverviewStep(r, userInput, hooks);
-  return runEstruturaStep(r, step, userInput, hooks);
+  // Self-heal: se o stream travar (watchdog), refaz a chamada inteira (estrutura/
+  // revisor/overview) até MAX_STALL_RETRIES antes de errar — a roteirista não
+  // reclica. Idempotente: cada tentativa re-fetcha com os mesmos inputs (nada é
+  // mutado antes da resposta chegar).
+  return withStallRetry(
+    () => {
+      if (isRevisorStep(step))
+        return runRevisorStep(r, step, userInput, hooks, previousRevisorErrors);
+      if (step === "overview") return runOverviewStep(r, userInput, hooks);
+      return runEstruturaStep(r, step, userInput, hooks);
+    },
+    hooks.signal,
+    hooks.onPhase,
+  );
 }
 
 /**
