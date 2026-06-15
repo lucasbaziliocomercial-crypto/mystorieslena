@@ -22,8 +22,9 @@ A Parte 2 é o livro pelo qual a leitora pagou. Mais intensa, mais profunda e ma
 📐 ESTRUTURA GERAL
 • Total: 13.000–13.500 (alvo 13.500 — rigoroso).
 • Capítulos: exatamente 6 — nunca menos, nunca mais.
+• Distribuição EQUILIBRADA das palavras: cada um dos 6 capítulos com peso semelhante — MÍNIMO ~2.000 palavras por capítulo. Nenhum capítulo pode ficar muito mais curto que os outros.
 • Penúltimo capítulo: reconciliação espiritual do casal (a cena íntima NÃO é obrigatoriamente colocada aqui — segue a regra flexível abaixo).
-• Último capítulo / Epílogo: final feliz — coroação como Luna + herdeiro alpha / casamento sob a Moon Goddess / sonho realizado. Com salto temporal, é obrigatoriamente um EPÍLOGO.
+• Último capítulo / Epílogo: final feliz — coroação como Luna + herdeiro alpha / casamento sob a Moon Goddess / sonho realizado. Com salto temporal, é obrigatoriamente um EPÍLOGO — mas mesmo como EPÍLOGO tem peso CHEIO (~2.000+ palavras, como os outros capítulos), NUNCA um epílogo curto.
 • Tom: mais intenso, mais íntimo, mais perigoso espiritualmente, mais resolutivo, mais erótico que a Parte 1.
 
 🎙️ SISTEMA DE NARRAÇÃO — REGRAS ABSOLUTAS
@@ -74,5 +75,5 @@ Monte um mapa cena a cena (uma linha por cena): Cap. | Cena | Dia/Lua | Horário
 [EMOJI] TÍTULO DA HISTÓRIA — PARTE 2 · Continuação de: [Título da Parte 1]
 🗺️ MAPA DA HISTÓRIA (com coluna Narrador) · 🎣 HOOK DA PARTE 2 (90-120 palavras, 1ª pessoa) · 🔗 PONTO DE RETOMADA (narrador da 1ª e da 2ª metade do Cap. 1) · 🎙️ DISTRIBUIÇÃO DOS POVs DO ALPHA (total 2-4 + o que cada trecho revela de novo) · 🧩 CONFLITOS HERDADOS DA PARTE 1 · 📖 CAPÍTULOS (para cada um: "Capítulo N — [Título]"; narrador(es) do capítulo; resumo + cenas + gancho) · 🔥 CENA ÍNTIMA / MARCAÇÃO COMPLETA (capítulo onde acontece + justificativa de posicionamento + construção de química prévia + fase da lua + o que revela emocional e espiritualmente) · 🥚 EASTER EGGS (mínimo 3) · 💍 ENTREGA FINAL · ✅ RESOLUÇÃO DOS CONFLITOS.
 
-✅ ANTES DE FINALIZAR: a Parte 1 foi usada como fonte de verdade; exatamente 6 capítulos; SOME as contagens e confirme total entre 13.000 e 13.500; hook 90-120 palavras 1ª pessoa terminando em cliffhanger; 2 a 4 trechos do Alpha (✦ NOME), nunca dois seguidos, nenhum repetindo a heroína; cena íntima narrada pela heroína; ≥3 easter eggs; antagonistas com desfecho; último capítulo entrega coroação como Luna + herdeiro / casamento sob a Moon Goddess / sonho realizado (EPÍLOGO se houver salto temporal); nomes fora da lista proibida ("Luna" só como título).
+✅ ANTES DE FINALIZAR: a Parte 1 foi usada como fonte de verdade; exatamente 6 capítulos; SOME as contagens e confirme total entre 13.000 e 13.500; cada um dos 6 capítulos com MÍNIMO ~2.000 palavras (nenhum, nem o último/epílogo, muito mais curto que os outros); hook 90-120 palavras 1ª pessoa terminando em cliffhanger; 2 a 4 trechos do Alpha (✦ NOME), nunca dois seguidos, nenhum repetindo a heroína; cena íntima narrada pela heroína; ≥3 easter eggs; antagonistas com desfecho; último capítulo entrega coroação como Luna + herdeiro / casamento sob a Moon Goddess / sonho realizado (EPÍLOGO se houver salto temporal); nomes fora da lista proibida ("Luna" só como título).
 `;
