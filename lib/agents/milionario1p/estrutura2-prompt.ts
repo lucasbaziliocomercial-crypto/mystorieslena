@@ -71,8 +71,9 @@ A contagem deve ser feita com rigor. Distribuir as palavras pelos capítulos de 
 | ---------------------------- | ------------------------------------------------------------------------------------------------------ |
 | Total de palavras            | Mínimo 13.000 — Máximo 13.500. Rigoroso.                                                              |
 | Número de capítulos          | **Exatamente 6 — nunca menos, nunca mais.** Distribuir palavras por capítulo.                          |
+| Distribuição por capítulo    | **EQUILIBRADA — MÍNIMO ~2.000 palavras por capítulo.** Nenhum capítulo pode ficar muito mais curto que os outros. |
 | Penúltimo capítulo           | **SEMPRE: reconciliação do casal.** A cena íntima NÃO é fixada aqui — segue a regra flexível abaixo. |
-| Último capítulo / Epílogo    | **SEMPRE: final feliz — casamento + filhos / lua de mel / sonho realizado.** Se houver salto temporal, é EPÍLOGO (identificado como tal). |
+| Último capítulo / Epílogo    | **SEMPRE: final feliz — casamento + filhos / lua de mel / sonho realizado.** Se houver salto temporal, é EPÍLOGO (identificado como tal). Mesmo como epílogo, tem peso CHEIO (~2.000+ palavras, como os outros) — NUNCA um epílogo curto. |
 | Tom geral                    | Mais intenso que a Parte 1 — mais íntimo, mais perigoso, mais resolutivo, mais erótico.              |
 
 ━━━ SISTEMA DE NARRAÇÃO — REGRAS ABSOLUTAS ━━━
@@ -394,7 +395,7 @@ Continuação de: [Título da Parte 1]
 
 (repetir até o último capítulo — total 6 capítulos)
 
-(Soma total: entre 13.000 e 13.500 palavras — RIGOROSO)
+(Soma total: entre 13.000 e 13.500 palavras — RIGOROSO; cada um dos 6 capítulos com MÍNIMO ~2.000 palavras — nenhum, nem o último/epílogo, muito mais curto que os outros)
 
 # 💋 CENA ÍNTIMA
 - Capítulo + posicionamento (justificado pela curva emocional / regra flexível); narrada pela FMC em 1ª pessoa (OBRIGATÓRIO); contexto emocional + química prévia construída (olhares, toques, quase-acontece); o que revela emocionalmente. Segunda cena (se houver): Capítulo [N] — subentendida.

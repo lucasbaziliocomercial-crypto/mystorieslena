@@ -23,6 +23,7 @@ import {
   extractTargetFromBlock,
   partTotalRange,
 } from "@/lib/parse-estrutura-targets";
+import { enforceMinChapterShare } from "@/lib/balance-chapter-distribution";
 import type { RoteiroCategory } from "@/lib/categories/types";
 import { DEFAULT_CATEGORY } from "@/types/roteiro";
 
@@ -154,9 +155,14 @@ function rewriteFooterSum(
 }
 
 /**
- * Garante que a soma dos alvos por capítulo caiba na faixa da Parte.
- * Se já cabe (ou não dá pra ler todos os alvos com segurança), devolve o texto
- * intacto com `rescaled: false`.
+ * Garante DUAS coisas sobre os alvos por capítulo de uma Estrutura:
+ *  (A) a SOMA cabe na faixa total da Parte (reescala proporcional se estourar);
+ *  (B) — SÓ na Parte 2 — nenhum capítulo (em especial o ÚLTIMO) fica muito mais
+ *      curto que os outros: eleva os abaixo do piso (~2.000) tirando das sobras
+ *      dos mais longos, conservando a soma (ver `enforceMinChapterShare`).
+ *
+ * Se nada precisa mudar (ou não dá pra ler todos os alvos com segurança),
+ * devolve o texto intacto com `rescaled: false`.
  */
 export function normalizeEstruturaTargets(
   estrutura: string | undefined,
@@ -179,26 +185,44 @@ export function normalizeEstruturaTargets(
 
   const nums = targets as number[];
   const sumBefore = nums.reduce((a, b) => a + b, 0);
-  const { min, max, target } = partTotalRange(part, category);
-
-  if (sumBefore >= min && sumBefore <= max) {
-    return { text, rescaled: false, sumBefore, sumAfter: sumBefore };
-  }
   if (sumBefore <= 0) {
     return { text, rescaled: false, sumBefore, sumAfter: sumBefore };
   }
+  const { min, max, target } = partTotalRange(part, category);
 
-  // Reescala proporcional pro total alvo, com o resíduo de arredondamento no
-  // capítulo de maior alvo (pra a soma bater EXATA no target).
-  const factor = target / sumBefore;
-  const newTargets = nums.map((t) => Math.max(1, Math.round(t * factor)));
-  const residual = target - newTargets.reduce((a, b) => a + b, 0);
-  if (residual !== 0) {
-    let idxMax = 0;
-    for (let i = 1; i < newTargets.length; i++) {
-      if (newTargets[i]! > newTargets[idxMax]!) idxMax = i;
+  let working = nums;
+  let changed = false;
+
+  // (A) Soma fora da faixa → reescala proporcional pro total alvo, com o resíduo
+  // de arredondamento no capítulo de maior alvo (pra a soma bater EXATA no target).
+  if (sumBefore < min || sumBefore > max) {
+    const factor = target / sumBefore;
+    const rescaled = nums.map((t) => Math.max(1, Math.round(t * factor)));
+    const residual = target - rescaled.reduce((a, b) => a + b, 0);
+    if (residual !== 0) {
+      let idxMax = 0;
+      for (let i = 1; i < rescaled.length; i++) {
+        if (rescaled[i]! > rescaled[idxMax]!) idxMax = i;
+      }
+      rescaled[idxMax] = Math.max(1, rescaled[idxMax]! + residual);
     }
-    newTargets[idxMax] = Math.max(1, newTargets[idxMax]! + residual);
+    working = rescaled;
+    changed = true;
+  }
+
+  // (B) Distribuição por capítulo — SÓ na Parte 2. A soma de `working` já está
+  // na faixa (foi reescalada acima se preciso, ou já cabia), e a trava conserva
+  // essa soma — só REDISTRIBUI pra nenhum capítulo ficar abaixo do piso.
+  if (part === "Parte 2") {
+    const balanced = enforceMinChapterShare(working, target);
+    if (balanced) {
+      working = balanced;
+      changed = true;
+    }
+  }
+
+  if (!changed) {
+    return { text, rescaled: false, sumBefore, sumAfter: sumBefore };
   }
 
   // Reescreve cada bloco no texto original. `splitChapterBlocks` cobre de forma
@@ -206,14 +230,14 @@ export function normalizeEstruturaTargets(
   // personagens etc.) é preservado e só os blocos são reescritos.
   const prefix = text.slice(0, blocks[0]!.start);
   const rewrittenBodies = blocks.map((b, i) =>
-    rewriteTargetInBlock(b.body, newTargets[i]!),
+    rewriteTargetInBlock(b.body, working[i]!),
   );
   const newText = prefix + rewrittenBodies.join("");
-  const sumAfter = newTargets.reduce((a, b) => a + b, 0);
+  const sumAfter = working.reduce((a, b) => a + b, 0);
 
-  // Sincroniza o rodapé-resumo com os alvos reescalados (só a linha "Soma das
+  // Sincroniza o rodapé-resumo com os alvos finais (só a linha "Soma das
   // contagens declaradas: …"); se não houver, devolve `newText` intacto.
-  const finalText = rewriteFooterSum(newText, newTargets, target);
+  const finalText = rewriteFooterSum(newText, working, sumAfter);
 
   return { text: finalText, rescaled: true, sumBefore, sumAfter };
 }
