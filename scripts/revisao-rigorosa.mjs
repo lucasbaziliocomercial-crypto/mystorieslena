@@ -91,6 +91,34 @@ has(tense, "TENSE_RULE") && has(tense, "TENSE_REVISOR_CHECKLIST")
   }
 }
 
+// ── POV da Parte 2: marcador ✦ batendo com quem narra (Escrita + Revisor) ──
+// Bug 13/06/2026 (testes LENA/máfia + Selena/alpha-king): "muita troca de POV ou
+// colocação de POV errado na Parte 2" — `✦ OSRIC` (masculino) sobre bloco da
+// heroína, voz trocando no meio da cena íntima sem marcador. Trava nas DUAS
+// camadas, igual a cânone/tempo verbal. SÓ nas 3 categorias com POV alternado
+// (milionario-3p é onisciente e PROÍBE ✦ — por isso fica de fora de propósito).
+console.log("\n[POV Parte 2] marcador ✦ travado na Escrita + Revisor (3 categorias com POV alternado)");
+const POV_CATS = ["milionario1p", "mafia", "alphaking"];
+for (const cat of POV_CATS) {
+  const e = read(`lib/agents/${cat}/escrita.ts`);
+  has(e, "POV_MARKER_RULE")
+    ? ok(`${cat}: POV_MARKER_RULE na Escrita`)
+    : bad(`${cat}: FALTA POV_MARKER_RULE em lib/agents/${cat}/escrita.ts`);
+  const r = read(`lib/agents/${cat}/revisor.ts`);
+  has(r, "POV_MARKER_REVISOR_CHECKLIST")
+    ? ok(`${cat}: POV_MARKER_REVISOR_CHECKLIST no Revisor`)
+    : bad(`${cat}: FALTA POV_MARKER_REVISOR_CHECKLIST em lib/agents/${cat}/revisor.ts`);
+}
+const pov = read("lib/agents/_shared/pov-marker-rule.ts");
+has(pov, "POV_MARKER_RULE") && has(pov, "POV_MARKER_REVISOR_CHECKLIST")
+  ? ok("pov-marker-rule.ts exporta POV_MARKER_RULE + POV_MARKER_REVISOR_CHECKLIST")
+  : bad("pov-marker-rule.ts faltando export(s)");
+// milionario-3p NÃO pode receber o bloco de marcador (ele proíbe ✦ — onisciente).
+has(read("lib/agents/milionario3p/escrita.ts"), "POV_MARKER_RULE") ||
+has(read("lib/agents/milionario3p/revisor.ts"), "POV_MARKER_REVISOR_CHECKLIST")
+  ? bad("milionario3p recebeu o bloco de marcador ✦ — ela é onisciente e PROÍBE ✦; remova")
+  : ok("milionario3p sem o bloco de marcador ✦ (correto — é onisciente, proíbe ✦)");
+
 // ── REGRA 4: Parte 2 = exatamente 6 capítulos nas 4 categorias ──
 console.log("\n[Estrutura P2] exatamente 6 capítulos nas 4 categorias");
 // Padrões PROIBIDOS = contagem "5 e 6 / 5-6 / 5 a 6 / 5 ou 6 / máximo 6" na P2.
@@ -112,6 +140,35 @@ for (const cat of CATS) {
     : bad(`${cat}: FALTA a trava "exatamente 6" em ${rel}`);
   const proib = PROIBIDO_P2.find((re) => re.test(t));
   if (proib) bad(`${cat}: contagem PROIBIDA na P2 (regex ${proib}) em ${rel}`);
+}
+
+// ── Parte 2: piso de palavras por capítulo (~2.000) — nenhum cap minúsculo ──
+// Bug 15/06/2026 "último capítulo de 800 palavras": a Estrutura P2 declarava o
+// último cap com ~800 palavras (epílogo curto) e os outros ~2.300-2.900; como a
+// SOMA seguia na faixa, NADA corrigia e a Escrita gerava o cap minúsculo. Trava
+// em DUAS pontas: (1) os 4 prompts P2 exigem MÍNIMO ~2.000/cap; (2)
+// `enforceMinChapterShare` (lib/balance-chapter-distribution.ts) eleva
+// deterministicamente qualquer cap abaixo do piso, chamado por
+// `normalizeEstruturaTargets` SÓ na Parte 2 (a P1 tem caps curtos legítimos).
+console.log("\n[Estrutura P2] piso de palavras por capítulo (~2.000) travado");
+const MIN_CAP_RE = /m[íi]nimo[^\n]{0,40}2\.?000[^\n]{0,40}por\s+cap[íi]tulo/i;
+for (const cat of CATS) {
+  const rel = `lib/agents/${cat}/estrutura2-prompt.ts`;
+  const t = read(rel);
+  if (t == null) { bad(`${rel} NÃO encontrado`); continue; }
+  MIN_CAP_RE.test(t)
+    ? ok(`${cat}: regra de MÍNIMO ~2.000 palavras por capítulo presente`)
+    : bad(`${cat}: FALTA a regra de MÍNIMO ~2.000 palavras por capítulo em ${rel}`);
+}
+{
+  const bal = read("lib/balance-chapter-distribution.ts");
+  has(bal, "export function enforceMinChapterShare")
+    ? ok("balance-chapter-distribution.ts exporta enforceMinChapterShare")
+    : bad("lib/balance-chapter-distribution.ts: FALTA enforceMinChapterShare (trava de distribuição P2)");
+  const norm = read("lib/normalize-estrutura-targets.ts") ?? "";
+  has(norm, "enforceMinChapterShare") && /part\s*===\s*"Parte 2"/.test(norm)
+    ? ok('normalizeEstruturaTargets aplica a trava SÓ na Parte 2 (guard part === "Parte 2")')
+    : bad('lib/normalize-estrutura-targets.ts: trava de distribuição não plugada com guard part === "Parte 2" (P2-only — não pode vazar pra P1)');
 }
 
 // ── REGRA 2: nada de metadado na prosa final (guard no código) ──
