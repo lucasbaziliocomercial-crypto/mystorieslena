@@ -13,7 +13,7 @@
  * pessoa, sem ✦ NOME. A cena erótica da Parte 2 tem posição flexível (segue
  * a química, não fixa no penúltimo).
  *
- * Word counts: P1 9.500–10.500 palavras (alvo 10.500), P2 13.000–14.000
+ * Word counts: P1 10.000–11.000 palavras (alvo 10.500), P2 13.000–14.000
  * (alvo 13.500). Símbolos do Revisor: 🟢🟡🔴💀.
  */
 

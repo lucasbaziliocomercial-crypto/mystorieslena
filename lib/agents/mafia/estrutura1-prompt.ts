@@ -3,7 +3,7 @@
  *
  * Convertido fielmente do PDF "PROMPT EST PT 1 MAFIA.pdf" enviado pela
  * autora. Carrega:
- *  • Meta de 12.500 palavras (rigoroso, faixa de tolerância 12.300-12.700)
+ *  • Meta de 12.500 palavras (rigoroso, faixa de tolerância 12.000-13.000)
  *  • 5 a 6 capítulos
  *  • Ritmo acelerado nos iniciais (1-3) e respirado nos finais (4-6)
  *  • Hook expansão do título (90-120 palavras)
@@ -11,13 +11,13 @@
  *  • Final com casal junto + dúvida sutil — sem casamento/filhos
  */
 
-export const ESTRUTURA1_PROMPT = `📖 PROMPT — PARTE 1 (12.500 palavras) Dark Romance | Estilo Helô Stories™
+export const ESTRUTURA1_PROMPT = `📖 PROMPT — PARTE 1 (12.000 a 13.000 palavras) Dark Romance | Estilo Helô Stories™
 
 🎯 OBJETIVO GERAL
-Criar a Parte 1 de uma história de dark romance, completa em si mesma, com todos os conflitos resolvidos. O final é satisfatório — o casal está junto e em paz. Apenas uma leve dúvida ou questionamento interno da protagonista fica no ar, algo bem suave e natural, sem parecer que a história está incompleta. Não é um cliffhanger, não é uma sombra. É só um pensamento passageiro — quase imperceptível — que não compromete a sensação de final feliz. Limite absoluto e rigoroso: 12.500 palavras. Não escrever significativamente menos, não escrever mais.
+Criar a Parte 1 de uma história de dark romance, completa em si mesma, com todos os conflitos resolvidos. O final é satisfatório — o casal está junto e em paz. Apenas uma leve dúvida ou questionamento interno da protagonista fica no ar, algo bem suave e natural, sem parecer que a história está incompleta. Não é um cliffhanger, não é uma sombra. É só um pensamento passageiro — quase imperceptível — que não compromete a sensação de final feliz. Faixa rigorosa: 12.000 a 13.000 palavras (alvo 12.500). Não escrever menos de 12.000 nem mais de 13.000.
 
 📐 ESTRUTURA GERAL
-• Total de palavras: 12.500 — meta rigorosa (faixa aceita 12.300-12.700, alvo 12.500). Já distribuir por capítulos.
+• Total de palavras: ~12.500 — meta rigorosa (faixa aceita 12.000-13.000, alvo 12.500). Já distribuir por capítulos.
 • Número de capítulos: entre 5 e 6 — nunca menos, nunca mais.
 • Distribuição: livre, conforme o ritmo da cena exige.
 • Formato do hook: narração curta, linhas soltas, impactante, expansão do título.
@@ -208,5 +208,5 @@ NÃO omita o "##" markdown. NÃO use "Capítulo N:" no lugar de "Capítulo N —
 💥 ENTREGA DO CASAL: [Quando acontece + clima + como a sugestão da noite juntos será feita: aproximação → elipse narrativa → manhã seguinte. SEM cena íntima descrita.]
 🌱 DÚVIDA SUTIL (o que fica no ar + por que é suave)
 
-ATENÇÃO CRÍTICA — CONTAGEM DE PALAVRAS: a SOMA das contagens declaradas para os 5-6 capítulos DEVE ficar entre 12.300 e 12.700 palavras (alvo 12.500). Esta é uma REGRA INEGOCIÁVEL. Antes de finalizar, SOME mentalmente a quantidade indicada em cada capítulo e CONFIRME que o total está dentro da faixa.
+ATENÇÃO CRÍTICA — CONTAGEM DE PALAVRAS: a SOMA das contagens declaradas para os 5-6 capítulos DEVE ficar entre 12.000 e 13.000 palavras (alvo 12.500). Esta é uma REGRA INEGOCIÁVEL. Antes de finalizar, SOME mentalmente a quantidade indicada em cada capítulo e CONFIRME que o total está dentro da faixa.
 `;

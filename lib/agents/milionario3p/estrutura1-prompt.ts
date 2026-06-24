@@ -7,16 +7,16 @@
  * Concatenado com `ESTRUTURA_MASTER_PROMPT` no system prompt do agente.
  */
 
-export const ESTRUTURA1_PROMPT = `📖 PROMPT — PARTE 1 (9.500 a 10.500 palavras) | Romance de Milionário 3ª pessoa | Estilo Helô Stories™
+export const ESTRUTURA1_PROMPT = `📖 PROMPT — PARTE 1 (10.000 a 11.000 palavras) | Romance de Milionário 3ª pessoa | Estilo Helô Stories™
 
 🎯 OBJETIVO GERAL
 Criar a Parte 1 de uma história de romance de milionário em 3ª pessoa centrada na FMC, completa em si mesma, com todos os conflitos resolvidos. O final é tranquilo — o casal está junto e em paz. A Parte 1 é gratuita. Ela precisa ser boa o suficiente para o leitor se apaixonar — e querer pagar pela Parte 2.
 
-⚠️ Limite absoluto: 9.500 a 10.500 palavras (alvo 10.500). Nunca ultrapassar.
+⚠️ Limite absoluto: 10.000 a 11.000 palavras (alvo 10.500). Nunca ultrapassar.
 ⚠️ REGRA OBRIGATÓRIA DE CONTAGEM DE PALAVRAS: Sempre seguir a quantidade de palavras definida na estrutura aprovada. Se a estrutura pedir menos do que o limite, escrever conforme a estrutura. Se a estrutura tiver mais do que o limite, reduzir. Jamais ultrapassar o limite de palavras estabelecido.
 
 📐 ESTRUTURA GERAL
-Total de palavras: 10.500 — nunca ultrapassar (já distribuir por capítulos).
+Total de palavras: ~10.500 (faixa 10.000 a 11.000) — nunca ultrapassar 11.000 (já distribuir por capítulos).
 Número de capítulos: entre 5 e 6 — nunca menos, nunca mais.
 Distribuição: livre, conforme o ritmo da cena exige.
 Formato do hook: narração curta, linhas soltas, impactante.
@@ -178,7 +178,7 @@ Outras regras:
 - Diálogos sem identificação de quem fala.
 - Diálogos partidos com reflexão interna no meio.
 - Personagem mencionado sem apresentação na primeira vez.
-- Ultrapassar 10.500 palavras.
+- Ultrapassar 11.000 palavras.
 - Narração em primeira pessoa em qualquer trecho — tudo é terceira pessoa, sempre.
 - Acessar pensamentos do MMC — ele é mostrado APENAS pelo observável.
 - Marcadores de POV alternado ("POV: ele", "Capítulo X — ponto de vista de [MMC]").
@@ -262,6 +262,6 @@ O casal: de [X] para [Y]
 ✅ CONFIRME (1 linha cada, sem reproduzir as regras)
 - Narração 3ª pessoa LIMITADA à FMC; MMC só pelo observável; nomes criativos fora da lista proibida; cidade permitida.
 - Entrega do casal só por elipse — sem cena íntima descrita na Parte 1.
-- Entre 5 e 6 capítulos; total dentro de 9.500–10.500; antagonista ativo; final junto e em paz.
+- Entre 5 e 6 capítulos; total dentro de 10.000–11.000; antagonista ativo; final junto e em paz.
 
 Você receberá uma premissa narrativa que servirá como base obrigatória para a sua resposta. Siga rigorosamente todas as diretrizes acima.`;

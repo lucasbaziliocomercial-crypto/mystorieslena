@@ -69,7 +69,7 @@ import { DEFAULT_CATEGORY } from "@/types/roteiro";
  * `targetsP1`/`targetsP2` são arrays alinhados aos números absolutos dos caps
  * (índice 0 = cap 1, índice 1 = cap 2, etc). Se a estrutura não declarou alvo
  * pra algum cap, esta função preenche com a média da Parte (target / nCaps),
- * agora category-aware — milionário usa 11.500/13.250, máfia usa 12.500/13.500.
+ * agora category-aware — milionário usa 12.500/13.250, máfia usa 12.500/13.500.
  */
 export function planBatches(
   totalParte1: number,

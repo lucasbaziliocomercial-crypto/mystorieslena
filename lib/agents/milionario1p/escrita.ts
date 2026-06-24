@@ -202,7 +202,7 @@ export const escritaAgent: Agent = {
         .join(" e ");
       const partTotalLabel =
         batch.part === "Parte 1"
-          ? "11.300 a 11.700 palavras totais (alvo 11.500 — RIGOROSO)"
+          ? "12.000 a 13.000 palavras totais (alvo 12.500 — RIGOROSO)"
           : "13.000 a 13.500 palavras totais (RIGOROSO — jamais abaixo de 13.000, jamais acima de 13.500)";
 
       // Bloco de alvos individuais — quando temos os números da estrutura,

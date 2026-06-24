@@ -13,10 +13,10 @@ export const ESTRUTURA_MASTER_PROMPT = `📚 DOCUMENTO MESTRE — Romance de Mil
 
 🎯 SOBRE ESTE PROJETO
 Este projeto cria histórias de romance de milionário no estilo Helô Stories™ — sedutor, intenso, engraçado no momento certo e completamente viciante. Cada história é dividida em duas partes:
-- Parte 1 — 9.500 a 10.500 palavras (alvo 10.500) — gratuita, disponível para todos os leitores.
+- Parte 1 — 10.000 a 11.000 palavras (alvo 10.500) — gratuita, disponível para todos os leitores.
 - Parte 2 — 13.000 a 14.000 palavras (alvo 13.500, teto absoluto 14.000) — paga, entregue a quem quer mais.
 
-⚠️ Nunca ultrapassar o teto de palavras de cada parte (10.500 na Parte 1, 14.000 na Parte 2) nem cair abaixo do piso (9.500 na Parte 1, 13.000 na Parte 2). A Parte 1 deve ser boa o suficiente para o leitor se apaixonar e querer pagar pela Parte 2. A Parte 2 deve ser boa o suficiente para o leitor sentir que valeu cada centavo.
+⚠️ Nunca ultrapassar o teto de palavras de cada parte (11.000 na Parte 1, 14.000 na Parte 2) nem cair abaixo do piso (10.000 na Parte 1, 13.000 na Parte 2). A Parte 1 deve ser boa o suficiente para o leitor se apaixonar e querer pagar pela Parte 2. A Parte 2 deve ser boa o suficiente para o leitor sentir que valeu cada centavo.
 
 🗂 COMO USAR OS PROMPTS
 Siga sempre esta ordem:

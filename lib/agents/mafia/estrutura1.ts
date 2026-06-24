@@ -10,7 +10,7 @@ import { ESTRUTURA1_PROMPT } from "./estrutura1-prompt";
 /**
  * Etapa 2 — Estrutura da Parte 1 (Romance de Máfia).
  *
- * 12.500 palavras (faixa 12.300-12.700, alvo 12.500), 5-6 capítulos,
+ * 12.500 palavras (faixa 12.000-13.000, alvo 12.500), 5-6 capítulos,
  * ritmo acelerado nos iniciais (1-3) e respirado nos finais (4-6),
  * narração 1ª pessoa FMC, hook expansão do título de 90-120 palavras,
  * cena de entrega no penúltimo cap (até 600 palavras, três fases),
@@ -83,7 +83,7 @@ export const estrutura1Agent: Agent = {
           "• <original> precisa ser ÚNICO no documento. Se duplicado, expanda com contexto.",
           "• NÃO devolva a estrutura inteira. NÃO devolva markdown explicativo fora dos blocos <alteracao>.",
           "• Não invente mudanças que a roteirista não pediu.",
-          "• Se mudar a contagem de palavras de um capítulo, EMITA TAMBÉM blocos <alteracao> rebalanceando outros para manter o total entre 12.300 e 12.700 palavras (REGRA INEGOCIÁVEL).",
+          "• Se mudar a contagem de palavras de um capítulo, EMITA TAMBÉM blocos <alteracao> rebalanceando outros para manter o total entre 12.000 e 13.000 palavras (REGRA INEGOCIÁVEL).",
           "• Se a correção pedida não exigir alteração nenhuma, devolva apenas a string [NENHUMA_ALTERACAO_NECESSARIA] e nada mais.",
           "",
           "Comece direto pelo primeiro <alteracao>. Sem preâmbulo, sem perguntas.",
@@ -155,7 +155,7 @@ export const estrutura1Agent: Agent = {
     }
 
     sections.push(
-      "━━━ AÇÃO ━━━\n\nMonte a ESTRUTURA COMPLETA da Parte 1 seguindo o LAYOUT DE SAÍDA OBRIGATÓRIO definido no system prompt (Mundo → Hierarquia → FMC → MMC → Casal → Secundários → Mapa da História → Hook → Capítulos → Temas → Arcos → Momentos-chave → Dúvida Sutil). Comece direto, sem pedir confirmação. Não escreva os capítulos em si — apenas a ESTRUTURA/PLANEJAMENTO.\n\n⚠️ ATENÇÃO CRÍTICA — CONTAGEM DE PALAVRAS: a SOMA das contagens declaradas para os 5-6 capítulos DEVE ficar entre 12.300 e 12.700 palavras (alvo 12.500). REGRA INEGOCIÁVEL. Antes de finalizar, SOME mentalmente as contagens de cada capítulo e CONFIRME que o total está dentro da faixa. Se ficar fora, REDISTRIBUA até bater.",
+      "━━━ AÇÃO ━━━\n\nMonte a ESTRUTURA COMPLETA da Parte 1 seguindo o LAYOUT DE SAÍDA OBRIGATÓRIO definido no system prompt (Mundo → Hierarquia → FMC → MMC → Casal → Secundários → Mapa da História → Hook → Capítulos → Temas → Arcos → Momentos-chave → Dúvida Sutil). Comece direto, sem pedir confirmação. Não escreva os capítulos em si — apenas a ESTRUTURA/PLANEJAMENTO.\n\n⚠️ ATENÇÃO CRÍTICA — CONTAGEM DE PALAVRAS: a SOMA das contagens declaradas para os 5-6 capítulos DEVE ficar entre 12.000 e 13.000 palavras (alvo 12.500). REGRA INEGOCIÁVEL. Antes de finalizar, SOME mentalmente as contagens de cada capítulo e CONFIRME que o total está dentro da faixa. Se ficar fora, REDISTRIBUA até bater.",
     );
 
     return sections.join("\n\n");

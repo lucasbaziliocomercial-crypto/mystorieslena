@@ -126,7 +126,7 @@ export function extractChapterTargets(
 
 /**
  * Helper: dado a lista de targets parseados e o total esperado da Parte
- * (11.500 pra Parte 1, 13.250 pra Parte 2 — defaults do prompt),
+ * (12.500 pra Parte 1, 13.250 pra Parte 2 — defaults do prompt),
  * preenche os capítulos sem alvo com a média da Parte (uniform fallback).
  */
 export function fillTargetsWithFallback(
@@ -159,7 +159,7 @@ export function isWithinTarget(actual: number, target: number): boolean {
 /**
  * Range obrigatório de palavras TOTAIS de uma Parte, agora category-aware.
  *
- * Cada sub-nicho tem alvos próprios (milionário 1p: 11.500/13.250 |
+ * Cada sub-nicho tem alvos próprios (milionário 1p: 12.500/13.250 |
  * milionário 3p: 10.500/13.500 | máfia: 12.500/13.500). A configuração
  * vive em `lib/categories/index.ts` e é lida por categoria — esta função
  * passa a delegar a lookup.

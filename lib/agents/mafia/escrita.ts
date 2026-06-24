@@ -17,7 +17,7 @@ import { ESCRITA_SYSTEM_PROMPT } from "./escrita-prompt";
  * baked).
  *
  * Diferenças vs Milionário:
- *  • Parte 1: 12.300-12.700 palavras totais (alvo 12.500).
+ *  • Parte 1: 12.000-13.000 palavras totais (alvo 12.500).
  *  • Parte 2: 13.300-13.700 palavras totais (alvo 13.500 — RIGOROSO).
  */
 export const escritaAgent: Agent = {
@@ -192,7 +192,7 @@ export const escritaAgent: Agent = {
         .join(" e ");
       const partTotalLabel =
         batch.part === "Parte 1"
-          ? "12.300 a 12.700 palavras totais (alvo 12.500 — RIGOROSO)"
+          ? "12.000 a 13.000 palavras totais (alvo 12.500 — RIGOROSO)"
           : "13.300 a 13.700 palavras totais (alvo 13.500 — RIGOROSO, jamais cair fora dessa faixa)";
 
       const targetsBlock =

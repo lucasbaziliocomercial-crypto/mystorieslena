@@ -16,7 +16,7 @@ import { ESCRITA_SYSTEM_PROMPT } from "./escrita-prompt";
  * baked: não-hook, parágrafos de 5 linhas, advérbios proibidos).
  *
  * Word counts:
- *  • Parte 1: 9.500-10.500 palavras totais (alvo 10.500).
+ *  • Parte 1: 10.000-11.000 palavras totais (alvo 10.500).
  *  • Parte 2: 13.000-14.000 palavras totais (alvo 13.500 — RIGOROSO).
  *
  * Narração (recorte por parte): PARTE 1 em terceira pessoa LIMITADA À FMC (MMC
@@ -197,7 +197,7 @@ export const escritaAgent: Agent = {
         .join(" e ");
       const partTotalLabel =
         batch.part === "Parte 1"
-          ? "9.500 a 10.500 palavras totais (alvo 10.500 — RIGOROSO)"
+          ? "10.000 a 11.000 palavras totais (alvo 10.500 — RIGOROSO)"
           : "13.000 a 14.000 palavras totais (alvo 13.500 — RIGOROSO, jamais cair fora dessa faixa)";
       const narrationLabel =
         batch.part === "Parte 1"
