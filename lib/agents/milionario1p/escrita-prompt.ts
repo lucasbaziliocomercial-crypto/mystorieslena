@@ -73,7 +73,8 @@ PARTE 2 — FMC como narradora principal + 2 a 4 trechos do MMC em 1ª pessoa.
 (o "###" é importante — vira heading 3 no Google Docs e aparece na barra de navegação)
 (use EXATAMENTE este caractere Unicode: ✦ — U+2726, "four pointed black star". NUNCA substituir por ♦ ◆ ★ ✧ ou qualquer outro look-alike — só ✦ é reconhecido pelo exporter como marcador de POV. Se escapar pra outro símbolo, o trecho do MMC perde o destaque visual da Parte 2.)
 - Quando o capítulo da Parte 2 começa, coloque sempre o ### ✦ [Nome] do narrador inicial logo abaixo do título do capítulo, mesmo que seja a FMC.
-- Toda vez que o POV mudar dentro do mesmo capítulo, repita o marcador ### ✦ [Novo Nome] antes do trecho que muda.
+- Toda vez que o POV mudar dentro do mesmo capítulo, repita o marcador ### ✦ [Novo Nome] antes do trecho que muda — NOS DOIS SENTIDOS (FMC→MMC E MMC→FMC).
+- Na Parte 2 a FMC NÃO é "narradora-padrão" implícita: quando a narração VOLTA pra ela depois de um trecho do MMC, esse retorno TAMBÉM abre com o ### ✦ [Nome da FMC]. Mesmo voltando o POV, a identificação aparece de novo. NUNCA reinicie o trecho da FMC sem o marcador só porque ela é a narradora principal — esquecer o marcador no retorno à FMC deixa o trecho dela órfão, parecendo continuação do POV do MMC. Esse é o erro mais comum.
 
 Regras do POV do MMC na Parte 2:
 - O POV do MMC JAMAIS repete cenas ou informações já narradas pela FMC. Sempre OUTRO LADO — decisões nos bastidores, medos escondidos, conversas que ela não presencia, sacrifícios que ela desconhece.
