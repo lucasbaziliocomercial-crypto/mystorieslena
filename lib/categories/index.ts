@@ -45,11 +45,11 @@ export const CATEGORIES: Record<RoteiroCategory, CategoryConfig> = {
     label: "Romance de Milionário (1ª pessoa)",
     channels: "Kay",
     description:
-      "Duologia em 1ª pessoa pela FMC, estilo Helô Stories™. Parte 1 com 11.500 palavras (gratuita), Parte 2 com 13.250 palavras (paga). Hook com expansão do título, cena íntima sugerida na Parte 1 e completa na Parte 2.",
+      "Duologia em 1ª pessoa pela FMC, estilo Helô Stories™. Parte 1 com 12.000 a 13.000 palavras (gratuita), Parte 2 com 13.250 palavras (paga). Hook com expansão do título, cena íntima sugerida na Parte 1 e completa na Parte 2.",
     agents: milionario1pAgents,
     escritaSystemPrompt: milionario1pEscritaSystemPrompt,
     wordCount: {
-      parte1: { min: 11300, max: 11700, target: 11500 },
+      parte1: { min: 12000, max: 13000, target: 12500 },
       parte2: { min: 13000, max: 13500, target: 13250 },
     },
   },
@@ -58,11 +58,11 @@ export const CATEGORIES: Record<RoteiroCategory, CategoryConfig> = {
     label: "Romance de Milionário (3ª pessoa)",
     channels: "Rowan",
     description:
-      "Duologia em 3ª pessoa LIMITADA À FMC nas DUAS partes (sem POV masculino — MMC observado de fora pelos atos), estilo Helô Stories™. Mesmo universo de poder e riqueza do 1p. Parte 1 com 10.500 palavras (gratuita), Parte 2 com 13.500 palavras (paga, teto 14.000). Premissa bifásica (resumos ≤500 palavras + obrigações de estrutura), escrita 2-em-2, Revisor com símbolos 🟢🟡🔴💀.",
+      "Duologia em 3ª pessoa LIMITADA À FMC nas DUAS partes (sem POV masculino — MMC observado de fora pelos atos), estilo Helô Stories™. Mesmo universo de poder e riqueza do 1p. Parte 1 com 10.000 a 11.000 palavras (gratuita), Parte 2 com 13.500 palavras (paga, teto 14.000). Premissa bifásica (resumos ≤500 palavras + obrigações de estrutura), escrita 2-em-2, Revisor com símbolos 🟢🟡🔴💀.",
     agents: milionario3pAgents,
     escritaSystemPrompt: milionario3pEscritaSystemPrompt,
     wordCount: {
-      parte1: { min: 9500, max: 10500, target: 10500 },
+      parte1: { min: 10000, max: 11000, target: 10500 },
       parte2: { min: 13000, max: 14000, target: 13500 },
     },
   },
@@ -71,11 +71,11 @@ export const CATEGORIES: Record<RoteiroCategory, CategoryConfig> = {
     label: "Romance de Máfia",
     channels: "Lena v1, v2 e v3",
     description:
-      "Dark romance de máfia, duologia em 1ª pessoa pela FMC com até 4 narrações do MMC na Parte 2. Mundo mafioso convincente (Cosa Nostra, Bratva, Camorra, Sicília). Parte 1 com 12.500 palavras, Parte 2 com 13.500 palavras.",
+      "Dark romance de máfia, duologia em 1ª pessoa pela FMC com até 4 narrações do MMC na Parte 2. Mundo mafioso convincente (Cosa Nostra, Bratva, Camorra, Sicília). Parte 1 com 12.000 a 13.000 palavras, Parte 2 com 13.500 palavras.",
     agents: mafiaAgents,
     escritaSystemPrompt: mafiaEscritaSystemPrompt,
     wordCount: {
-      parte1: { min: 12300, max: 12700, target: 12500 },
+      parte1: { min: 12000, max: 13000, target: 12500 },
       parte2: { min: 13300, max: 13700, target: 13500 },
     },
   },

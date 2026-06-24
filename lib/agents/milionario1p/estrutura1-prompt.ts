@@ -1,8 +1,9 @@
 /**
  * PROMPT ESPECIALIZADO — ESTRUTURA PARTE 1 (Step 2)
  *
- * Baseado integralmente no documento "PROMPT — PARTE 1 (11.500 palavras)
- * Romance de Milionário | Estilo Helô Stories™".
+ * Baseado integralmente no documento "PROMPT — PARTE 1
+ * Romance de Milionário | Estilo Helô Stories™" (alvo de contagem
+ * atualizado para 12.500 palavras / faixa 12.000–13.000).
  *
  * Este agente segue TODAS as regras do PDF na risca. É concatenado com o
  * ESTRUTURA_MASTER_PROMPT (regras gerais compartilhadas) no agente final.
@@ -24,8 +25,8 @@ A Parte 1 é gratuita. Precisa ser boa o suficiente para o leitor se apaixonar �
 
 ━━━ ⚠️ REGRA ABSOLUTA DE CONTAGEM DE PALAVRAS ━━━
 
-Total fixo: **11.500 palavras**.
-JAMAIS escrever menos de **11.300**. JAMAIS escrever mais de **11.700**.
+Total: **~12.500 palavras** (faixa 12.000–13.000).
+JAMAIS escrever menos de **12.000**. JAMAIS escrever mais de **13.000**.
 A contagem deve ser feita com rigor. Distribuir as palavras pelos capítulos de forma equilibrada na estrutura, e respeitar a distribuição durante a escrita. Essa faixa é INEGOCIÁVEL.
 
 ━━━ ⚖️ REGRA DE RITMO E DISTRIBUIÇÃO — OBRIGATÓRIA ━━━
@@ -43,12 +44,12 @@ A regra é:
 
 | Cap.  | % do total | Palavras aprox. | Ritmo                                     |
 | ----- | ---------- | --------------- | ----------------------------------------- |
-| 1     | ~12%       | ~1.380          | Rápido — entrada direta                   |
-| 2     | ~14%       | ~1.610          | Rápido — química e tensão                 |
-| 3     | ~18%       | ~2.070          | Equilibrado — conflitos crescem           |
-| 4     | ~20%       | ~2.300          | Equilibrado/intenso — reviravolta         |
-| 5     | ~18%       | ~2.070          | Desenvolvido — resolução dos conflitos    |
-| 6     | ~18%       | ~2.070          | Desenvolvido — final satisfatório         |
+| 1     | ~12%       | ~1.500          | Rápido — entrada direta                   |
+| 2     | ~14%       | ~1.750          | Rápido — química e tensão                 |
+| 3     | ~18%       | ~2.250          | Equilibrado — conflitos crescem           |
+| 4     | ~20%       | ~2.500          | Equilibrado/intenso — reviravolta         |
+| 5     | ~18%       | ~2.250          | Desenvolvido — resolução dos conflitos    |
+| 6     | ~18%       | ~2.250          | Desenvolvido — final satisfatório         |
 
 ⚠️ Capítulos 5 e 6 formam o bloco final: o que antes seria 1 capítulo de resolução agora é dividido em 2 para dar espaço à resolução dos conflitos (Cap. 5) e ao fechamento emocional com a noite juntos APENAS SUGERIDA por elipse (Cap. 6). Nenhum dos dois pode ser apressado.
 
@@ -79,7 +80,7 @@ A regra é:
 
 | Item                | Regra                                                       |
 | ------------------- | ----------------------------------------------------------- |
-| Total de palavras   | 11.500 (faixa 11.300–11.700) — RIGOROSO                     |
+| Total de palavras   | ~12.500 (faixa 12.000–13.000) — RIGOROSO                    |
 | Número de capítulos | **6 — sempre. Fixo. Nunca menos, nunca mais.**              |
 | Distribuição        | Início rápido, meio equilibrado, final desenvolvido (caps 5 e 6) |
 | Formato do hook     | Narração curta, linhas soltas, impactante                  |
@@ -327,7 +328,7 @@ A história precisa ser escrita de forma EXTREMAMENTE simples, direta e sem enro
 ❌ Diálogos sem identificação de quem fala
 ❌ Diálogos partidos com reflexão interna no meio
 ❌ Personagem mencionado sem apresentação na primeira vez
-❌ Ultrapassar 11.700 palavras ou ficar abaixo de 11.300
+❌ Ultrapassar 13.000 palavras ou ficar abaixo de 12.000
 ❌ Gastar palavras demais nos capítulos iniciais e correr no final
 ❌ FMC passiva — ela SEMPRE tem papel ativo
 ❌ Final com cliffhanger dramático, bomba ou conflito aberto
@@ -402,25 +403,25 @@ Entregue exatamente neste formato, com estes cabeçalhos e nesta ordem:
 
 # 📚 CAPÍTULOS
 
-## Capítulo 1 — [Título] (~1.380 palavras — ritmo rápido)
+## Capítulo 1 — [Título] (~1.500 palavras — ritmo rápido)
 [O que acontece + papel ativo da FMC + gancho para o próximo]
 
-## Capítulo 2 — [Título] (~1.610 palavras — ritmo rápido)
+## Capítulo 2 — [Título] (~1.750 palavras — ritmo rápido)
 [O que acontece + papel ativo da FMC + gancho para o próximo]
 
-## Capítulo 3 — [Título] (~2.070 palavras — ritmo equilibrado)
+## Capítulo 3 — [Título] (~2.250 palavras — ritmo equilibrado)
 [idem]
 
-## Capítulo 4 — [Título] (~2.300 palavras — ritmo equilibrado/intenso)
+## Capítulo 4 — [Título] (~2.500 palavras — ritmo equilibrado/intenso)
 [idem]
 
-## Capítulo 5 — [Título] (~2.070 palavras — ritmo desenvolvido)
+## Capítulo 5 — [Título] (~2.250 palavras — ritmo desenvolvido)
 [idem]
 
-## Capítulo 6 — [Título] (~2.070 palavras — ritmo desenvolvido)
+## Capítulo 6 — [Título] (~2.250 palavras — ritmo desenvolvido)
 [idem]
 
-(Total deve fechar entre 11.300 e 11.700 palavras.)
+(Total deve fechar entre 12.000 e 13.000 palavras.)
 
 # ❓ QUESTIONAMENTO FINAL
 - [O que a FMC questiona no final + como aparece (pensamento/gesto/silêncio) — sutil, leve, nunca dramático]

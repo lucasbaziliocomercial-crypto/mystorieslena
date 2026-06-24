@@ -5,7 +5,7 @@ Aplicativo desktop (Electron + Next.js) que automatiza a produção de roteiros 
 ## Etapas do fluxo
 
 1. **Premissa** — conceito central (Parte 1 + Parte 2)
-2. **Estrutura — Parte 1** — mapa, capítulos, hook (11.500 palavras / 6 capítulos)
+2. **Estrutura — Parte 1** — mapa, capítulos, hook (12.000–13.000 palavras / 6 capítulos)
 3. **Estrutura — Parte 2** — cena íntima, alternância FMC/MMC, epílogo (13.000–13.500 palavras / 5–6 capítulos)
 4. **Escrita** — roteiro completo em fluxo contínuo + auto-revisão + memória viva + validação
 5. **Revisor** — editor literário rigoroso com 4 graus de classificação de erro e nota final

@@ -93,7 +93,7 @@ export const estrutura1Agent: Agent = {
           "• <original> precisa ser ÚNICO no documento. Se o trecho aparece duplicado, expanda <original> com contexto até ficar único.",
           "• NÃO devolva a estrutura inteira. NÃO devolva markdown explicativo fora dos blocos <alteracao>.",
           "• Não invente mudanças que a roteirista não pediu — só toque no que ela pediu.",
-          "• Se mudar a contagem de palavras de um capítulo, EMITA TAMBÉM blocos <alteracao> rebalanceando outros capítulos pra manter o total entre 11.300 e 11.700 palavras (REGRA INEGOCIÁVEL).",
+          "• Se mudar a contagem de palavras de um capítulo, EMITA TAMBÉM blocos <alteracao> rebalanceando outros capítulos pra manter o total entre 12.000 e 13.000 palavras (REGRA INEGOCIÁVEL).",
           "• Se a correção pedida não exigir alteração nenhuma, devolva apenas a string [NENHUMA_ALTERACAO_NECESSARIA] e nada mais.",
           "",
           "Comece direto pelo primeiro <alteracao>. Sem preâmbulo, sem perguntas.",
@@ -165,7 +165,7 @@ export const estrutura1Agent: Agent = {
     }
 
     sections.push(
-      "━━━ AÇÃO ━━━\n\nMonte a ESTRUTURA COMPLETA da Parte 1 seguindo o LAYOUT DE SAÍDA OBRIGATÓRIO definido no system prompt (Mapa → Mundo → Pessoas-Chave → FMC → MMC → Casal → Secundários → Hook → Capítulos → Questionamento → Temas → Arcos → Momentos-chave → Checklist). Comece direto, sem pedir confirmação. Não escreva os capítulos em si — apenas a ESTRUTURA/PLANEJAMENTO.\n\n⚠️ ATENÇÃO CRÍTICA — CONTAGEM DE PALAVRAS: A SOMA das contagens de palavras planejadas para os 6 capítulos DEVE ficar entre 11.300 e 11.700 palavras (ALVO 11.500). Esta é uma REGRA INEGOCIÁVEL. Distribua conforme a tabela do system prompt (~12% / 14% / 18% / 20% / 18% / 18%). Antes de finalizar, SOME mentalmente a quantidade indicada em cada capítulo e CONFIRME que o total está dentro da faixa. Se ficar fora, REDISTRIBUA até bater. Não pule essa verificação.",
+      "━━━ AÇÃO ━━━\n\nMonte a ESTRUTURA COMPLETA da Parte 1 seguindo o LAYOUT DE SAÍDA OBRIGATÓRIO definido no system prompt (Mapa → Mundo → Pessoas-Chave → FMC → MMC → Casal → Secundários → Hook → Capítulos → Questionamento → Temas → Arcos → Momentos-chave → Checklist). Comece direto, sem pedir confirmação. Não escreva os capítulos em si — apenas a ESTRUTURA/PLANEJAMENTO.\n\n⚠️ ATENÇÃO CRÍTICA — CONTAGEM DE PALAVRAS: A SOMA das contagens de palavras planejadas para os 6 capítulos DEVE ficar entre 12.000 e 13.000 palavras (ALVO 12.500). Esta é uma REGRA INEGOCIÁVEL. Distribua conforme a tabela do system prompt (~12% / 14% / 18% / 20% / 18% / 18%). Antes de finalizar, SOME mentalmente a quantidade indicada em cada capítulo e CONFIRME que o total está dentro da faixa. Se ficar fora, REDISTRIBUA até bater. Não pule essa verificação.",
     );
 
     return sections.join("\n\n");

@@ -328,7 +328,7 @@ COERÊNCIA COM AS ESTRUTURAS APROVADAS — FONTE DE VERDADE
 - Cada capítulo da Parte 1 segue a estrutura aprovada da Parte 1; cada capítulo da Parte 2 segue a estrutura aprovada da Parte 2.
 
 CONTAGEM DE PALAVRAS — NÚMEROS A RESPEITAR:
-- **Parte 1: TOTAL entre 11.300 e 11.700 palavras** (alvo 11.500), distribuídas em 6 capítulos seguindo a estrutura aprovada (~12% / 14% / 18% / 20% / 18% / 18% por padrão, mas a estrutura prevalece).
+- **Parte 1: TOTAL entre 12.000 e 13.000 palavras** (alvo 12.500), distribuídas em 6 capítulos seguindo a estrutura aprovada (~12% / 14% / 18% / 20% / 18% / 18% por padrão, mas a estrutura prevalece).
 - **Parte 2: TOTAL entre 13.000 e 13.500 palavras** (RIGOROSO), distribuídas em 6 capítulos seguindo a estrutura aprovada.
 - Cada capítulo respeita a contagem que a estrutura indica (margem máxima ±5%).
 - Antes de fechar cada Parte, SOME mentalmente as palavras de seus capítulos e CONFIRME que o total cai dentro da faixa. Se faltar, EXPANDA cenas; se sobrar, ENCURTE. NÃO entregue fora da faixa.

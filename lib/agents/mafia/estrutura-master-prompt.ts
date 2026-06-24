@@ -15,7 +15,7 @@
 export const ESTRUTURA_MASTER_PROMPT = `📚 DOCUMENTO MESTRE Dark Romance | Estilo Helô Stories™
 
 🎯 SOBRE ESTE PROJETO
-Este projeto cria histórias de dark romance no estilo Helô Stories™ — sedutor, perigoso, engraçado no momento certo e completamente viciante. Cada história é dividida em duas partes: Parte 1 — 12.500 palavras — gratuita; Parte 2 — 13.500 palavras — paga. Nunca ultrapassar o limite de palavras de cada parte. A Parte 1 deve ser boa o suficiente para o leitor se apaixonar e querer pagar pela Parte 2. A Parte 2 deve ser boa o suficiente para o leitor sentir que valeu cada centavo.
+Este projeto cria histórias de dark romance no estilo Helô Stories™ — sedutor, perigoso, engraçado no momento certo e completamente viciante. Cada história é dividida em duas partes: Parte 1 — 12.000 a 13.000 palavras (alvo 12.500) — gratuita; Parte 2 — 13.500 palavras — paga. Nunca ultrapassar o limite de palavras de cada parte. A Parte 1 deve ser boa o suficiente para o leitor se apaixonar e querer pagar pela Parte 2. A Parte 2 deve ser boa o suficiente para o leitor sentir que valeu cada centavo.
 
 🌍 UNIVERSO DAS HISTÓRIAS
 Todas as histórias acontecem dentro do mesmo universo temático. Ambientação: cidades grandes e luxuosas — Chicago, Nova York, Moscou, Dubai, Sicília, Londres, São Petersburgo, NUNCA BRASIL. Cenários: penthouses, mansões, cassinos, restaurantes fechados, carros blindados, escritórios de poder, galerias de arte. Mundo: máfia italiana, russa, ou corporação com poder criminoso por trás. Tom geral: sedutor e perigoso, engraçado no momento certo, emocionalmente intenso, quimicamente esmagador e totalmente viciante.

@@ -18,7 +18,7 @@ SOBRE O PROJETO
 Histórias de romance de milionário no estilo Helô Stories™ — sedutor, intenso, engraçado no momento certo e completamente viciante.
 
 CADA HISTÓRIA É DIVIDIDA EM DUAS PARTES:
-- **Parte 1** — ~11.500 palavras (faixa 11.300 a 11.700) — gratuita, disponível para todos os leitores
+- **Parte 1** — ~12.500 palavras (faixa 12.000 a 13.000) — gratuita, disponível para todos os leitores
 - **Parte 2** — ~13.000 a 13.500 palavras (RIGOROSO) — paga, entregue a quem quer mais
 
 ⚠️ NUNCA ULTRAPASSAR o limite de palavras de cada parte. As contagens são RIGOROSAS — fora da faixa não vale. A Parte 1 deve ser boa o suficiente para o leitor se apaixonar e querer pagar pela Parte 2. A Parte 2 deve ser boa o suficiente para o leitor sentir que valeu cada centavo.
