@@ -922,6 +922,10 @@ export function resetRoteirosCache() {
   roteirosCache = null;
   lastWrittenRefImg.clear();
   lastWrittenHistory.clear();
+  // Descarta gravações pendentes: import/restore SUBSTITUEM a biblioteca, então
+  // um pendente de antes não pode "ressuscitar" via o overlay de leitura
+  // (getRoteiro/listRoteiros). Senão um roteiro velho/excluído reapareceria.
+  pendingRoteiros.clear();
   // Derruba o worker de compressão: import/restore reconstroem a biblioteca, e
   // compressões em voo viram stale. Um worker novo é criado no próximo save.
   rejectAllWorkerPending(new Error("reset"));
@@ -939,11 +943,30 @@ export function resetRoteirosCache() {
 export function listRoteiros(): Roteiro[] {
   if (!isBrowser()) return [];
   // Cópia ordenada — não muta a ordem interna do cache (writers usam findIndex).
-  return [...getCache()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  // Sobrepõe as gravações PENDENTES (ainda não drenadas pro cache): com 2 jobs
+  // gerando em paralelo, o resultado fresco fica em `pendingRoteiros` por uma
+  // janela antes do drain assíncrono. Sem o overlay, a lista/guias mostrariam a
+  // versão velha. Overlay SÓ na leitura — não muta o array do cache.
+  const out = [...getCache()];
+  if (pendingRoteiros.size > 0) {
+    for (const [id, pending] of pendingRoteiros) {
+      const idx = out.findIndex((r) => r.id === id);
+      if (idx >= 0) out[idx] = pending;
+      else out.push(pending);
+    }
+  }
+  return out.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
 export function getRoteiro(id: string): Roteiro | null {
   if (!isBrowser()) return null;
+  // Prioriza a gravação PENDENTE quando existir: ela é sempre a versão mais
+  // nova-ou-igual (último-vence via Map.set; só some do map quando drenada pro
+  // cache). Sem isso, abrir um projeto cuja Escrita acabou de terminar EM 2º
+  // PLANO lia o cache defasado (drain assíncrono ainda não rodou) → tela em
+  // branco. O pendente é um Roteiro completo e já hidratado.
+  const pending = pendingRoteiros.get(id);
+  if (pending) return pending;
   return getCache().find((r) => r.id === id) ?? null;
 }
 
