@@ -1,6 +1,6 @@
 /**
  * ESTRUTURA — PARTE 1 (Romance Alpha King / Werewolf, estilo Helô Stories™).
- * 11.500 palavras (faixa 11.300–11.700), 6 capítulos fixos, 1ª pessoa da
+ * 12.500 palavras (faixa 12.000–13.000), 6 capítulos fixos, 1ª pessoa da
  * heroína. Convertido da seção "ESTRUT. P1" do guia ALPHA KING.
  */
 
@@ -13,22 +13,22 @@ export const ESTRUTURA1_PROMPT = `
 🎯 OBJETIVO GERAL
 Criar a Parte 1 de uma história Alpha King / Werewolf, completa em si mesma, com todos os conflitos resolvidos. O final é satisfatório — o casal está vinculado e em paz, o alpha reivindicou a heroína como mate. Mas a heroína termina com uma dúvida leve, um questionamento sutil que faz a leitora querer mais. A Parte 1 é gratuita: precisa ser boa o suficiente para a leitora se apaixonar pelo vínculo e querer pagar pela Parte 2.
 
-⚠️ REGRA ABSOLUTA DE CONTAGEM DE PALAVRAS: total fixo 11.500 palavras. JAMAIS menos de 11.300. JAMAIS mais de 11.700. Faixa inegociável. Distribuir as palavras pelos capítulos de forma equilibrada.
+⚠️ REGRA ABSOLUTA DE CONTAGEM DE PALAVRAS: total fixo 12.500 palavras. JAMAIS menos de 12.000. JAMAIS mais de 13.000. Faixa inegociável. Distribuir as palavras pelos capítulos de forma equilibrada.
 
 📐 ESTRUTURA GERAL
-• Total: 11.500 (faixa 11.300–11.700 — rigoroso).
+• Total: 12.500 (faixa 12.000–13.000 — rigoroso).
 • Capítulos: 6 — sempre. Fixo. Nunca menos, nunca mais.
 • Distribuição: início rápido, meio equilibrado, final desenvolvido (caps. 5 e 6).
 • Narração: PRIMEIRA PESSOA — exclusivamente pela heroína.
 
 ⚖️ RITMO E DISTRIBUIÇÃO (obrigatória)
 O início é corrido. O final é desenvolvido. Nunca o contrário. Evite gastar palavras demais nos capítulos iniciais (descrições longas do reino, apresentações excessivas da alcateia) e correr no final.
-• Cap. 1 — ~12% (~1.380) — Rápido: entrada direta no reino.
-• Cap. 2 — ~14% (~1.610) — Rápido: vínculo desperta, lobo enlouquece.
-• Cap. 3 — ~18% (~2.070) — Equilibrado: rejeição/conflito cresce.
-• Cap. 4 — ~20% (~2.300) — Equilibrado/intenso: humilhação e reviravolta.
-• Cap. 5 — ~18% (~2.070) — Desenvolvido: ciúmes do alpha + reivindicação.
-• Cap. 6 — ~18% (~2.070) — Desenvolvido: marcação + final + questionamento.
+• Cap. 1 — ~12% (~1.500) — Rápido: entrada direta no reino.
+• Cap. 2 — ~14% (~1.750) — Rápido: vínculo desperta, lobo enlouquece.
+• Cap. 3 — ~18% (~2.250) — Equilibrado: rejeição/conflito cresce.
+• Cap. 4 — ~20% (~2.500) — Equilibrado/intenso: humilhação e reviravolta.
+• Cap. 5 — ~18% (~2.250) — Desenvolvido: ciúmes do alpha + reivindicação.
+• Cap. 6 — ~18% (~2.250) — Desenvolvido: marcação + final + questionamento.
 ⚠️ Exceção: se a marcação/cena íntima já aconteceu em capítulo anterior, o Cap. 6 tem no máximo 1.000 palavras (encerramento curto) e as palavras restantes vão para os caps. 3, 4 e 5. NUNCA gastar o espaço no início e correr no final.
 
 🎙️ NARRAÇÃO — REGRA ABSOLUTA
@@ -92,5 +92,5 @@ POSICIONAMENTO DA CENA ÍNTIMA (flexível, depende da premissa): no início/meio
 ❓ QUESTIONAMENTO FINAL — o que a heroína questiona; como aparece; tom (sutil, leve).
 🔄 ARCOS EMOCIONAIS (Alpha / Heroína / Casal) · 💥 CENA ÍNTIMA / MARCAÇÃO (posicionamento + função) + cenas em que a heroína age.
 
-✅ ANTES DE FINALIZAR: confirme exatamente 6 capítulos; SOME as contagens declaradas e confirme que o total está entre 11.300 e 11.700; hook entre 90-120 palavras expandindo o título; nomes fora da lista proibida ("Luna" só como título); início rápido / final desenvolvido; questionamento final sutil; sem coroação/herdeiro/casamento sob a lua.
+✅ ANTES DE FINALIZAR: confirme exatamente 6 capítulos; SOME as contagens declaradas e confirme que o total está entre 12.000 e 13.000; hook entre 90-120 palavras expandindo o título; nomes fora da lista proibida ("Luna" só como título); início rápido / final desenvolvido; questionamento final sutil; sem coroação/herdeiro/casamento sob a lua.
 `;
