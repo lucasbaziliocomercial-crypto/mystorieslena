@@ -10,7 +10,7 @@ import { ESTRUTURA1_PROMPT } from "./estrutura1-prompt";
 /**
  * Etapa 2 — Estrutura da Parte 1 (Romance Alpha King / Werewolf).
  *
- * 11.500 palavras (faixa 11.300-11.700, alvo 11.500), 6 capítulos FIXOS,
+ * 12.500 palavras (faixa 12.000-13.000, alvo 12.500), 6 capítulos FIXOS,
  * ritmo acelerado nos iniciais (1-2) e desenvolvido nos finais (5-6),
  * narração 1ª pessoa da heroína, hook expansão do título de 90-120 palavras,
  * cena de marcação flexível (máx. 500 palavras), questionamento sutil no
@@ -22,7 +22,7 @@ export const estrutura1Agent: Agent = {
   id: "estrutura1",
   label: "Estrutura — Parte 1",
   description:
-    "Monta a estrutura completa da Parte 1 de Alpha King (11.500 palavras, 6 capítulos fixos) — hook expansão do título, mapa com fase da lua, capítulos com ritmo graduado, marcação flexível, questionamento sutil no final",
+    "Monta a estrutura completa da Parte 1 de Alpha King (12.500 palavras, 6 capítulos fixos) — hook expansão do título, mapa com fase da lua, capítulos com ritmo graduado, marcação flexível, questionamento sutil no final",
   model: MODELS.opus,
   thinking: "adaptive",
   effort: "medium",
@@ -84,7 +84,7 @@ export const estrutura1Agent: Agent = {
           "• NÃO devolva a estrutura inteira. NÃO devolva markdown explicativo fora dos blocos <alteracao>.",
           "• Não invente mudanças que a roteirista não pediu.",
           "• Mantenha sempre EXATAMENTE 6 capítulos na Parte 1.",
-          "• Se mudar a contagem de palavras de um capítulo, EMITA TAMBÉM blocos <alteracao> rebalanceando outros para manter o total entre 11.300 e 11.700 palavras (REGRA INEGOCIÁVEL).",
+          "• Se mudar a contagem de palavras de um capítulo, EMITA TAMBÉM blocos <alteracao> rebalanceando outros para manter o total entre 12.000 e 13.000 palavras (REGRA INEGOCIÁVEL).",
           "• Se a correção pedida não exigir alteração nenhuma, devolva apenas a string [NENHUMA_ALTERACAO_NECESSARIA] e nada mais.",
           "",
           "Comece direto pelo primeiro <alteracao>. Sem preâmbulo, sem perguntas.",
@@ -156,7 +156,7 @@ export const estrutura1Agent: Agent = {
     }
 
     sections.push(
-      "━━━ AÇÃO ━━━\n\nMonte a ESTRUTURA COMPLETA da Parte 1 seguindo o LAYOUT DE SAÍDA OBRIGATÓRIO definido no system prompt (Título → Mapa da História com fase da lua → Mundo → Pessoas-chave → Heroína → Alpha King → Casal → Secundários → Hook → Capítulos → Questionamento Final → Temas → Arcos → Momentos-chave). Comece direto, sem pedir confirmação. Não escreva os capítulos em si — apenas a ESTRUTURA/PLANEJAMENTO.\n\n⚠️ ATENÇÃO CRÍTICA #1 — NÚMERO DE CAPÍTULOS: a Parte 1 tem EXATAMENTE 6 capítulos. Nunca menos, nunca mais.\n⚠️ ATENÇÃO CRÍTICA #2 — CONTAGEM DE PALAVRAS: a SOMA das contagens declaradas para os 6 capítulos DEVE ficar entre 11.300 e 11.700 palavras (alvo 11.500). REGRA INEGOCIÁVEL. Antes de finalizar, SOME mentalmente as contagens de cada capítulo e CONFIRME que o total está dentro da faixa. Se ficar fora, REDISTRIBUA até bater.",
+      "━━━ AÇÃO ━━━\n\nMonte a ESTRUTURA COMPLETA da Parte 1 seguindo o LAYOUT DE SAÍDA OBRIGATÓRIO definido no system prompt (Título → Mapa da História com fase da lua → Mundo → Pessoas-chave → Heroína → Alpha King → Casal → Secundários → Hook → Capítulos → Questionamento Final → Temas → Arcos → Momentos-chave). Comece direto, sem pedir confirmação. Não escreva os capítulos em si — apenas a ESTRUTURA/PLANEJAMENTO.\n\n⚠️ ATENÇÃO CRÍTICA #1 — NÚMERO DE CAPÍTULOS: a Parte 1 tem EXATAMENTE 6 capítulos. Nunca menos, nunca mais.\n⚠️ ATENÇÃO CRÍTICA #2 — CONTAGEM DE PALAVRAS: a SOMA das contagens declaradas para os 6 capítulos DEVE ficar entre 12.000 e 13.000 palavras (alvo 12.500). REGRA INEGOCIÁVEL. Antes de finalizar, SOME mentalmente as contagens de cada capítulo e CONFIRME que o total está dentro da faixa. Se ficar fora, REDISTRIBUA até bater.",
     );
 
     return sections.join("\n\n");

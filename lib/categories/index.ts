@@ -84,11 +84,11 @@ export const CATEGORIES: Record<RoteiroCategory, CategoryConfig> = {
     label: "Romance Alpha King (Werewolf)",
     channels: "Alpha King",
     description:
-      "Duologia werewolf Alpha King, 1ª pessoa pela FMC (futura Luna) com 2–4 narrações do Alpha King na Parte 2. Universo de alcateias, Moon Goddess, vínculo de mate, rejeição e marcação. Parte 1 com 11.500 palavras (6 caps), Parte 2 com 13.000–13.500 (5–6 caps). Premissa bifásica, escrita 2-em-2, Revisor com símbolos 🟢🟡🔴💀.",
+      "Duologia werewolf Alpha King, 1ª pessoa pela FMC (futura Luna) com 2–4 narrações do Alpha King na Parte 2. Universo de alcateias, Moon Goddess, vínculo de mate, rejeição e marcação. Parte 1 com 12.500 palavras (6 caps), Parte 2 com 13.000–13.500 (5–6 caps). Premissa bifásica, escrita 2-em-2, Revisor com símbolos 🟢🟡🔴💀.",
     agents: alphaKingAgents,
     escritaSystemPrompt: alphaKingEscritaSystemPrompt,
     wordCount: {
-      parte1: { min: 11300, max: 11700, target: 11500 },
+      parte1: { min: 12000, max: 13000, target: 12500 },
       parte2: { min: 13000, max: 13500, target: 13500 },
     },
   },
