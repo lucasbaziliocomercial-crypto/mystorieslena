@@ -349,6 +349,33 @@ function RevisorVerdictBanner({
         {countChips || "Nenhum erro estruturado apontado."}
       </div>
 
+      {!canFinish && counts.gravissimo > 0 && (
+        <div className="text-xs leading-snug text-amber-900 bg-amber-100/70 border border-amber-200 rounded px-2.5 py-1.5">
+          <span className="font-semibold">
+            Re-rodar a revisão NÃO tira estes erros graves.
+          </span>{" "}
+          Eles estão no texto da história — revisar de novo sem mudar o texto
+          acha sempre os mesmos. Para zerar: aplique a correção de cada erro
+          grave no botão <span className="font-semibold">Aplicar</span> do card
+          (quando o card for um AVISO, ajuste o trecho no Step 4) e só{" "}
+          <span className="font-semibold">depois</span> re-revise uma vez.
+        </div>
+      )}
+
+      {canFinish && counts.interfere + counts.atencao > 0 && (
+        <div className="text-xs leading-snug text-emerald-900 bg-emerald-100/70 border border-emerald-200 rounded px-2.5 py-1.5">
+          <span className="font-semibold">
+            Este roteiro já pode ser finalizado.
+          </span>{" "}
+          Os {counts.interfere + counts.atencao} pontos restantes (
+          {counts.interfere > 0 ? "Interfere/Atenção" : "Atenção"}) são
+          refinamentos <span className="font-semibold">opcionais</span> — não
+          são gravíssimos e não travam a entrega. Aplique pelos cards os que
+          quiser; <span className="font-semibold">não</span> precisa re-gerar
+          nem re-revisar pra "zerar".
+        </div>
+      )}
+
       {recent.length >= 2 && (
         <details className="text-xs">
           <summary className="cursor-pointer text-muted-foreground hover:text-foreground select-none">
