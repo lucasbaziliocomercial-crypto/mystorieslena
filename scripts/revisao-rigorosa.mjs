@@ -119,6 +119,30 @@ has(read("lib/agents/milionario3p/revisor.ts"), "POV_MARKER_REVISOR_CHECKLIST")
   ? bad("milionario3p recebeu o bloco de marcador ✦ — ela é onisciente e PROÍBE ✦; remova")
   : ok("milionario3p sem o bloco de marcador ✦ (correto — é onisciente, proíbe ✦)");
 
+// ── NARRAÇÃO LIMITADA (não-onisciência) + FIDELIDADE À PREMISSA ──
+// Bug 29/06/2026: nota despencando na revisão, principalmente na PARTE 1, com
+// erros 💀/🔴 de ONISCIÊNCIA em 1ª pessoa (nomear antes de apresentar, cravar a
+// mente do outro, info-dump) + caso extremo de Parte 1 TODA fora do cânone da
+// premissa (chefe da máfia virou herdeiro de hotelaria). milionario-1p/3p já
+// trazem essa trava inline nos próprios prompts; máfia e alpha-king ganharam o
+// bloco compartilhado pra ficar no MESMO nível. Trava nas DUAS camadas.
+console.log("\n[Narração limitada + fidelidade à premissa] travado na Escrita + Revisor (máfia + alpha-king)");
+const KNOWLEDGE_CATS = ["mafia", "alphaking"];
+for (const cat of KNOWLEDGE_CATS) {
+  const e = read(`lib/agents/${cat}/escrita.ts`);
+  has(e, "NARRATOR_KNOWLEDGE_RULE")
+    ? ok(`${cat}: NARRATOR_KNOWLEDGE_RULE na Escrita`)
+    : bad(`${cat}: FALTA NARRATOR_KNOWLEDGE_RULE em lib/agents/${cat}/escrita.ts`);
+  const r = read(`lib/agents/${cat}/revisor.ts`);
+  has(r, "NARRATOR_KNOWLEDGE_REVISOR_CHECKLIST")
+    ? ok(`${cat}: NARRATOR_KNOWLEDGE_REVISOR_CHECKLIST no Revisor`)
+    : bad(`${cat}: FALTA NARRATOR_KNOWLEDGE_REVISOR_CHECKLIST em lib/agents/${cat}/revisor.ts`);
+}
+const know = read("lib/agents/_shared/narrator-knowledge-rule.ts");
+has(know, "NARRATOR_KNOWLEDGE_RULE") && has(know, "NARRATOR_KNOWLEDGE_REVISOR_CHECKLIST")
+  ? ok("narrator-knowledge-rule.ts exporta NARRATOR_KNOWLEDGE_RULE + NARRATOR_KNOWLEDGE_REVISOR_CHECKLIST")
+  : bad("narrator-knowledge-rule.ts faltando export(s)");
+
 // ── REGRA 4: Parte 2 = exatamente 6 capítulos nas 4 categorias ──
 console.log("\n[Estrutura P2] exatamente 6 capítulos nas 4 categorias");
 // Padrões PROIBIDOS = contagem "5 e 6 / 5-6 / 5 a 6 / 5 ou 6 / máximo 6" na P2.
