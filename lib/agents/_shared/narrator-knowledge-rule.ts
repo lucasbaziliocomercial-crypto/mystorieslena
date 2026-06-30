@@ -1,6 +1,6 @@
 /**
  * REGRA DE NARRAÇÃO LIMITADA + FIDELIDADE À PREMISSA — bloco compartilhado
- * pelas categorias de POV LIMITADO em 1ª pessoa (mafia, alpha-king).
+ * pelas categorias de POV LIMITADO em 1ª pessoa (mafia, alpha-king, milionario-1p).
  *
  * Por que existe (29/06/2026): a roteirista relatou nota despencando na
  * revisão — principalmente na PARTE 1 — e, num caso extremo (LENA/máfia), a
@@ -20,11 +20,17 @@
  *       que a premissa fixou (ex.: máfia vira hotelaria, chefe vira herdeiro),
  *       apaga o gancho central ou inventa trama que não estava na premissa.
  *
- * milionário-1p e milionário-3p JÁ trazem essas travas inline nos próprios
- * prompts de Escrita ("só sabe o que ela sabe", "ORIGEM DA INFORMAÇÃO",
- * "narrador entrando na cabeça do MMC na Parte 1"), então NÃO recebem este
- * bloco — REGRA Nº 1, não mexer no que já funciona. Este bloco existe pra
- * trazer máfia e alpha-king ao MESMO nível, sem duplicar texto entre elas.
+ * Histórico: nasceu (1.1.1) só pra máfia + alpha-king (as 2 que não tinham
+ * NENHUMA trava de não-onisciência). milionário-1p tinha trava inline ("só sabe
+ * o que ela sabe", "ORIGEM DA INFORMAÇÃO") mas AINDA escorregava na prática
+ * (ex.: Kai — "Maelle lê o celular do Torin", onisciência de POV), então em
+ * 1.1.3 passou a receber TAMBÉM este bloco compartilhado, mais explícito, em
+ * reforço ao inline. Agora as 3 categorias de 1ª pessoa o usam.
+ *
+ * milionário-3p fica de FORA de propósito: é 3ª pessoa e a Parte 2 é ONISCIENTE
+ * (o narrador entra na mente dos dois) — a regra "narração em 1ª pessoa é
+ * limitada" CONTRADIRIA o desenho dela. Ele já tem a trava própria, part-aware
+ * ("não entrar na cabeça do MMC na Parte 1; na Parte 2 onisciente é permitido").
  *
  * É ORTOGONAL ao CANONE_RULE (que trava UMA identidade = UM nome ao longo do
  * texto): aqui o foco é (A) o LIMITE DE CONHECIMENTO do narrador-personagem e

@@ -122,12 +122,15 @@ has(read("lib/agents/milionario3p/revisor.ts"), "POV_MARKER_REVISOR_CHECKLIST")
 // ── NARRAÇÃO LIMITADA (não-onisciência) + FIDELIDADE À PREMISSA ──
 // Bug 29/06/2026: nota despencando na revisão, principalmente na PARTE 1, com
 // erros 💀/🔴 de ONISCIÊNCIA em 1ª pessoa (nomear antes de apresentar, cravar a
-// mente do outro, info-dump) + caso extremo de Parte 1 TODA fora do cânone da
-// premissa (chefe da máfia virou herdeiro de hotelaria). milionario-1p/3p já
-// trazem essa trava inline nos próprios prompts; máfia e alpha-king ganharam o
-// bloco compartilhado pra ficar no MESMO nível. Trava nas DUAS camadas.
-console.log("\n[Narração limitada + fidelidade à premissa] travado na Escrita + Revisor (máfia + alpha-king)");
-const KNOWLEDGE_CATS = ["mafia", "alphaking"];
+// mente do outro, ler a tela do celular dele, info-dump) + caso extremo de
+// Parte 1 TODA fora do cânone da premissa (chefe da máfia virou herdeiro de
+// hotelaria). Travado nas 3 categorias de 1ª pessoa (máfia + alpha-king em
+// 1.1.1; milionário-1p em 1.1.3, pq o inline dele ainda escorregava — ex.: Kai
+// com "Maelle lê o celular do Torin"). milionário-3p fica de FORA de propósito:
+// é 3ª pessoa e a Parte 2 é ONISCIENTE — a regra de 1ª pessoa quebraria isso;
+// ele já tem a trava própria (P1 limitada à FMC). Trava nas DUAS camadas.
+console.log("\n[Narração limitada + fidelidade à premissa] travado na Escrita + Revisor (3 categorias de 1ª pessoa)");
+const KNOWLEDGE_CATS = ["mafia", "alphaking", "milionario1p"];
 for (const cat of KNOWLEDGE_CATS) {
   const e = read(`lib/agents/${cat}/escrita.ts`);
   has(e, "NARRATOR_KNOWLEDGE_RULE")
@@ -138,6 +141,11 @@ for (const cat of KNOWLEDGE_CATS) {
     ? ok(`${cat}: NARRATOR_KNOWLEDGE_REVISOR_CHECKLIST no Revisor`)
     : bad(`${cat}: FALTA NARRATOR_KNOWLEDGE_REVISOR_CHECKLIST em lib/agents/${cat}/revisor.ts`);
 }
+// milionário-3p NÃO pode receber o bloco de 1ª pessoa (é 3ª pessoa, P2 onisciente).
+has(read("lib/agents/milionario3p/escrita.ts"), "NARRATOR_KNOWLEDGE_RULE") ||
+has(read("lib/agents/milionario3p/revisor.ts"), "NARRATOR_KNOWLEDGE_REVISOR_CHECKLIST")
+  ? bad("milionario3p recebeu o bloco de não-onisciência de 1ª pessoa — ele é 3ª pessoa/P2 onisciente; remova")
+  : ok("milionario3p sem o bloco de 1ª pessoa (correto — 3ª pessoa, P2 onisciente, trava própria inline)");
 const know = read("lib/agents/_shared/narrator-knowledge-rule.ts");
 has(know, "NARRATOR_KNOWLEDGE_RULE") && has(know, "NARRATOR_KNOWLEDGE_REVISOR_CHECKLIST")
   ? ok("narrator-knowledge-rule.ts exporta NARRATOR_KNOWLEDGE_RULE + NARRATOR_KNOWLEDGE_REVISOR_CHECKLIST")
