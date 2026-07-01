@@ -270,7 +270,13 @@ function RevisorVerdictBanner({
   const nota = parseRevisorNota(content);
   const hateRisk = parseRevisorHateRisk(content);
   const counts = { gravissimo: 0, interfere: 0, atencao: 0, naoInterfere: 0 };
-  for (const e of errors) counts[e.gravidade] += 1;
+  // SÓ os pendentes contam pro veredito. Um erro aplicado (`applied`) continua no
+  // array (vai pra seção "correções já aplicadas"), então contá-lo travava o
+  // banner em amarelo pra sempre: mesmo depois de corrigir todos os gravíssimos,
+  // `counts.gravissimo` nunca zerava e "✅ Pode finalizar" nunca aparecia. Contar
+  // só os não-aplicados alinha o banner ao "N pendentes" das abas e deixa ele
+  // virar verde assim que os graves são aplicados.
+  for (const e of errors) if (!e.applied) counts[e.gravidade] += 1;
 
   const order = ["gravissimo", "interfere", "atencao", "naoInterfere"] as const;
   const countChips = order
