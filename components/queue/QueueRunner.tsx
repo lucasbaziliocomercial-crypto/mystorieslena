@@ -76,6 +76,24 @@ function notifyDone(title: string) {
   }
 }
 
+/** Avisa quando um job da fila PAROU por erro (login/cota/rede). Sem isso, uma
+ *  geração em 2º plano falhava em silêncio — a roteirista só via o erro se
+ *  abrisse o roteiro. Espelha o `notifyDone` (só dispara com permissão). */
+function notifyError(title: string, reason?: string) {
+  if (typeof window === "undefined") return;
+  try {
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification("Geração parou por erro ✕", {
+        body: reason
+          ? `"${title}" parou: ${reason}`
+          : `A geração de "${title}" parou por erro.`,
+      });
+    }
+  } catch {
+    /* Notification indisponível — ignora */
+  }
+}
+
 function buildEscritaOutput(state: RunEscritaState): StepOutput {
   return {
     content: state.content,
@@ -381,6 +399,7 @@ export function QueueRunner() {
             error: err.message || "Falha desconhecida",
             finishedAt: new Date().toISOString(),
           });
+          notifyError(job.roteiroTitle, err.message);
         } finally {
           running.delete(jobKey(job));
           loadRef.current -= jobStreamCost(job.step);
