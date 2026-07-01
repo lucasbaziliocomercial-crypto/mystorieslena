@@ -70,9 +70,17 @@ export function RevisorPartTabs({
       status === "ready"
         ? (ev?.hateRisk ?? parseRevisorHateRisk(content))
         : null;
+    // Gravíssimos PENDENTES (não os já aplicados). Consistente com o banner do
+    // veredito e com `pendentes` abaixo: um grave aplicado NÃO pode manter o
+    // rótulo "🔴 N" nem travar o ✓/canFinish pra sempre. A fonte de verdade é o
+    // array de erros ao vivo (reflete o `applied`); o eval snapshot (contagem
+    // CONGELADA no momento da geração) só entra como fallback pra roteiros
+    // antigos sem erros estruturados — que não têm como aplicar de qualquer jeito.
     const gravissimos =
-      ev?.counts.gravissimo ??
-      errors.filter((e) => e.gravidade === "gravissimo").length;
+      errors.length > 0
+        ? errors.filter((e) => e.gravidade === "gravissimo" && !e.applied)
+            .length
+        : (ev?.counts.gravissimo ?? 0);
     const pendentes = errors.filter((e) => !e.applied).length;
     const canFinish = nota !== null && nota >= 8 && gravissimos === 0;
 
