@@ -52,6 +52,8 @@ Onde NUNCA entra: ❌ Pensamentos do MMC. Ele é mostrado APENAS pelo observáve
 
 ▸ PARTE 2 — ONISCIENTE.
 O narrador externo passa a acessar os pensamentos, sensações e memórias de AMBOS os protagonistas (FMC e MMC), alternando o foco de forma natural e fluida — mas sempre como observador, nunca como o próprio personagem, e sem blocos de POV rotulados. Mesmo nos momentos de maior intensidade (a bomba do Cap. 1, a reconciliação, a cena erótica), o narrador PODE mostrar o que o MMC sente por dentro, não apenas pelo observável.
+⚠️ CUIDADO REDOBRADO NA PARTE 2: ter acesso às duas mentes NÃO autoriza personificar o narrador. Onisciência é CONTAR o pensamento/sensação direto ("ele sentiu a garganta apertar", "no fundo, ela sabia que já era tarde"), JAMAIS narrar em nome de uma entidade ("o narrador registrou…", "o narrador notou…", "um observador perceberia…"). A palavra "narrador" continua PROIBIDA no corpo do texto — este é o deslize nº 1 da Parte 2. Conte o fato; nunca anuncie quem o observa.
+⚠️ ONISCIÊNCIA MOSTRA, NÃO COMENTA (evita o "narrador didático" — o deslize nº 2 da Parte 2): entrar na mente é revelar o pensamento/sensação EM SI; NUNCA é pendurar, por cima de uma ação já mostrada, um COMENTÁRIO interpretativo que explica o que a cena já entregou. NÃO cole etiqueta editorial no fim da frase — "…com uma destreza que surpreendeu os dois", "…exatamente a coisa que ele usava agora contra ela", "Era estranho deixar alguém fazer isso por ele; toda a vida dele tinha sido o oposto". E NÃO faça afirmação chapada de onisciência — "Ele percebeu. Ele percebia tudo.", "Bennett, do lado de dentro, sabia exatamente o que ela pensava". Em vez disso: (a) corte a etiqueta e confie na cena; ou (b) filtre pela percepção concreta de um personagem — "ela não se lembrava de tê-lo ouvido dizer aquilo em oito meses", "ela soube pelo modo como o ombro dele se aproximou meio centímetro". Revelar direto o que o MMC/FMC sente e pensa continua PERMITIDO e esperado — o erro é só o comentário REDUNDANTE sobre o que a ação já mostrou. Mostrar o fato > explicar o fato.
 
 ⚠️ Há UMA mudança de regime entre as partes: Parte 1 limitada à FMC → Parte 2 onisciente. Esse é o único ponto em que o narrador entra na mente do MMC. Fora da Parte 2, o MMC é mostrado só pelos atos observáveis.
 
@@ -62,11 +64,15 @@ O narrador externo passa a acessar os pensamentos, sensações e memórias de AM
 🚫 REGRA ABSOLUTA DE IMERSÃO — NUNCA QUEBRAR A QUARTA PAREDE
 ⚠️ Em NENHUM momento o texto da história pode mencionar "Parte 1", "Parte 2", "capítulo anterior", "livro anterior", "história anterior", "continuação" ou qualquer expressão que faça o leitor lembrar que está lendo uma obra dividida em partes.
 ⚠️ Em NENHUM momento o texto da história pode citar "o narrador", "o autor", "o escritor", "a narração", "a história", "o leitor", "quem lê" ou qualquer expressão que exponha a estrutura narrativa.
+⚠️ A palavra "narrador" JAMAIS pode virar SUJEITO ou OBSERVADOR de uma frase — nem mesmo de forma sutil, no meio de uma oração. O erro mais comum e mais grave da PARTE 2 (onisciente) é o narrador se personificar para dar destaque a um instante: "e o narrador registrou o momento exato em que ele esqueceu a conversa", "o narrador notou o tremor nas mãos dela", "algo que o narrador não deixaria passar", "se houvesse quem observasse, veria…", "um observador atento perceberia…". Isso é PROIBIDO TOTALMENTE. Ser onisciente NÃO é anunciar a onisciência — é simplesmente CONTAR o fato direto, sem intermediário. Onisciência = mergulhar na mente dos personagens, nunca narrar em nome de uma entidade "narrador". Quando quiser destacar um instante, escreva o instante em si ("naquele instante, ele esqueceu a conversa"), sem nomear quem o registrou.
 ⚠️ Referências a fatos passados devem surgir de forma natural — através da memória da FMC, de um objeto que reaparece, de uma frase que ecoa, de um gesto repetido. Nunca como recapitulação explícita.
 
 Exemplos PROIBIDOS:
 ❌ "Como aconteceu na Parte 1..."
 ❌ "O narrador agora volta seus olhos para..."
+❌ "e o narrador registrou o instante exato em que ele esqueceu a conversa com o investidor à frente." (o narrador virou sujeito — GRAVÍSSIMO, o mais frequente na Parte 2)
+❌ "o narrador notou o tremor nas mãos dela." / "algo que nem o narrador conseguiria explicar."
+❌ "se houvesse alguém para observar, teria visto..." / "um observador atento perceberia..." (narrador disfarçado de observador externo)
 ❌ "Voltando ao que foi contado antes..."
 ❌ "O leitor já sabe que..."
 ❌ "Naquele dia no capítulo 1..."
@@ -77,6 +83,8 @@ Exemplos CORRETOS:
 ✅ "O anel ainda estava lá, no mesmo lugar onde ele havia deixado meses atrás."
 ✅ "Naquele primeiro encontro, ela não imaginava que..."
 ✅ "Semanas antes, quando tudo começou..."
+✅ "E naquele instante ele esqueceu a conversa com o investidor à frente, precisou de um segundo inteiro para retomar o fôlego." (o instante contado direto, sem "o narrador registrou")
+✅ "As mãos dela tremeram — e ele viu." (o gesto mostrado, sem "o narrador notou")
 
 🚫 REGRA ABSOLUTA DE NÃO REPETIÇÃO DE PALAVRAS
 ⚠️ JAMAIS repetir a mesma palavra várias vezes num mesmo parágrafo ou numa mesma página. A repetição excessiva empobrece o texto e cansa o leitor.
