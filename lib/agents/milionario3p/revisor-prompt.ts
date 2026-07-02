@@ -130,6 +130,21 @@ Nenhum personagem, narrador ou voz interna pode citar o número de um capítulo 
 Deslize de narração para primeira pessoa — 💀 GRAVÍSSIMO
 Toda a história deve ser narrada em terceira pessoa por um narrador externo. Qualquer trecho em que a narração deslize para primeira pessoa ("eu senti", "meu coração disparou", "me olhou") é um erro gravíssimo. Se encontrado, classifique como Erro #X 💀 [Gravíssimo] e aponte o trecho exato.
 
+Narrador se anunciando / a palavra "narrador" no corpo do texto — 💀 GRAVÍSSIMO (o deslize MAIS FREQUENTE da Parte 2)
+O narrador é invisível: JAMAIS pode virar sujeito ou observador de uma frase. Varra o capítulo procurando a palavra "narrador" (e "autor", "escritor", "narração", "leitor", "quem lê") em QUALQUER posição — inclusive sutil, no meio de uma oração. Exemplos PROIBIDOS (marque TODOS como 💀):
+❌ "e o narrador registrou o instante exato em que ele esqueceu a conversa."
+❌ "o narrador notou o tremor nas mãos dela." / "algo que nem o narrador conseguiria explicar."
+❌ "se houvesse alguém para observar, teria visto..." / "um observador atento perceberia..." (narrador disfarçado de observador externo)
+❌ "O narrador agora acompanha..." / "como já contamos..." / "nossa heroína..."
+⚠️ Ser onisciente na Parte 2 NÃO autoriza isso — acessar as duas mentes é permitido, mas se anunciar como "o narrador" NUNCA é. No trecho_corrigido, reescreva CONTANDO o fato direto, sem a entidade: "e o narrador registrou o instante em que ele esqueceu a conversa" → "e naquele instante ele esqueceu a conversa"; "o narrador notou o tremor nas mãos dela" → "as mãos dela tremeram". Emita um <erro> 💀 por ocorrência (numero="Na", "Nb"… se houver várias), com o trecho_original literal e o trecho_corrigido já limpo — prosa pura, sem citar esta regra.
+
+Narrador didático / comentário editorial do onisciente — 🟡 ATENÇÃO (NÃO gravíssimo)
+Este é o "irmão" mais brando do vazamento acima: o narrador não usa a palavra "narrador", mas COMENTA/EXPLICA, por cima de uma ação já mostrada, o que a cena já entregou. Onisciência MOSTRA o pensamento/sensação — ela não pendura uma interpretação redundante. Marque como 🟡 [Atenção] quando o narrador:
+❌ cola uma etiqueta interpretativa no fim de uma ação já mostrada — "…com uma destreza que surpreendeu os dois", "…exatamente a coisa que ele usava agora contra ela", "Era estranho deixar alguém fazer isso por ele; toda a vida dele tinha sido o oposto".
+❌ faz afirmação didática chapada — "Ele percebeu. Ele percebia tudo.", "Bennett, do lado de dentro, sabia exatamente o que ela estava pensando".
+No trecho_corrigido: (a) CORTE a etiqueta e confie na cena; ou (b) filtre pela percepção concreta de um personagem ("ela não se lembrava de tê-lo ouvido dizer aquilo em oito meses"; "ela soube pelo modo como o ombro dele se aproximou meio centímetro").
+⚠️ ESCOPO APERTADO — NÃO marque a interioridade onisciente LEGÍTIMA (revelar direto o que o MMC/FMC sente/pensa/lembra é o regime esperado da Parte 2 e NÃO é erro). Só o COMENTÁRIO REDUNDANTE sobre o que a ação já mostrou. Na dúvida, deixe passar — este item é 🟡, jamais trava o "pode finalizar".
+
 Narrador entrando na mente do MMC na PARTE 1 — 💀 GRAVÍSSIMO (a Parte 1 é 3p limitada à FMC)
 Na PARTE 1, a narração tem foco LIMITADO à FMC: o leitor entra nos pensamentos da heroína, mas NUNCA na cabeça do MMC. Qualquer trecho da PARTE 1 em que o narrador acesse os pensamentos, lembranças subjetivas ou monólogos internos do MMC é erro gravíssimo. Exemplos PROIBIDOS NA PARTE 1:
 ❌ "Ele soube naquele instante que ela era diferente."
