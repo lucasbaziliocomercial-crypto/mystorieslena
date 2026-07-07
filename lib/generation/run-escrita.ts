@@ -44,6 +44,7 @@ import {
   extractChapterTargets,
   partTotalRange,
 } from "@/lib/parse-estrutura-targets";
+import { normalizeEstruturaTargets } from "@/lib/normalize-estrutura-targets";
 import { parseEscritaBatch } from "@/lib/parse-escrita-batch";
 import {
   concatenateChapters,
@@ -369,8 +370,26 @@ export async function runEscrita(
   const { category, previousOutputs } = input;
   const { signal } = hooks;
 
-  const estrutura1 = previousOutputs.estrutura1?.content;
-  const estrutura2 = previousOutputs.estrutura2?.content;
+  // Re-normaliza os alvos por capítulo da Estrutura SALVA pro `partTotalRange`
+  // ATUAL antes de gerar. Reusa a MESMA trava `normalizeEstruturaTargets` que roda
+  // na geração da Estrutura (`run-step.ts`) — idempotente: se a soma já cabe na
+  // faixa atual, o texto volta intacto. Isso conserta o caso "refazer um roteiro
+  // PRONTO depois que a faixa de palavras mudou": a Estrutura foi normalizada pra
+  // faixa ANTIGA (ex.: milionário-1p P1 somava 11.500), e o `balancePartTotal`
+  // abaixo limita cada cap ao PRÓPRIO alvo — então, sem reescalar, a soma jamais
+  // alcançaria a faixa nova (12.000–13.000) e a Parte 1 fechava curta. Reescalando
+  // aqui, os alvos por-cap sobem proporcionalmente (1.380→1.500, …) e a calibração
+  // + balanço atingem a faixa atual. Bug "refazer roteiro pronto sai curto", 24/06.
+  const estrutura1 = normalizeEstruturaTargets(
+    previousOutputs.estrutura1?.content,
+    "Parte 1",
+    category,
+  ).text;
+  const estrutura2 = normalizeEstruturaTargets(
+    previousOutputs.estrutura2?.content,
+    "Parte 2",
+    category,
+  ).text;
   const totalP1 = countChaptersInEstrutura(estrutura1);
   const totalP2 = countChaptersInEstrutura(estrutura2);
   if (totalP1 === 0 || totalP2 === 0) {
