@@ -1,7 +1,7 @@
 {
   "name": "mystorieslena",
   "productName": "MyStoriesLena",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "description": "MyStoriesLena — Gerador de Roteiros de Romance",
   "private": true,
   "main": "electron/main.js",
