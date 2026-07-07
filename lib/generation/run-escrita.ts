@@ -265,6 +265,28 @@ function isQuotaErroMarker(text: string): boolean {
   return /rate.?limit|quota|usage|limit|429|overloaded|capacity/i.test(detail);
 }
 
+/**
+ * `true` quando o `[ERRO]` injetado é uma QUEDA TRANSIENTE do subprocesso do
+ * Claude — o binário/CLI que a SDK spawna (`claude.exe`) morreu no meio da
+ * geração ("process exited with code N", SIGKILL/SIGTERM, conexão resetada,
+ * `fetch failed`) — vs um erro GENUÍNO de código/SDK (fatal). Login/binário
+ * ausente já foram tratados antes (`detectHardMarker`), então aqui sobra: cota
+ * (`isQuotaErroMarker`), queda transitória (este) ou erro real. A queda é quase
+ * sempre instabilidade curta do serviço: passa no retry. Roteado pra MESMA
+ * trilha de backoff do quota/stream-stall (retenta e, ao esgotar, degrada pra
+ * warning NÃO-fatal — a outra Parte segue e o guard de completude/resume
+ * regenera só o que faltou), em vez de abortar a run inteira no 1º toque.
+ * Bug "Claude Code process exited with code 3", 07/07/2026.
+ */
+function isTransientErroMarker(text: string): boolean {
+  const generic = /\[ERRO\]\s*([\s\S]*)$/.exec(text);
+  if (!generic) return false;
+  const detail = generic[1]?.trim().slice(0, 300) ?? "";
+  return /exited with code|process (?:was )?killed|sigkill|sigterm|econnreset|socket hang ?up|fetch failed|network error|terminated unexpectedly/i.test(
+    detail,
+  );
+}
+
 /** Sleep que resolve cedo se o signal abortar (não trava o cancelamento). */
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
@@ -693,6 +715,26 @@ export async function runEscrita(
             // no fim pega Parte inteira vazia; o resume regenera só o que falta).
             // Mesma semântica do StreamStall esgotado — degrada gracioso, não aborta.
             batchFatalError = `Limite de uso da assinatura Claude persistiu após ${MAX_RETRIES_PER_BATCH + 1} tentativas. Aguarde alguns minutos e clique em "Continuar geração".`;
+            break;
+          }
+          // 1b) `[ERRO]` de QUEDA TRANSIENTE do subprocesso do Claude (o
+          //     `claude.exe`/CLI caiu no meio — "process exited with code N",
+          //     conexão resetada). Instabilidade curta do serviço: retenta com
+          //     backoff (mesma trilha do quota/stream-stall). NÃO seta
+          //     fatalRaised — a OUTRA Parte segue gerando. Esgotado → warning
+          //     NÃO-fatal (o guard de completude/resume regenera só o que
+          //     faltou), em vez de abortar a run inteira no 1º toque. Antes isto
+          //     caía no caminho 2 (fatal) e travava a geração em "8 de 12".
+          if (isTransientErroMarker(acc)) {
+            if (attempt <= MAX_RETRIES_PER_BATCH) {
+              transientRetries += 1;
+              const delay = backoffDelay(attempt);
+              backoffMs += delay;
+              await sleep(delay, signal);
+              if (signal.aborted) break;
+              continue;
+            }
+            batchFatalError = `O processo do Claude caiu de forma transitória (instabilidade do serviço) após ${MAX_RETRIES_PER_BATCH + 1} tentativas. Aguarde alguns minutos e clique em "Continuar geração".`;
             break;
           }
           // 2) `[ERRO]` NÃO-cota (erro genuíno da SDK/binário) → FATAL: aborta a
