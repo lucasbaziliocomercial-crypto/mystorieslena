@@ -7,7 +7,7 @@ import {
   deleteRoteiro,
   listRoteiros,
   newRoteiroId,
-  saveRoteiro,
+  scheduleSave,
   serializeLibraryForBackup,
 } from "@/lib/storage";
 import { downloadFile } from "@/lib/backup";
@@ -124,7 +124,15 @@ export function RoteiroList() {
         currentStep: "premissa",
         outputs: {},
       };
-      saveRoteiro(r);
+      // scheduleSave (NÃO saveRoteiro direto): saveRoteiro comprimia a
+      // biblioteca INTEIRA de forma síncrona na main thread (lz-string) só pra
+      // gravar UM roteiro novo e vazio — numa biblioteca grande (~8MB) isso
+      // congelava a UI por segundos ao clicar em "Criar roteiro". scheduleSave
+      // coalesce + comprime no Web Worker (off-thread). O roteiro novo fica
+      // legível NA HORA pelo overlay de pendentes do getRoteiro, então o
+      // router.push abaixo abre o wizard sem esperar a compressão. Mesmo padrão
+      // que o QueueRunner já usa. Bug "trava ao criar projeto", 07/07/2026.
+      scheduleSave(r);
       router.push(`/roteiro/${id}`);
     },
     [router],
