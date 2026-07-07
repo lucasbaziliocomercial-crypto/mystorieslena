@@ -18,23 +18,16 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
-      # max-parallel=2: Windows e macOS rodam EM PARALELO pra cortar ~10min
-      # do tempo total. A race condition antiga (ambos tentando POST /releases
-      # com mesma tag -> 422 already_exists) ja foi resolvida pelo step
-      # "Garantir release no GitHub" que faz `view || create || re-view`.
-      max-parallel: 2
+      # SÓ Windows: toda a equipe usa Windows (notebooks Positivo). O build de
+      # macOS foi removido do release por ser desperdício de CI (ninguém usa o
+      # .dmg). Se um dia precisar de Mac, re-adicione um item `os: macos-latest`
+      # / `label: macos` no matrix + os passos "Empacotar (macOS)" / "Anexar
+      # assets do macOS" (ver histórico do git).
       matrix:
         include:
           # Windows: NSIS .exe + latest.yml
           - os: windows-latest
             label: windows
-          # macOS Apple Silicon runner cross-compila AMBAS archs (arm64 + x64)
-          # num só job. O electron-builder le `mac.target.arch` do package.json
-          # (["arm64","x64"]) e gera os dois .dmg/.zip + um latest-mac.yml
-          # consolidado com ambas as entradas em `files[]`, entao o auto-updater
-          # escolhe o asset certo conforme a arch do Mac do usuario.
-          - os: macos-latest
-            label: macos
 
     steps:
       - name: Checkout código
@@ -90,10 +83,10 @@ jobs:
         run: npm run build
 
       # Garante que a release existe antes de qualquer upload manual.
-      # Idempotente E tolerante a corrida (com max-parallel=2, ambos os jobs
-      # podem chegar aqui simultaneamente): se `view` nao acha, tenta `create`;
-      # se `create` falhar (outro job criou no meio-tempo -> 422), re-checa
-      # `view` -- se passar, esta tudo OK; se nao, ai sim falha de verdade.
+      # Idempotente e tolerante a corrida: se `view` nao acha, tenta `create`;
+      # se `create` falhar (release ja existe -> 422), re-checa `view` -- se
+      # passar, esta tudo OK; se nao, ai sim falha de verdade. (Mantido idempotente
+      # de proposito, caso um dia volte a haver mais de um job no matrix.)
       - name: Garantir release no GitHub
         shell: bash
         run: |
@@ -122,49 +115,6 @@ jobs:
             dist-electron/MyStoriesLena-Setup-*.exe \
             dist-electron/MyStoriesLena-Setup-*.exe.blockmap \
             dist-electron/latest.yml \
-            --repo "${GITHUB_REPOSITORY}" \
-            --clobber
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # ────────────────────────────────────────────────────────────────────
-      # macOS (arm64 + x64 cross-compiled)
-      # ────────────────────────────────────────────────────────────────────
-      # No Apple Silicon runner, electron-builder baixa o electron x64 e o
-      # arm64 e gera os dois .app, .dmg e .zip — tudo num só job. Os módulos
-      # nativos npm que usamos (sharp) já têm prebuilds universais ou são
-      # cross-arch; se algum quebrar, o fallback é rebuildar com `npm rebuild
-      # --arch=x64` antes do empacotamento.
-      - name: Empacotar (macOS arm64 + x64)
-        if: matrix.label == 'macos'
-        run: npx electron-builder --mac dmg zip --arm64 --x64 --publish never
-        env:
-          # Sem assinatura — o app vai mostrar Gatekeeper warning na primeira
-          # execução. Adicione APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD,
-          # APPLE_TEAM_ID e CSC_LINK/CSC_KEY_PASSWORD se for assinar e
-          # notarizar. O ad-hoc sign do scripts/mac-adhoc-sign.js já cobre o
-          # mínimo (evita erro de "danificado" quando o usuário roda
-          # `xattr -cr`).
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
-
-      # latest-mac.yml é o arquivo CRITICO que electron-updater procura no Mac.
-      # Ao buildar arm64+x64 no mesmo job, o electron-builder gera um único
-      # latest-mac.yml com ambas as entradas em `files[]`, então o auto-updater
-      # escolhe o asset certo conforme a arch do Mac do usuário.
-      - name: Anexar assets do macOS na release
-        if: matrix.label == 'macos'
-        shell: bash
-        run: |
-          gh release upload "${GITHUB_REF_NAME}" \
-            dist-electron/MyStoriesLena-*-arm64.dmg \
-            dist-electron/MyStoriesLena-*-arm64.dmg.blockmap \
-            dist-electron/MyStoriesLena-*-arm64.zip \
-            dist-electron/MyStoriesLena-*-arm64.zip.blockmap \
-            dist-electron/MyStoriesLena-*-x64.dmg \
-            dist-electron/MyStoriesLena-*-x64.dmg.blockmap \
-            dist-electron/MyStoriesLena-*-x64.zip \
-            dist-electron/MyStoriesLena-*-x64.zip.blockmap \
-            dist-electron/latest-mac.yml \
             --repo "${GITHUB_REPOSITORY}" \
             --clobber
         env:
