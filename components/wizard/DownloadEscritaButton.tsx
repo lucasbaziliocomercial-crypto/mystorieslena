@@ -8,8 +8,8 @@ import {
   buildEscritaHtmlDocument,
   detectMaleLeadFromFullRoteiro,
   escritaContentToHtml,
-  extractFemaleLeadNameFromEstrutura,
-  extractMaleLeadNameFromEstrutura,
+  extractFemaleLeadFullNameFromEstrutura,
+  extractMaleLeadFullNameFromEstrutura,
 } from "@/lib/export-html";
 import { cn } from "@/lib/utils";
 
@@ -49,15 +49,17 @@ export function DownloadEscritaButton({
       // Fonte primária: campo `Nome:` da seção "PROTAGONISTA MASCULINO
       // (MMC)" da Estrutura1/2. Fallback: heurística baseada nos POVs
       // marcados no roteiro inteiro.
+      // NOME COMPLETO (match de POV por token: primeiro nome OU sobrenome da
+      // mesma pessoa — evita a heroína "Anaïs Lenoir" cair metade como verde).
       const maleLeadName =
-        extractMaleLeadNameFromEstrutura(roteiro.outputs.estrutura1?.content) ??
-        extractMaleLeadNameFromEstrutura(roteiro.outputs.estrutura2?.content) ??
+        extractMaleLeadFullNameFromEstrutura(roteiro.outputs.estrutura1?.content) ??
+        extractMaleLeadFullNameFromEstrutura(roteiro.outputs.estrutura2?.content) ??
         detectMaleLeadFromFullRoteiro(escritaContent);
       // Nome da FMC (heroína) da Estrutura — guarda dura: o POV dela NUNCA
       // fica verde na Parte 2. Sem heurística (só Estrutura).
       const femaleLeadName =
-        extractFemaleLeadNameFromEstrutura(roteiro.outputs.estrutura1?.content) ??
-        extractFemaleLeadNameFromEstrutura(roteiro.outputs.estrutura2?.content);
+        extractFemaleLeadFullNameFromEstrutura(roteiro.outputs.estrutura1?.content) ??
+        extractFemaleLeadFullNameFromEstrutura(roteiro.outputs.estrutura2?.content);
       // `chapters` vai pro export como source-of-truth da Parte (cada cap
       // sabe se é "Parte 1" ou "Parte 2"). Garante que a coloração verde
       // do MMC na Parte 2 sobreviva mesmo se o header `# PARTE 2` for

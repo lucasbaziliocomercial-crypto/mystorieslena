@@ -9,8 +9,8 @@ import {
   detectMaleLeadFromFullRoteiro,
   escritaContentToHtml,
   escritaContentToPlainText,
-  extractFemaleLeadNameFromEstrutura,
-  extractMaleLeadNameFromEstrutura,
+  extractFemaleLeadFullNameFromEstrutura,
+  extractMaleLeadFullNameFromEstrutura,
   splitRoteiroByParts,
 } from "@/lib/export-html";
 import { cn } from "@/lib/utils";
@@ -67,12 +67,16 @@ export function CopyPartButton({
       // "PROTAGONISTA MASCULINO (MMC)" da Estrutura1 (rótulo explícito,
       // garantido nas 3 categorias). Fallback: heurística que conta POVs
       // marcados no roteiro inteiro. Parte 1 não destaca nada.
+      // NOME COMPLETO (não só o 1º nome): o match de POV casa por token, então a
+      // heroína/MMC são reconhecidos por primeiro nome OU sobrenome — evita que a
+      // heroína "Anaïs Lenoir" marcada ora ✦ Anaïs ora ✦ Lenoir caia metade como
+      // POV masculino (verde).
       const maleLeadName =
         part === 2
-          ? extractMaleLeadNameFromEstrutura(
+          ? extractMaleLeadFullNameFromEstrutura(
               roteiro.outputs.estrutura1?.content,
             ) ??
-            extractMaleLeadNameFromEstrutura(
+            extractMaleLeadFullNameFromEstrutura(
               roteiro.outputs.estrutura2?.content,
             ) ??
             detectMaleLeadFromFullRoteiro(escritaContent)
@@ -81,10 +85,10 @@ export function CopyPartButton({
       // fica verde na Parte 2. Sem heurística (só Estrutura). Parte 1 não usa.
       const femaleLeadName =
         part === 2
-          ? extractFemaleLeadNameFromEstrutura(
+          ? extractFemaleLeadFullNameFromEstrutura(
               roteiro.outputs.estrutura1?.content,
             ) ??
-            extractFemaleLeadNameFromEstrutura(
+            extractFemaleLeadFullNameFromEstrutura(
               roteiro.outputs.estrutura2?.content,
             )
           : null;

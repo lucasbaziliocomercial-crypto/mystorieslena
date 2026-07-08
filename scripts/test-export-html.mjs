@@ -20,7 +20,9 @@ import {
   escritaContentToHtml,
   escritaContentToPlainText,
   extractFemaleLeadNameFromEstrutura,
+  extractFemaleLeadFullNameFromEstrutura,
   extractMaleLeadNameFromEstrutura,
+  extractMaleLeadFullNameFromEstrutura,
   splitRoteiroByParts,
 } from "../lib/export-html.ts";
 
@@ -940,6 +942,86 @@ A primeira luz entrou pela janela e eu estava enrolada no peito dele, sem calcul
     allOk = assertNotContains("Sem anotação de planejamento no título", txt, "1.900 palavras") && allOk;
     allOk = assertContains("Título do capítulo preservado limpo", txt, "Capítulo 1 — A sombra do salão") && allOk;
     allOk = assertContains("Prosa preservada sem marcadores", txt, "Levantei. O chão mordia meus pés descalços.") && allOk;
+  }
+
+  console.log(
+    "\n— máfia: heroína 'Anaïs Lenoir' (trema) marcada ora ✦ Anaïs ora ✦ Lenoir —",
+  );
+  {
+    const estrutura = `🙋 PROTAGONISTA FEMININA (FMC)
+Nome: Anaïs Lenoir
+Idade: 27
+
+👤 PROTAGONISTA MASCULINO (MMC)
+Nome: Thierry Moreau
+Idade: 38`;
+    // (1) DETECÇÃO com trema: o "ï" de "Anaïs" NÃO pode fazer o detector pular o
+    // primeiro nome e cair no sobrenome "Lenoir" (era a raiz do bug).
+    const fmc = extractFemaleLeadFullNameFromEstrutura(estrutura);
+    const mmc = extractMaleLeadFullNameFromEstrutura(estrutura);
+    allOk = assertEq("FMC completa detectada = 'Anaïs Lenoir' (trema OK)", fmc, "Anaïs Lenoir") && allOk;
+    allOk = assertEq("MMC completo detectado = 'Thierry Moreau'", mmc, "Thierry Moreau") && allOk;
+    // 1º nome ainda funciona (compat): retorna 'Anaïs', não 'Lenoir'.
+    allOk = assertEq("FMC 1º nome = 'Anaïs' (não o sobrenome)", extractFemaleLeadNameFromEstrutura(estrutura), "Anaïs") && allOk;
+
+    const p2 = `## Capítulo 1 — A Foto Que Ninguém Devia Ter
+
+✦ Anaïs
+
+Acordei antes do despertador, o corpo de Léo quente contra o meu.
+
+✦ Thierry
+
+Ela dormia como quem finalmente baixou a guarda. Eu observei os dois.
+
+✦ Lenoir
+
+Levei Léo pra escola e senti os olhos dele em mim.`;
+    const html = escritaContentToHtml(p2, {
+      maleLeadName: mmc,
+      femaleLeadName: fmc,
+      forceParte2: true,
+    });
+    // (2) MATCH por token: a heroína marcada por PRIMEIRO NOME (✦ Anaïs) E por
+    // SOBRENOME (✦ Lenoir) NUNCA fica verde; só o MMC (Thierry).
+    allOk = assertNotContains("✦ Anaïs (heroína) NÃO fica verde", html, GREEN_SPAN + "Acordei antes do despertador") && allOk;
+    allOk = assertNotContains("✦ Lenoir (heroína, sobrenome) NÃO fica verde", html, GREEN_SPAN + "Levei Léo pra escola") && allOk;
+    allOk = assertContains("✦ Thierry (MMC) FICA verde", html, GREEN_SPAN + "Ela dormia como quem") && allOk;
+    // (3) invariante: exatamente 1 bloco verde (só o MMC), nunca 2.
+    const greenBlocks = (html.match(/#d9ead3/g) || []).length;
+    allOk = assertEq("exatamente 1 bloco verde (só o MMC)", greenBlocks, 1) && allOk;
+    // (4) rótulos: Anaïs e Lenoir = POV feminino; Thierry = POV masculino.
+    allOk = assertContains("✦ Anaïs rotulado POV feminino", html, "POV feminino") && allOk;
+    allOk = assertContains("✦ Thierry rotulado POV masculino", html, "POV masculino") && allOk;
+    allOk = assertNotContains("nenhum bloco da heroína virou 'POV masculino' por engano", html, GREEN_SPAN + "Acordei") && allOk;
+
+    // (5) REGRESSÃO (pega na revisão): marcador da heroína com o 1º nome CERTO +
+    // um token EXTRA que NÃO está no nome canônico dela (nome do meio / sobrenome
+    // divergente) NÃO pode fazê-la ficar verde. O match é por INTERSEÇÃO de
+    // tokens (compartilhar "Anaïs" basta), não subconjunto.
+    const p2extra = `## Capítulo 2 — O Método Errado
+
+✦ Anaïs Marie
+
+Fechei a porta do quarto de Léo com o cuidado de sempre.
+
+✦ Thierry
+
+Fiquei olhando os dois pela fresta, sem saber o que fazer das mãos.
+
+✦ Anaïs Beaumont
+
+O café tinha esfriado na caneca e eu nem tinha percebido.`;
+    const htmlExtra = escritaContentToHtml(p2extra, {
+      maleLeadName: mmc,
+      femaleLeadName: fmc,
+      forceParte2: true,
+    });
+    allOk = assertNotContains("✦ Anaïs Marie (heroína + nome do meio) NÃO fica verde", htmlExtra, GREEN_SPAN + "Fechei a porta do quarto") && allOk;
+    allOk = assertNotContains("✦ Anaïs Beaumont (heroína + sobrenome divergente) NÃO fica verde", htmlExtra, GREEN_SPAN + "O café tinha esfriado") && allOk;
+    allOk = assertContains("✦ Thierry ainda FICA verde nesse bloco", htmlExtra, GREEN_SPAN + "Fiquei olhando os dois") && allOk;
+    const greenExtra = (htmlExtra.match(/#d9ead3/g) || []).length;
+    allOk = assertEq("exatamente 1 bloco verde mesmo com marcadores extras da heroína", greenExtra, 1) && allOk;
   }
 
   console.log("\n— Resultado final —");
