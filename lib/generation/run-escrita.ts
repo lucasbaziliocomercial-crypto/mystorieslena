@@ -53,6 +53,7 @@ import {
 import { canonPart, dedupChaptersLast } from "@/lib/dedup-chapters";
 import { stripInternalDuplication } from "@/lib/strip-internal-duplication";
 import { stripPovMarkersPart1 } from "@/lib/strip-pov-markers-part1";
+import { stripDuplicateConsecutivePovMarkers } from "@/lib/strip-duplicate-pov-markers";
 import { countWords } from "@/lib/word-count";
 import type { EscritaPerfRecord } from "@/lib/perf-metrics";
 import { createLimiter } from "@/lib/concurrency";
@@ -563,6 +564,10 @@ export async function runEscrita(
       // `✦ NOME` vazado (a P1 é 100% da FMC — nenhum bloco do MMC pode existir).
       // Acumula entre tentativas; vira warning visível no fim do batch.
       const povStrippedChaptersThisBatch: number[] = [];
+      // Capítulos da PARTE 2 deste batch em que colapsamos um marcador de POV
+      // `✦ NOME` DUPLICADO em sequência (mesmo nome, sem prosa entre eles —
+      // resíduo de copiar-colar do modelo). Acumula entre tentativas.
+      const dupPovMarkerChaptersThisBatch: number[] = [];
 
       while (chaptersToRequest.length > 0 && attempt <= MAX_RETRIES_PER_BATCH) {
         if (signal.aborted) break;
@@ -791,6 +796,16 @@ export async function runEscrita(
               ch.content = pov.content;
               if (ch.number > 0) povStrippedChaptersThisBatch.push(ch.number);
             }
+          } else {
+            // PARTE 2: o `✦ NOME` é legítimo (rótulo de POV), então não removemos
+            // tudo — só COLAPSAMOS marcadores IGUAIS repetidos em sequência (sem
+            // prosa entre eles), resíduo de copiar-colar. Corte mecânico da linha
+            // redundante; a prosa e os marcadores legítimos ficam intactos.
+            const dupPov = stripDuplicateConsecutivePovMarkers(ch.content);
+            if (dupPov.removed > 0) {
+              ch.content = dupPov.content;
+              if (ch.number > 0) dupPovMarkerChaptersThisBatch.push(ch.number);
+            }
           }
         }
 
@@ -877,6 +892,21 @@ export async function runEscrita(
           expected: [],
           missing: [],
           povMarkersStrippedPart1: [...new Set(povStrippedChaptersThisBatch)],
+        });
+      }
+
+      // Warning de MARCADOR DE POV `✦ NOME` DUPLICADO em sequência colapsado na
+      // PARTE 2 (resíduo de copiar-colar — o modelo emitiu o mesmo marcador 2×
+      // sem prosa entre eles). Visível pra a roteirista, igual às outras travas.
+      if (dupPovMarkerChaptersThisBatch.length > 0) {
+        accWarnings.push({
+          batchIndex: b.batchIndex,
+          part: b.part,
+          expected: [],
+          missing: [],
+          duplicatePovMarkersRemovedPart2: [
+            ...new Set(dupPovMarkerChaptersThisBatch),
+          ],
         });
       }
 

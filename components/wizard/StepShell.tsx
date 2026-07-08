@@ -4522,6 +4522,13 @@ function BatchWarningsBanner({
   const povStrippedWarnings = nonFatal.filter(
     (w) => (w.povMarkersStrippedPart1?.length ?? 0) > 0,
   );
+  const totalDupPovMarker = nonFatal.reduce(
+    (sum, w) => sum + (w.duplicatePovMarkersRemovedPart2?.length ?? 0),
+    0,
+  );
+  const dupPovMarkerWarnings = nonFatal.filter(
+    (w) => (w.duplicatePovMarkersRemovedPart2?.length ?? 0) > 0,
+  );
   const partTotalWarnings = nonFatal.filter((w) => w.partTotalOutOfRange);
   return (
     <div className="flex flex-col gap-3">
@@ -4667,6 +4674,37 @@ function BatchWarningsBanner({
               POV do MMC (<code className="text-[11px]">✦ NOME</code>) onde não
               devia. O marcador foi removido; rode o <strong>Revisor</strong> pra
               conferir se a prosa desse trecho não ficou na voz dele.
+            </p>
+          </>
+        )}
+        {totalDupPovMarker > 0 && (
+          <>
+            <p className="font-medium text-amber-900">
+              {totalDupPovMarker === 1
+                ? "1 capítulo da Parte 2 tinha um marcador de POV (✦) duplicado em sequência — colapsado automaticamente"
+                : `${totalDupPovMarker} capítulos da Parte 2 tinham marcador de POV (✦) duplicado em sequência — colapsados automaticamente`}
+            </p>
+            <ul className="text-amber-900/90 list-disc pl-5 space-y-0.5">
+              {dupPovMarkerWarnings.map((w, i) => (
+                <li key={`duppov-${w.batchIndex}-${i}`}>
+                  <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-amber-200/60 mr-1">
+                    {w.part} · Par {w.batchIndex}
+                  </span>
+                  capítulo
+                  {(w.duplicatePovMarkersRemovedPart2?.length ?? 0) === 1
+                    ? " "
+                    : "s "}
+                  <strong>
+                    {(w.duplicatePovMarkersRemovedPart2 ?? []).join(", ")}
+                  </strong>
+                </li>
+              ))}
+            </ul>
+            <p className="text-amber-800/80 text-xs">
+              O agente repetiu o mesmo marcador de POV
+              (<code className="text-[11px]">✦ NOME</code>) duas vezes seguidas
+              (resíduo de copiar-colar). A linha redundante foi removida e o
+              marcador colado à prosa foi mantido — a prosa ficou intacta.
             </p>
           </>
         )}

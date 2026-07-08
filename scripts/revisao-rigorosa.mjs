@@ -151,6 +151,49 @@ has(know, "NARRATOR_KNOWLEDGE_RULE") && has(know, "NARRATOR_KNOWLEDGE_REVISOR_CH
   ? ok("narrator-knowledge-rule.ts exporta NARRATOR_KNOWLEDGE_RULE + NARRATOR_KNOWLEDGE_REVISOR_CHECKLIST")
   : bad("narrator-knowledge-rule.ts faltando export(s)");
 
+// ── CONTINUIDADE NAS JUNÇÕES (callback fiel + conhecimento rastreável) ──
+// Bug 08/07/2026: enxurrada de graves/gravíssimos concentrados nas JUNÇÕES —
+// callback reconstruído de memória (objeto muda de cor/tipo, dia da semana muda,
+// escada/lugar errado no epílogo, fala-chave repetida), personagem age sobre
+// info que ninguém lhe contou, fio de trama plantado e abandonado. Regra ADITIVA
+// e ortogonal (não mexe em pessoa/tempo/POV/nome), então vale nas 4 categorias
+// INCLUSIVE a milionario-3p (continuidade factual independe de quem narra).
+// Trava nas DUAS camadas: Escrita (previne) + Revisor (detecta).
+console.log("\n[Continuidade nas junções] travado na Escrita + Revisor (4 categorias)");
+for (const cat of CATS) {
+  const e = read(`lib/agents/${cat}/escrita.ts`);
+  has(e, "JUNCTION_CONTINUITY_RULE")
+    ? ok(`${cat}: JUNCTION_CONTINUITY_RULE na Escrita`)
+    : bad(`${cat}: FALTA JUNCTION_CONTINUITY_RULE em lib/agents/${cat}/escrita.ts`);
+  const r = read(`lib/agents/${cat}/revisor.ts`);
+  has(r, "JUNCTION_CONTINUITY_REVISOR_CHECKLIST")
+    ? ok(`${cat}: JUNCTION_CONTINUITY_REVISOR_CHECKLIST no Revisor`)
+    : bad(`${cat}: FALTA JUNCTION_CONTINUITY_REVISOR_CHECKLIST em lib/agents/${cat}/revisor.ts`);
+}
+{
+  const jc = read("lib/agents/_shared/junction-continuity-rule.ts");
+  has(jc, "JUNCTION_CONTINUITY_RULE") && has(jc, "JUNCTION_CONTINUITY_REVISOR_CHECKLIST")
+    ? ok("junction-continuity-rule.ts exporta JUNCTION_CONTINUITY_RULE + JUNCTION_CONTINUITY_REVISOR_CHECKLIST")
+    : bad("junction-continuity-rule.ts faltando export(s)");
+}
+
+// ── Marcador ✦ DUPLICADO em sequência (Parte 2) colapsado na ORIGEM ──
+// Bug 08/07/2026: `✦ DANTE — POV masculino` emitido 2× seguidas (copiar-colar),
+// listado como GRAVÍSSIMO. dedup de capítulo/bloco não pega (é só a linha).
+// Trava determinística na Escrita (stripDuplicateConsecutivePovMarkers, SÓ P2 —
+// na P1 o conserto é remover TODOS via stripPovMarkersPart1) + Revisor pega resíduo.
+console.log("\n[POV Parte 2] marcador ✦ duplicado em sequência colapsado na origem");
+{
+  const dup = read("lib/strip-duplicate-pov-markers.ts");
+  has(dup, "export function stripDuplicateConsecutivePovMarkers")
+    ? ok("strip-duplicate-pov-markers.ts exporta stripDuplicateConsecutivePovMarkers")
+    : bad("lib/strip-duplicate-pov-markers.ts: FALTA stripDuplicateConsecutivePovMarkers");
+  const re = read("lib/generation/run-escrita.ts");
+  has(re, "stripDuplicateConsecutivePovMarkers")
+    ? ok("run-escrita.ts aplica stripDuplicateConsecutivePovMarkers (Parte 2)")
+    : bad("lib/generation/run-escrita.ts: NÃO aplica stripDuplicateConsecutivePovMarkers");
+}
+
 // ── REGRA 4: Parte 2 = exatamente 6 capítulos nas 4 categorias ──
 console.log("\n[Estrutura P2] exatamente 6 capítulos nas 4 categorias");
 // Padrões PROIBIDOS = contagem "5 e 6 / 5-6 / 5 a 6 / 5 ou 6 / máximo 6" na P2.

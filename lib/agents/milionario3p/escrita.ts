@@ -3,6 +3,7 @@ import type { Agent } from "../types";
 import { buildCanoneBlock } from "../_shared/canone-block";
 import { CANONE_RULE } from "../_shared/canone-rule";
 import { TENSE_RULE } from "../_shared/narration-tense-rule";
+import { JUNCTION_CONTINUITY_RULE } from "../_shared/junction-continuity-rule";
 import { CACHE_PREFIX_BOUNDARY } from "../_shared/prompt-cache";
 import { buildCrossPartBlock } from "../_shared/cross-part-block";
 import { ESCRITA_SYSTEM_PROMPT } from "./escrita-prompt";
@@ -32,7 +33,8 @@ export const escritaAgent: Agent = {
   model: MODELS.opus,
   thinking: "disabled",
   effort: "low",
-  systemPrompt: ESCRITA_SYSTEM_PROMPT + CANONE_RULE + TENSE_RULE,
+  systemPrompt:
+    ESCRITA_SYSTEM_PROMPT + CANONE_RULE + TENSE_RULE + JUNCTION_CONTINUITY_RULE,
   acceptsReferenceImage: true,
   buildUserMessage: (ctx) => {
     const premissa = ctx.previousOutputs.premissa?.content?.trim() ?? "";
