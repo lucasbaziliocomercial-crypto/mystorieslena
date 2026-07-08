@@ -5,6 +5,7 @@ import { CANONE_RULE, CANONE_REVISOR_CHECKLIST } from "../_shared/canone-rule";
 import { TENSE_REVISOR_CHECKLIST } from "../_shared/narration-tense-rule";
 import { POV_MARKER_REVISOR_CHECKLIST } from "../_shared/pov-marker-rule";
 import { NARRATOR_KNOWLEDGE_REVISOR_CHECKLIST } from "../_shared/narrator-knowledge-rule";
+import { JUNCTION_CONTINUITY_REVISOR_CHECKLIST } from "../_shared/junction-continuity-rule";
 import { REVISOR_SYSTEM_PROMPT } from "./revisor-prompt";
 
 /**
@@ -26,7 +27,7 @@ export const revisorAgentTemplate: Omit<Agent, "id"> = {
   thinking: "disabled",
   effort: "low",
   systemPrompt:
-    REVISOR_SYSTEM_PROMPT + CANONE_RULE + CANONE_REVISOR_CHECKLIST + TENSE_REVISOR_CHECKLIST + POV_MARKER_REVISOR_CHECKLIST + NARRATOR_KNOWLEDGE_REVISOR_CHECKLIST,
+    REVISOR_SYSTEM_PROMPT + CANONE_RULE + CANONE_REVISOR_CHECKLIST + TENSE_REVISOR_CHECKLIST + POV_MARKER_REVISOR_CHECKLIST + NARRATOR_KNOWLEDGE_REVISOR_CHECKLIST + JUNCTION_CONTINUITY_REVISOR_CHECKLIST,
   acceptsReferenceImage: true,
   buildUserMessage: (ctx) => {
     const premissa = ctx.previousOutputs.premissa?.content?.trim() ?? "";

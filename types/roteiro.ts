@@ -260,6 +260,15 @@ export interface BatchMissingChapters {
    */
   povMarkersStrippedPart1?: number[];
   /**
+   * Capítulos da PARTE 2 em que a Escrita colapsou um marcador de POV `✦ NOME`
+   * DUPLICADO em sequência (o mesmo marcador emitido 2× sem prosa entre eles —
+   * resíduo de copiar-colar do modelo). Na Parte 2 o `✦ NOME` é legítimo, então
+   * não removemos tudo (como na P1); só cortamos a linha redundante via
+   * `stripDuplicateConsecutivePovMarkers`, mantendo o marcador colado à prosa.
+   * Renderizado no banner amarelo (visibilidade > silêncio).
+   */
+  duplicatePovMarkersRemovedPart2?: number[];
+  /**
    * A SOMA de palavras de uma Parte ficou FORA de `partTotalRange` mesmo depois
    * do balanço (`balancePartTotal`). Quase sempre porque as reescritas Sonnet de
    * calibração/balanço falharam sob saturação de cota da equipe (assinatura

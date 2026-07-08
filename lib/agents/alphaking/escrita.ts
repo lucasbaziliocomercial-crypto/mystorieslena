@@ -5,6 +5,7 @@ import { CANONE_RULE } from "../_shared/canone-rule";
 import { TENSE_RULE } from "../_shared/narration-tense-rule";
 import { POV_MARKER_RULE } from "../_shared/pov-marker-rule";
 import { NARRATOR_KNOWLEDGE_RULE } from "../_shared/narrator-knowledge-rule";
+import { JUNCTION_CONTINUITY_RULE } from "../_shared/junction-continuity-rule";
 import { CACHE_PREFIX_BOUNDARY } from "../_shared/prompt-cache";
 import { buildCrossPartBlock } from "../_shared/cross-part-block";
 import { ESCRITA_SYSTEM_PROMPT } from "./escrita-prompt";
@@ -28,7 +29,7 @@ export const escritaAgent: Agent = {
   thinking: "disabled",
   effort: "low",
   systemPrompt:
-    ESCRITA_SYSTEM_PROMPT + CANONE_RULE + TENSE_RULE + POV_MARKER_RULE + NARRATOR_KNOWLEDGE_RULE,
+    ESCRITA_SYSTEM_PROMPT + CANONE_RULE + TENSE_RULE + POV_MARKER_RULE + NARRATOR_KNOWLEDGE_RULE + JUNCTION_CONTINUITY_RULE,
   acceptsReferenceImage: true,
   buildUserMessage: (ctx) => {
     const premissa = ctx.previousOutputs.premissa?.content?.trim() ?? "";
