@@ -644,6 +644,19 @@ export function escritaContentToHtml(
       // roteiro final e, ao colar no Google Docs, vira Heading 3 (aparece
       // na barra de navegação).
       flushPara();
+      // ⚠️ TRAVA DE POV DA PARTE 1: a Parte 1 é narrada 100% pela FMC — nenhum
+      // marcador `✦ NOME` (POV do MMC) deve existir nela. Se um vazou (bug do
+      // modelo — o `✦ THIERRY` da história da LENA), NÃO o emitimos como heading
+      // (senão vira um nó espúrio "POV do MMC" na árvore de Guias do Docs). A
+      // prosa abaixo segue como narração da heroína (currentPov continua null).
+      // Só limpa a P1 e SÓ o marcador de POV (`✦ NOME`) — um h3 comum (subtítulo)
+      // na P1, se houver, é preservado. Na Parte 2 o marcador é legítimo e
+      // necessário (rótulo do destaque verde do MMC). Complementa o
+      // `stripPovMarkersPart1` da Escrita: aquele limpa roteiros NOVOS na origem,
+      // este cura os JÁ gerados no export.
+      if (!inParte2 && POV_PREFIX_STRIP_RE.test(h3[1].trim())) {
+        continue;
+      }
       currentPov = nomeCanonico(h3[1]);
       const povFirst = currentPov.split(/\s+/)[0];
       const headingMatchesFmc = matchesLead(
