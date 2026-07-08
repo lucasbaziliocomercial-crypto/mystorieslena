@@ -105,13 +105,32 @@ function matchesLead(
   leadCanonical: string | null,
   leadFirstToken: string | null,
 ): boolean {
-  if (povCanonical === null || leadCanonical === null) return false;
+  // Match por CONJUNTO DE TOKENS do nome (canônico = já minúsculo). Cobre a
+  // MESMA pessoa referida por primeiro nome, sobrenome OU nome completo — ex.:
+  // heroína "anaïs lenoir" marcada ora "✦ anaïs" ora "✦ lenoir": as duas
+  // precisam casar com a FMC, senão metade dos blocos dela cai como POV
+  // masculino (verde). Os params *FirstToken ficam na assinatura por compat dos
+  // call sites (o token-set já subsume o antigo match por primeiro-token).
+  void povFirstToken;
+  void leadFirstToken;
+  if (!povCanonical || !leadCanonical) return false;
   if (povCanonical === leadCanonical) return true;
-  return (
-    povFirstToken !== null &&
-    leadFirstToken !== null &&
-    povFirstToken === leadFirstToken
-  );
+  const toks = (s: string): string[] =>
+    s.split(/\s+/).filter((t) => t.length >= 2 && !NAME_CONNECTORS.has(t));
+  const p = toks(povCanonical);
+  const l = toks(leadCanonical);
+  if (p.length === 0 || l.length === 0) return false;
+  const lset = new Set(l);
+  // INTERSEÇÃO: compartilham QUALQUER token identificador (primeiro nome,
+  // sobrenome ou nome do meio) → mesma pessoa. NÃO subconjunto: um marcador da
+  // heroína com o 1º nome certo + um token EXTRA (ex.: "✦ Anaïs Marie", ou um
+  // sobrenome divergente) ainda casa com ela e NÃO fica verde — o subconjunto
+  // falhava aqui e pintava a heroína de verde (regressão pega na revisão). Como
+  // o walker checa matchesFmc ANTES de matchesMmc, uma colisão de token
+  // (FMC↔MMC com mesmo sobrenome) cai no LADO SEGURO: o bloco é tratado como
+  // FMC (não-verde) — a heroína JAMAIS fica verde; no pior caso um bloco do MMC
+  // marcado só pelo sobrenome compartilhado perde o verde (aceitável).
+  return p.some((t) => lset.has(t));
 }
 
 function preprocessRoteiro(raw: string): string {
@@ -216,15 +235,61 @@ function isPlausibleName(raw: string): string | null {
     return null;
   }
   // Exige pelo menos uma letra (caso o LLM tenha colocado só símbolos).
-  if (!/[A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç]/.test(cleaned)) return null;
-  // Pega o primeiro token "nome-like" (letras/acentos/hífen, sem aspas/vírgula).
+  // `\p{L}` (com flag u) casa QUALQUER letra Unicode — inclui trema/diérese e
+  // outras vogais estrangeiras (ï, ü, ë, ö, ñ…) que a lista fixa de acentos
+  // portugueses (á é í ó ú â ê ô ã õ ç) NÃO cobria. Era a RAIZ do bug: "Anaïs"
+  // (com ï) falhava no teste de token-nome, então o detector pulava o primeiro
+  // nome e pegava o SOBRENOME "Lenoir" como nome da heroína — daí os blocos
+  // `✦ Anaïs` caírem como POV masculino (verde) no export.
+  if (!/\p{L}/u.test(cleaned)) return null;
+  // Pega o primeiro token "nome-like" (letras Unicode; aspas/vírgula/hífen são
+  // separadores do split, então o token em si é só letras).
   const firstToken = cleaned
     .split(/[\s,;()"'—\-]+/)
-    .find((t) => /^[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç]+$/.test(t));
+    .find((t) => /^\p{Lu}\p{L}+$/u.test(t));
   if (firstToken) return firstToken;
   // Fallback: primeiro token simples (já passou validação básica).
   const fallback = cleaned.split(/\s+/)[0];
-  return /^[A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç]/.test(fallback) ? fallback : null;
+  return /^\p{L}/u.test(fallback) ? fallback : null;
+}
+
+// Conectores de nome (minúsculos) que NÃO contam como token identificador —
+// não devem casar sozinhos entre personagens ("de la", "van", "von"…).
+const NAME_CONNECTORS = new Set([
+  "de", "da", "do", "dos", "das", "di", "del", "della", "van", "von", "la",
+  "le", "du",
+]);
+
+/**
+ * Como `isPlausibleName`, mas retorna o NOME COMPLETO (a sequência inicial de
+ * tokens Title-Case do valor), não só o primeiro. Ex.: "Anaïs Lenoir | Idade:
+ * 27" → "Anaïs Lenoir"; "Saverio Aldobrandini; 34" → "Saverio Aldobrandini".
+ *
+ * Serve pro match de POV por CONJUNTO DE TOKENS (`matchesLead`): a MESMA pessoa
+ * pode ser marcada ora pelo primeiro nome (`✦ Anaïs`), ora pelo sobrenome
+ * (`✦ Lenoir`), ora completo — todos precisam casar com a heroína/MMC. Sem o
+ * nome completo, só um dos marcadores casava e o outro caía como POV errado
+ * (bug real: heroína "Anaïs Lenoir" com metade dos blocos verdes).
+ */
+function plausibleFullName(raw: string): string | null {
+  // Reusa a rejeição de disclaimers/avisos do isPlausibleName; se rejeitar, sai.
+  if (!isPlausibleName(raw)) return null;
+  let cleaned = raw.replace(/^\*+|\*+$/g, "").trim().replace(/^\*+|\*+$/g, "").trim();
+  // Corta onde o nome termina e começam OUTROS campos (| ; ( ou ", 27" / "— 34").
+  cleaned = cleaned.split(/\s*[|;(]/)[0]!;
+  cleaned = cleaned.split(/\s*[,—-]\s*\d/)[0]!;
+  const parts: string[] = [];
+  for (const tok of cleaned.split(/\s+/)) {
+    if (/^\p{Lu}\p{L}+$/u.test(tok)) {
+      parts.push(tok);
+    } else if (parts.length > 0 && NAME_CONNECTORS.has(tok.toLowerCase())) {
+      parts.push(tok);
+    } else {
+      break;
+    }
+    if (parts.length >= 4) break; // nome de pessoa raramente passa de 4 tokens
+  }
+  return parts.length > 0 ? parts.join(" ") : isPlausibleName(raw);
 }
 
 /**
@@ -248,8 +313,12 @@ function isPlausibleName(raw: string): string | null {
 function extractLeadName(
   estruturaContent: string | undefined | null,
   tag: "MMC" | "FMC",
+  full = false,
 ): string | null {
   if (!estruturaContent) return null;
+  // `full = true` → retorna o NOME COMPLETO (pro match de POV por conjunto de
+  // tokens); default retorna só o 1º nome (compat com quem já consumia).
+  const pick = full ? plausibleFullName : isPlausibleName;
 
   // Cabeçalho da seção: QUALQUER linha que contenha "(MMC)"/"(FMC)". Captura o
   // que vem ANTES (group 1) e DEPOIS (group 2) da tag na mesma linha.
@@ -260,7 +329,7 @@ function extractLeadName(
   // 1) Nome inline DEPOIS da tag (formato alpha-king: "HEROÍNA (FMC) — Sieva").
   //    O texto após a tag começa com um separador (— / - / : / ;) + o nome.
   const inlineRaw = headerMatch[2].replace(/^[\s—\-:;]+/, "").trim();
-  const inlineName = isPlausibleName(inlineRaw);
+  const inlineName = pick(inlineRaw);
   if (inlineName) return inlineName;
 
   // 2) Senão, varre linhas "Nome:" na SEÇÃO — do header até a próxima seção em
@@ -291,7 +360,7 @@ function extractLeadName(
   // Prioridade: último candidato plausível (correções vêm DEPOIS do original
   // — "Nome corrigido", "Nome real" etc. ficam abaixo de "Nome").
   for (let i = candidates.length - 1; i >= 0; i--) {
-    const name = isPlausibleName(candidates[i]);
+    const name = pick(candidates[i]);
     if (name) return name;
   }
 
@@ -300,11 +369,9 @@ function extractLeadName(
   //    o tag e não há linha "Nome:"). Pega o ÚLTIMO token nome-próprio
   //    (Maiúscula + minúsculas) — assim NÃO captura rótulos em CAIXA ALTA
   //    ("PROTAGONISTA FEMININA", "HEROÍNA"), que cairiam no Nome: acima.
-  const beforeTokens = headerMatch[1].match(
-    /[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-záéíóúâêôãõç]+/g,
-  );
+  const beforeTokens = headerMatch[1].match(/\p{Lu}\p{Ll}+/gu);
   if (beforeTokens && beforeTokens.length) {
-    const beforeName = isPlausibleName(beforeTokens[beforeTokens.length - 1]);
+    const beforeName = pick(beforeTokens[beforeTokens.length - 1]);
     if (beforeName) return beforeName;
   }
   return null;
@@ -328,6 +395,29 @@ export function extractFemaleLeadNameFromEstrutura(
   estruturaContent: string | undefined | null,
 ): string | null {
   return extractLeadName(estruturaContent, "FMC");
+}
+
+/**
+ * NOME COMPLETO do MMC (ex.: "Thierry Moreau"). Passado ao export como
+ * `maleLeadName` pra o match de POV reconhecer o MMC por primeiro nome OU
+ * sobrenome (ver `matchesLead`). Cai pro 1º nome se não houver sobrenome.
+ */
+export function extractMaleLeadFullNameFromEstrutura(
+  estruturaContent: string | undefined | null,
+): string | null {
+  return extractLeadName(estruturaContent, "MMC", true);
+}
+
+/**
+ * NOME COMPLETO da FMC (ex.: "Anaïs Lenoir"). Passado ao export como
+ * `femaleLeadName` — a GUARDA de que a heroína nunca fica verde passa a valer
+ * pra QUALQUER token do nome dela (primeiro nome E sobrenome), então marcá-la
+ * ora "✦ Anaïs" ora "✦ Lenoir" não pinta metade dela de verde.
+ */
+export function extractFemaleLeadFullNameFromEstrutura(
+  estruturaContent: string | undefined | null,
+): string | null {
+  return extractLeadName(estruturaContent, "FMC", true);
 }
 
 /**
