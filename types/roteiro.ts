@@ -249,6 +249,26 @@ export interface BatchMissingChapters {
    * regerar só os batches faltantes via "Gerar capítulo X novamente".
    */
   fatalError?: string;
+  /**
+   * Capítulos da PARTE 1 em que a Escrita removeu um marcador de POV `✦ NOME`
+   * que vazou. A Parte 1 é narrada 100% pela FMC — nenhum bloco do MMC (`✦
+   * NOME`) pode existir nela; o marcador é EXCLUSIVO da Parte 2. O prompt já
+   * proíbe, mas é probabilístico; a trava determinística
+   * (`stripPovMarkersPart1`) remove a linha do marcador na origem e registra os
+   * números aqui. Renderizado no banner amarelo (visibilidade > silêncio) — a
+   * roteirista deve rodar o Revisor pra pegar o resíduo de POV na prosa em si.
+   */
+  povMarkersStrippedPart1?: number[];
+  /**
+   * A SOMA de palavras de uma Parte ficou FORA de `partTotalRange` mesmo depois
+   * do balanço (`balancePartTotal`). Quase sempre porque as reescritas Sonnet de
+   * calibração/balanço falharam sob saturação de cota da equipe (assinatura
+   * única) e o balanço virou no-op. Registrado pra a roteirista NÃO receber a
+   * Parte fora da faixa em SILÊNCIO: ela re-clica "Gerar" (o balanço é
+   * idempotente) quando a cota liberar. `batchIndex` = 0 (não é de um par
+   * específico, é o total da Parte).
+   */
+  partTotalOutOfRange?: { total: number; min: number; max: number };
 }
 
 export interface StepOutputMetadata {

@@ -4515,6 +4515,14 @@ function BatchWarningsBanner({
   const internalDupWarnings = nonFatal.filter(
     (w) => (w.internalDuplicateChapters?.length ?? 0) > 0,
   );
+  const totalPovStripped = nonFatal.reduce(
+    (sum, w) => sum + (w.povMarkersStrippedPart1?.length ?? 0),
+    0,
+  );
+  const povStrippedWarnings = nonFatal.filter(
+    (w) => (w.povMarkersStrippedPart1?.length ?? 0) > 0,
+  );
+  const partTotalWarnings = nonFatal.filter((w) => w.partTotalOutOfRange);
   return (
     <div className="flex flex-col gap-3">
       {fatalWarnings.length > 0 && (
@@ -4547,7 +4555,10 @@ function BatchWarningsBanner({
           </div>
         </div>
       )}
-      {(totalMissing > 0 || totalDuplicates > 0 || totalInternalDup > 0) && (
+      {(totalMissing > 0 ||
+        totalDuplicates > 0 ||
+        totalInternalDup > 0 ||
+        totalPovStripped > 0) && (
     <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 flex gap-3">
       <AlertTriangle className="size-5 flex-none text-amber-700 mt-0.5" />
       <div className="flex flex-col gap-2 text-sm">
@@ -4630,8 +4641,71 @@ function BatchWarningsBanner({
             </p>
           </>
         )}
+        {totalPovStripped > 0 && (
+          <>
+            <p className="font-medium text-amber-900">
+              {totalPovStripped === 1
+                ? "1 capítulo da Parte 1 tinha um marcador de POV do MMC (✦) — removido automaticamente"
+                : `${totalPovStripped} capítulos da Parte 1 tinham marcador de POV do MMC (✦) — removidos automaticamente`}
+            </p>
+            <ul className="text-amber-900/90 list-disc pl-5 space-y-0.5">
+              {povStrippedWarnings.map((w, i) => (
+                <li key={`pov-${w.batchIndex}-${i}`}>
+                  <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-amber-200/60 mr-1">
+                    {w.part} · Par {w.batchIndex}
+                  </span>
+                  capítulo
+                  {(w.povMarkersStrippedPart1?.length ?? 0) === 1 ? " " : "s "}
+                  <strong>
+                    {(w.povMarkersStrippedPart1 ?? []).join(", ")}
+                  </strong>
+                </li>
+              ))}
+            </ul>
+            <p className="text-amber-800/80 text-xs">
+              A Parte 1 é narrada só pela heroína — o agente inseriu um bloco de
+              POV do MMC (<code className="text-[11px]">✦ NOME</code>) onde não
+              devia. O marcador foi removido; rode o <strong>Revisor</strong> pra
+              conferir se a prosa desse trecho não ficou na voz dele.
+            </p>
+          </>
+        )}
       </div>
     </div>
+      )}
+      {partTotalWarnings.length > 0 && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 flex gap-3">
+          <AlertTriangle className="size-5 flex-none text-amber-700 mt-0.5" />
+          <div className="flex flex-col gap-2 text-sm">
+            <p className="font-medium text-amber-900">
+              {partTotalWarnings.length === 1
+                ? "1 Parte fechou FORA da faixa de palavras"
+                : `${partTotalWarnings.length} Partes fecharam FORA da faixa de palavras`}
+            </p>
+            <ul className="text-amber-900/90 list-disc pl-5 space-y-0.5">
+              {partTotalWarnings.map((w, i) => (
+                <li key={`pt-${w.part}-${i}`}>
+                  <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-amber-200/60 mr-1">
+                    {w.part}
+                  </span>
+                  <strong>
+                    {w.partTotalOutOfRange?.total.toLocaleString("pt-BR")}
+                  </strong>{" "}
+                  palavras — faixa{" "}
+                  {w.partTotalOutOfRange?.min.toLocaleString("pt-BR")}–
+                  {w.partTotalOutOfRange?.max.toLocaleString("pt-BR")}
+                </li>
+              ))}
+            </ul>
+            <p className="text-amber-800/80 text-xs">
+              O balanço de contagem não conseguiu fechar dentro da faixa (quase
+              sempre por saturação da cota compartilhada — as reescritas de ajuste
+              falham em silêncio). Clique em{" "}
+              <strong>Gerar roteiro novamente</strong> quando a cota liberar — o
+              ajuste é idempotente e só mexe no que ainda está fora.
+            </p>
+          </div>
+        </div>
       )}
     </div>
   );

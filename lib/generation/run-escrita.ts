@@ -52,6 +52,7 @@ import {
 } from "@/lib/parse-escrita-output";
 import { canonPart, dedupChaptersLast } from "@/lib/dedup-chapters";
 import { stripInternalDuplication } from "@/lib/strip-internal-duplication";
+import { stripPovMarkersPart1 } from "@/lib/strip-pov-markers-part1";
 import { countWords } from "@/lib/word-count";
 import type { EscritaPerfRecord } from "@/lib/perf-metrics";
 import { createLimiter } from "@/lib/concurrency";
@@ -558,6 +559,10 @@ export async function runEscrita(
       // reiniciou o cap e re-emitiu cenas sem novo cabeçalho). Acumula entre
       // tentativas; vira warning visível no fim do batch.
       const internalDupChaptersThisBatch: number[] = [];
+      // Capítulos da PARTE 1 deste batch em que removemos um marcador de POV
+      // `✦ NOME` vazado (a P1 é 100% da FMC — nenhum bloco do MMC pode existir).
+      // Acumula entre tentativas; vira warning visível no fim do batch.
+      const povStrippedChaptersThisBatch: number[] = [];
 
       while (chaptersToRequest.length > 0 && attempt <= MAX_RETRIES_PER_BATCH) {
         if (signal.aborted) break;
@@ -774,6 +779,19 @@ export async function runEscrita(
             ch.content = stripped.content;
             if (ch.number > 0) internalDupChaptersThisBatch.push(ch.number);
           }
+          // Trava determinística de POV na PARTE 1: a P1 é narrada 100% pela FMC
+          // — nenhum marcador `✦ NOME` (POV do MMC) pode existir nela. O prompt
+          // já proíbe, mas é probabilístico; aqui removemos, na ORIGEM, o
+          // marcador que vazou (corte mecânico da linha isolada — a prosa fica
+          // intacta). O resíduo de POV na prosa em si segue pro Revisor. Só na
+          // Parte 1; na Parte 2 o `✦ NOME` é legítimo (rótulo do POV alternado).
+          if (b.part === "Parte 1") {
+            const pov = stripPovMarkersPart1(ch.content);
+            if (pov.removed.length > 0) {
+              ch.content = pov.content;
+              if (ch.number > 0) povStrippedChaptersThisBatch.push(ch.number);
+            }
+          }
         }
 
         localChapters.push(...parsed.chapters);
@@ -846,6 +864,19 @@ export async function runEscrita(
           expected: [],
           missing: [],
           internalDuplicateChapters: [...new Set(internalDupChaptersThisBatch)],
+        });
+      }
+
+      // Warning de MARCADOR DE POV `✦ NOME` removido da PARTE 1 (POV do MMC onde
+      // só devia haver a heroína). Visível pra a roteirista saber que o modelo
+      // deslizou e o Revisor deve ser rodado pra pegar o resíduo na prosa.
+      if (povStrippedChaptersThisBatch.length > 0) {
+        accWarnings.push({
+          batchIndex: b.batchIndex,
+          part: b.part,
+          expected: [],
+          missing: [],
+          povMarkersStrippedPart1: [...new Set(povStrippedChaptersThisBatch)],
         });
       }
 
@@ -1200,6 +1231,33 @@ export async function runEscrita(
           }),
         ),
       );
+    }
+
+    // Depois dos passes: se a SOMA da Parte AINDA ficou fora da faixa, NÃO
+    // entrega em silêncio. O balanço faz chamadas Sonnet ao /api/escrita-fix-
+    // wordcount; sob SATURAÇÃO DE COTA da equipe (assinatura única) essas
+    // reescritas falham (res.ok=false / [ERRO]) e o balanço vira no-op sem
+    // sinal — foi como a Parte 1 da LENA (máfia) saiu a 13.242 palavras (fora
+    // de 12.000–13.000) na máquina da roteirista, enquanto nos testes com cota
+    // livre sempre convergia. Registra um aviso VISÍVEL: a roteirista re-clica
+    // "Gerar" (o balanço é idempotente — caps já na faixa viram no-op) quando a
+    // cota liberar, em vez de descobrir o estouro só no Google Docs.
+    if (!signal.aborted && !fatalRaised) {
+      const finalNumbered = partChapters.filter((c) => c.number >= 1);
+      const finalTotal = finalNumbered.reduce(
+        (s, c) => s + countWords(c.content),
+        0,
+      );
+      if (finalNumbered.length > 0 && (finalTotal < min || finalTotal > max)) {
+        accWarnings.push({
+          batchIndex: 0,
+          part: partLabel,
+          expected: [],
+          missing: [],
+          partTotalOutOfRange: { total: finalTotal, min, max },
+        });
+        emitPartial();
+      }
     }
   };
 
