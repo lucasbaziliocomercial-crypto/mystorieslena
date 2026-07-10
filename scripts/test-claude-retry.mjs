@@ -57,6 +57,10 @@ const TRANSIENT_MESSAGES = [
   "server is at capacity",
   "ECONNRESET",
   "socket hang up",
+  // Queda do socket do subprocesso claude.exe sob pressão de memória (máquina
+  // fraca) — o erro EXATO que só aparecia na roteirista, nunca no dev. Bug 10/07.
+  "Claude Code returned an error result: API Error: The socket connection was closed unexpectedly.",
+  "The socket connection was closed unexpectedly",
   "fetch failed",
   "network timeout",
   "terminated",

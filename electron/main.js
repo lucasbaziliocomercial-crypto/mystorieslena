@@ -94,7 +94,25 @@ function verbose(...args) {
 // pra cenários de pior caso: vários roteiros no localStorage + imagem inline
 // pesada + history de 20 snapshots/step. Precisa estar setado antes de
 // app.whenReady().
-app.commandLine.appendSwitch("js-flags", "--max-old-space-size=8192");
+//
+// ⚠️ Teto ADAPTATIVO à RAM física (10/07/2026). Um teto de heap ACIMA da RAM
+// física faz o V8 adiar a coleta de lixo e o Windows PAGINAR EM DISCO (swap)
+// muito antes — o thrashing de disco starva/mata o subprocesso claude.exe
+// (socket cai: "socket connection was closed unexpectedly") e congela o
+// renderer. Na máquina da roteirista (Celeron N4020, 4GB) o 8192 (2× a RAM!)
+// era exatamente isso. Só REDUZIMOS em máquinas fracas (≤6GB); em 8GB+ fica
+// 8192 IDÊNTICO ao anterior — zero regressão pra máquina de dev/time.
+let heapCapMB = 8192;
+const totalMemMB = Math.floor(os.totalmem() / (1024 * 1024));
+if (totalMemMB <= 6144) {
+  // ~55% da RAM física (piso 1536MB) mantém o working set DENTRO da RAM, então
+  // o V8 coleta lixo antes de forçar swap. 4GB → ~2250MB; 6GB → ~3380MB.
+  heapCapMB = Math.max(1536, Math.floor(totalMemMB * 0.55));
+}
+app.commandLine.appendSwitch("js-flags", `--max-old-space-size=${heapCapMB}`);
+try {
+  log.info(`[mem] RAM fisica=${totalMemMB}MB → --max-old-space-size=${heapCapMB}`);
+} catch { /* log indisponivel */ }
 
 const isDev = !!process.env.NEXT_DEV_URL;
 const DEV_URL = process.env.NEXT_DEV_URL || "";

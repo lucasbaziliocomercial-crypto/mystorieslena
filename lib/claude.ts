@@ -284,11 +284,15 @@ const MAX_ATTEMPTS = 3;
  * reconhece (espelha o regex de cota de lib/generation/run-escrita.ts):
  *   • corrida de auth/refresh: authentication · 401 · invalid auth · unauthorized · credentials
  *   • cota/sobrecarga:         429 · rate limit · overloaded · capacity
- *   • rede:                    ECONNRESET · socket hang up · network · fetch failed · terminated
+ *   • rede:                    ECONNRESET · socket hang up · socket connection was closed ·
+ *                              closed unexpectedly · network · fetch failed · terminated
+ * O "socket connection was closed unexpectedly" é a queda do socket do subprocesso
+ * `claude.exe` sob PRESSÃO DE MEMÓRIA (máquina fraca) — some quando a máquina tem
+ * folga, por isso só aparecia na roteirista, nunca na máquina de dev. Bug 10/07/2026.
  * Exportada pra teste (scripts/test-claude-retry.mjs).
  */
 export function isRetryableClaudeError(msg: string): boolean {
-  return /authentication|401|invalid auth|unauthorized|credentials|429|rate.?limit|overloaded|capacity|ECONNRESET|socket hang up|network|fetch failed|terminated/i.test(
+  return /authentication|401|invalid auth|unauthorized|credentials|429|rate.?limit|overloaded|capacity|ECONNRESET|socket hang up|socket connection was closed|closed unexpectedly|network|fetch failed|terminated/i.test(
     msg,
   );
 }

@@ -279,12 +279,16 @@ function isQuotaErroMarker(text: string): boolean {
  * warning NÃO-fatal — a outra Parte segue e o guard de completude/resume
  * regenera só o que faltou), em vez de abortar a run inteira no 1º toque.
  * Bug "Claude Code process exited with code 3", 07/07/2026.
+ * "socket connection was closed unexpectedly"/"closed unexpectedly": o socket do
+ * subprocesso `claude.exe` cai sob PRESSÃO DE MEMÓRIA (máquina fraca) no meio do
+ * lote — some quando a máquina tem folga (só aparecia na roteirista, nunca no dev).
+ * Roteado pra retry como as outras quedas do subprocesso. Bug 10/07/2026.
  */
 function isTransientErroMarker(text: string): boolean {
   const generic = /\[ERRO\]\s*([\s\S]*)$/.exec(text);
   if (!generic) return false;
   const detail = generic[1]?.trim().slice(0, 300) ?? "";
-  return /exited with code|process (?:was )?killed|sigkill|sigterm|econnreset|socket hang ?up|fetch failed|network error|terminated unexpectedly/i.test(
+  return /exited with code|process (?:was )?killed|sigkill|sigterm|econnreset|socket hang ?up|socket connection was closed|closed unexpectedly|fetch failed|network error|terminated unexpectedly/i.test(
     detail,
   );
 }
