@@ -24,8 +24,18 @@ export const revisorAgentTemplate: Omit<Agent, "id"> = {
   description:
     "Editor literário rigoroso de máfia — revisa o roteiro completo classificando erros em 4 graus (🟢 / 🟡 / 🔴 / 💀), numerando sequencialmente, com análise de leitor real, hater e nota final 0-10",
   model: MODELS.opus,
-  thinking: "disabled",
-  effort: "low",
+  // Revisão é trabalho ANALÍTICO (cruzar cânone, rastrear continuidade entre
+  // capítulos/Partes, POV, tempo verbal, furos de lógica) — precisa raciocinar
+  // ANTES de listar os erros. Com thinking "disabled" o effort é IGNORADO
+  // (ver lib/claude.ts: "effort só aplicável com thinking=adaptive"), então o
+  // Opus fazia um passe raso e deixava passar os erros sutis, que caíam na
+  // revisão manual da roteirista. adaptive + medium recupera o recall com custo
+  // moderado de tempo/cota. O raciocínio é removido do texto salvo por
+  // splitThinking (run-step.ts / StepShell) — NÃO vaza pra prosa nem pro XML.
+  // Não confundir com a Escrita, que segue thinking disabled de propósito
+  // (geração criativa, tunada pra velocidade). 08/07/2026.
+  thinking: "adaptive",
+  effort: "medium",
   systemPrompt:
     REVISOR_SYSTEM_PROMPT + CANONE_RULE + CANONE_REVISOR_CHECKLIST + TENSE_REVISOR_CHECKLIST + POV_MARKER_REVISOR_CHECKLIST + NARRATOR_KNOWLEDGE_REVISOR_CHECKLIST + JUNCTION_CONTINUITY_REVISOR_CHECKLIST,
   acceptsReferenceImage: true,
