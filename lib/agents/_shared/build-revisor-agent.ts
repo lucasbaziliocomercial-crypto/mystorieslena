@@ -85,14 +85,26 @@ function filterEscritaByPart(
 function buildScopeHeader(part: RevisorPart): string {
   const target = partLabel(part);
   const other = part === 1 ? "Parte 2" : "Parte 1";
-  return [
+  const lines = [
     `━━━ ESCOPO DESTA REVISÃO: ${target.toUpperCase()} (e SOMENTE ${target.toUpperCase()}) ━━━`,
     "",
     `• Os capítulos abaixo são SOMENTE da ${target}. NÃO há nada da ${other} no material a revisar.`,
     `• TODOS os erros que você emitir devem se referir a essa Parte. No XML <erros_detalhados>, cada <erro> deve ter o atributo parte="${part}".`,
     `• Foque em coerência, ritmo, voz, plot e cliffhangers DENTRO da ${target}. Não comente sobre o que vai acontecer (ou já aconteceu) na ${other}, exceto quando a continuidade entre as Partes for explicitamente afetada por algo que ESTÁ na ${target}.`,
     `• Numeração e XML <erro numero="..."> reinicia em 1 nesta revisão — o app prefixa internamente cada id com p${part}- pra não colidir com a outra Parte.`,
-  ].join("\n");
+  ];
+  // Parte 1: a narração é de UMA voz só (a heroína), sem POV alternado nem
+  // marcador ✦. O "Checklist de MARCADOR DE POV" do system prompt é EXCLUSIVO
+  // da Parte 2 — reforça aqui pra o Revisor não inventar erros de "POV
+  // masculino/feminino" na Parte 1 (a roteirista relatava POVs apontados na
+  // Parte 1 que não existem no roteiro; os marcadores ✦ já são removidos na
+  // origem pelo stripPovMarkersPart1).
+  if (part === 1) {
+    lines.push(
+      `• POV: a ${target} é narrada por UMA perspectiva só (a da heroína), sem POV alternado e sem marcador ✦. Se o seu system prompt tiver um "Checklist de MARCADOR DE POV ✦", ele NÃO se aplica aqui — é exclusivo da Parte 2. NÃO emita erros de "POV masculino/feminino", "marcador no bloco errado" ou "troca de POV" na ${target}; o único risco de voz é a narração escapar da perspectiva da heroína (tratado pelo checklist de narrador/pessoa).`,
+    );
+  }
+  return lines.join("\n");
 }
 
 function buildRevisor1ContextSection(revisor1Content: string): string {

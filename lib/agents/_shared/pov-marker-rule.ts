@@ -74,10 +74,28 @@ A cena íntima (e a marcação, quando houver) é narrada do início ao fim pela
  * verdade); nos casos que exigem julgamento (qual voz era a intenção, reescrita
  * da cena íntima) prefere INFORMATIVO, pra o Revisor não "consertar errado" e
  * bagunçar a cena (mesma lição do bug "Revisor troca nomes errado").
+ *
+ * ⚠️ ESCOPO PARTE 2 (08/07/2026): o checklist abre com uma guarda dura que
+ * DESLIGA todos os itens de atribuição de POV quando o escopo é a PARTE 1. O
+ * mesmo system prompt serve revisor1 (P1) e revisor2 (P2), então a P1 vinha
+ * PRIMADA por toda a máquina de POV alternado ("POV masculino/feminino", "quem
+ * narra o bloco", "troca de POV") e o Revisor INVENTAVA erros de POV na Parte 1
+ * — que é narrada por UMA voz só e não tem marcador ✦ (já removido na origem
+ * pelo stripPovMarkersPart1). A roteirista relatou "POV apontado na Parte 1 que
+ * não existe no doc". Na Parte 1 só sobram dois erros de voz reais: marcador ✦
+ * LITERAL sobrando (remover a linha) e prosa fora da perspectiva da heroína
+ * (checklist de narrador/pessoa). Reforçado também no buildScopeHeader(part 1)
+ * de build-revisor-agent.ts (costura part-aware na mensagem do usuário).
  */
 export const POV_MARKER_REVISOR_CHECKLIST = `
 
 ## Checklist de MARCADOR DE POV ✦ (CRÍTICO — específico do Revisor, Parte 2)
+
+⚠️ ESCOPO — LEIA ANTES DE APLICAR: este checklist inteiro é sobre o POV ALTERNADO da PARTE 2 (marcador ✦ NOME, qual voz narra cada bloco, destaque verde do MMC). Ele SÓ vale quando o escopo desta revisão é a PARTE 2.
+
+• SE O ESCOPO DESTA REVISÃO É A PARTE 1 (o material vem sob o banner "ESCOPO DESTA REVISÃO: PARTE 1"): NÃO aplique nenhum dos itens abaixo. A Parte 1 é narrada por UMA voz só, a heroína (FMC), do começo ao fim — NÃO tem POV alternado, NÃO tem marcador ✦, e NÃO existe "POV masculino/feminino" a atribuir. É ERRADO e proibido emitir na Parte 1 qualquer erro de "POV masculino ou feminino", "marcador no bloco errado", "troca de POV" ou "quem narra o bloco" — a roteirista relata que o Revisor aponta POVs na Parte 1 que NÃO existem no roteiro, e isso não pode acontecer. Na Parte 1 só há DOIS erros de voz possíveis: (a) uma linha de marcador ✦ NOME LITERAL sobrando (linha isolada de estrela + nome) — se houver, o conserto é REMOVER a linha (trecho_original = a linha ✦ NOME, trecho_corrigido = vazio); (b) a prosa escorregar da 1ª pessoa da heroína pra 3ª pessoa / cabeça do MMC — isso é tratado pelo checklist de 1ª pessoa / narrador, NÃO por este. Se não há marcador ✦ LITERAL e a voz é da heroína, NÃO existe erro de POV a reportar na Parte 1 — não invente nenhum.
+
+Os itens de detecção abaixo (marcador no bloco errado, mesmo narrador com dois nomes, troca sem marcador, cena íntima com duas vozes, marcador duplicado) são TODOS exclusivos da PARTE 2:
 
 Na Parte 2 a narração alterna entre a heroína e o protagonista masculino, e cada troca leva o marcador ✦ NOME. O nome do marcador TEM que ser quem realmente narra o bloco logo abaixo dele — o exporter destaca o POV por esse nome, então um marcador errado joga o destaque no trecho errado. Leia o CONTEÚDO de cada bloco (de quem é o "eu", o que essa voz sabe, qual corpo está sendo sentido por dentro) e cruze com o nome do marcador.
 
