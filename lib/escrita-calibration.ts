@@ -5,6 +5,44 @@
  */
 
 /**
+ * Limiar de RAM "máquina fraca" (MB) — o MESMO do heap adaptativo em
+ * `electron/main.js` (≤6GB). Numa máquina abaixo disso, reduzimos os tetos de
+ * concorrência de geração (menos streams Opus simultâneos), porque o que derruba
+ * o socket do `claude.exe` na máquina da roteirista (Celeron, 4GB) é a pressão de
+ * memória sob geração paralela. 8GB+ fica IDÊNTICO — zero regressão pro time.
+ */
+export const LOW_MEM_THRESHOLD_MB = 6144;
+
+/**
+ * Decide se a máquina é de POUCA RAM a partir do total em MB. Puro/testável.
+ * `null`/inválido (fora do Electron: web, SSR, build) → `false` (assume máquina
+ * normal, concorrência CHEIA). Assim a otimização só LIGA quando há sinal real de
+ * máquina fraca; na dúvida, comporta-se como antes.
+ */
+export function isLowMemMachine(totalMemMB: number | null | undefined): boolean {
+  return (
+    typeof totalMemMB === "number" &&
+    totalMemMB > 0 &&
+    totalMemMB <= LOW_MEM_THRESHOLD_MB
+  );
+}
+
+/** RAM física exposta pelo preload (`window.mystorieslena.totalMemMB`), síncrona. */
+function machineTotalMemMB(): number | null {
+  if (typeof window === "undefined") return null;
+  const v = window.mystorieslena?.totalMemMB;
+  return typeof v === "number" ? v : null;
+}
+
+/**
+ * `true` numa máquina ≤6GB (ex.: o notebook Celeron 4GB da roteirista). Avaliado
+ * UMA vez no load do módulo — o preload já expôs a RAM antes do 1º render, então
+ * o valor está pronto quando a fila/Escrita inicializam. Nas máquinas fracas os
+ * tetos abaixo caem; nas normais (e fora do Electron) ficam nos valores originais.
+ */
+export const IS_LOW_MEM_MACHINE = isLowMemMachine(machineTotalMemMB());
+
+/**
  * Tolerância do alvo de palavras POR CAPÍTULO. Capítulos cujo desvio relativo
  * for MAIOR que isso são reescritos via `/api/escrita-fix-wordcount` (1 chamada
  * Opus cada).
@@ -28,8 +66,11 @@ export const CALIBRATION_THRESHOLD = 0.08;
  * logs `[perf]` mostrarem 429 na calibração (agora ela compete com a geração
  * Opus da P2 na janela de sobreposição), reduza; pra 1 força calibração
  * estritamente sequencial.
+ *
+ * ADAPTATIVO À RAM: numa máquina ≤6GB cai pra **2** (menos streams Sonnet ao
+ * mesmo tempo = menos pressão de memória). 8GB+ segue **5**.
  */
-export const CALIBRATION_CONCURRENCY = 5;
+export const CALIBRATION_CONCURRENCY = IS_LOW_MEM_MACHINE ? 2 : 5;
 
 /**
  * Máximo de passes de reescrita POR CAPÍTULO na calibração. Um passe só do Sonnet
@@ -72,8 +113,16 @@ export const BALANCE_MAX_PASSES = 2;
  * intercalam dentro do teto e AMBOS terminam. É um knob — se os logs `[perf]`
  * mostrarem pouca contenção (poucos `transientRetries`), pode subir; se aparecer
  * `[ERRO]` de cota, baixe.
+ *
+ * ADAPTATIVO À RAM: numa máquina ≤6GB cai pra **1** — isso SERIALIZA os streams
+ * de geração, inclusive o P1‖P2 de UMA Escrita (que sozinho já usa 2). O peak de
+ * memória durante a fase mais pesada cai ~pela metade (1 stream Opus por vez em
+ * vez de 2), ao custo de a Escrita levar ~o dobro do tempo NAQUELA máquina — troca
+ * certa numa máquina que hoje TRAVA no meio da geração (melhor lento+completo que
+ * rápido+quebrado). A arquitetura P1‖P2 + costura cruzada NÃO muda: os dois loops
+ * seguem rodando (`Promise.all`); só o limitador os intercala 1 a 1. 8GB+ = **2**.
  */
-export const GEN_STREAM_CONCURRENCY = 2;
+export const GEN_STREAM_CONCURRENCY = IS_LOW_MEM_MACHINE ? 1 : 2;
 
 /**
  * Teto (ms) do backoff exponencial do retry de COTA na geração — vs os 8s dos

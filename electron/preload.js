@@ -5,6 +5,7 @@
  */
 
 const { contextBridge, ipcRenderer } = require("electron");
+const os = require("os");
 
 const UPDATER_CHANNELS = [
   "checking-for-update",
@@ -16,6 +17,15 @@ const UPDATER_CHANNELS = [
 ];
 
 contextBridge.exposeInMainWorld("mystorieslena", {
+  /**
+   * RAM física da máquina em MB — síncrona, disponível já no 1º render. O
+   * renderer usa pra reduzir a concorrência de geração numa máquina fraca
+   * (≤6GB): menos streams Opus ao mesmo tempo = menos pressão de memória =
+   * menos queda do socket do claude.exe. Espelha o heap adaptativo do main.
+   * (sandbox:false na janela principal → require("os") aqui é seguro.)
+   */
+  totalMemMB: Math.floor(os.totalmem() / (1024 * 1024)),
+
   /** Pergunta o modo de runtime atual: "live" | "packaged" | "external-dev". */
   getRuntimeInfo: () => ipcRenderer.invoke("runtime:info"),
 

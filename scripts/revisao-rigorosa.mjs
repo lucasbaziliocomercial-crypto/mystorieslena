@@ -194,6 +194,96 @@ console.log("\n[POV Parte 2] marcador ✦ duplicado em sequência colapsado na o
     : bad("lib/generation/run-escrita.ts: NÃO aplica stripDuplicateConsecutivePovMarkers");
 }
 
+// ── Resiliência a marcador de erro injetado (socket caído) — Estrutura + Escrita ──
+// Bug 13/07/2026: "socket connection was closed unexpectedly" na máquina fraca da
+// roteirista era injetado como [ERRO] no corpo do stream. A Escrita já retentava;
+// a Estrutura/Revisor (run-step.ts) NÃO — salvava a estrutura truncada + o [ERRO]
+// como conteúdo (contagem de capítulos/palavras quebrava). Fonte única = módulo
+// compartilhado stream-error-markers.ts; run-step retenta transiente/aborta fatal;
+// o sanitizer limpa o [ERRO] absorvido na prosa (cura roteiros já quebrados).
+console.log("\n[Resiliência] marcador de erro injetado (socket) tratado na Estrutura + limpo na prosa");
+{
+  const sem = read("lib/generation/stream-error-markers.ts");
+  if (sem == null) {
+    bad("lib/generation/stream-error-markers.ts NÃO encontrado (fonte única dos detectores)");
+  } else {
+    ["isTransientErroMarker", "isQuotaErroMarker", "detectHardMarker", "detectErroMarker"].forEach(
+      (fn) =>
+        has(sem, `export function ${fn}`)
+          ? ok(`stream-error-markers.ts exporta ${fn}`)
+          : bad(`lib/generation/stream-error-markers.ts: FALTA export ${fn}`),
+    );
+    has(sem, "socket connection was closed")
+      ? ok("stream-error-markers.ts cobre 'socket connection was closed'")
+      : bad("lib/generation/stream-error-markers.ts: NÃO cobre a queda de socket");
+  }
+  const rstep = read("lib/generation/run-step.ts");
+  if (rstep == null) {
+    bad("lib/generation/run-step.ts NÃO encontrado");
+  } else {
+    has(rstep, "stream-error-markers")
+      ? ok("run-step.ts importa os detectores compartilhados")
+      : bad("lib/generation/run-step.ts: NÃO importa stream-error-markers (Estrutura não retenta socket)");
+    has(rstep, "TransientStreamError") && has(rstep, "FatalStreamMarkerError")
+      ? ok("run-step.ts distingue transiente (retry) de fatal (aborta)")
+      : bad("lib/generation/run-step.ts: FALTA TransientStreamError/FatalStreamMarkerError");
+  }
+  const rescrita = read("lib/generation/run-escrita.ts");
+  if (rescrita && !has(rescrita, "stream-error-markers")) {
+    bad("lib/generation/run-escrita.ts: NÃO importa a fonte única stream-error-markers (drift de regex)");
+  } else if (rescrita) {
+    ok("run-escrita.ts usa a fonte única stream-error-markers");
+  }
+  const san = read("lib/sanitize-escrita-content.ts");
+  if (san == null) {
+    bad("lib/sanitize-escrita-content.ts NÃO encontrado");
+  } else {
+    has(san, "export function stripInjectedErrorMarkers")
+      ? ok("sanitize: stripInjectedErrorMarkers presente (limpa [ERRO] absorvido na prosa)")
+      : bad("lib/sanitize-escrita-content.ts: FALTA stripInjectedErrorMarkers");
+    has(san, "NEXT_CHAPTER_HEADER_RE")
+      ? ok("sanitize: corte por próximo cabeçalho (não apaga capítulos seguintes)")
+      : bad("lib/sanitize-escrita-content.ts: FALTA corte por cabeçalho (risco de apagar capítulos)");
+  }
+}
+
+// ── Concorrência ADAPTATIVA à RAM (máquina fraca) — 8GB+ fica IDÊNTICO ──
+// A máquina ≤6GB reduz os streams Opus simultâneos (menos pressão de memória =
+// menos queda de socket). Invariante: a decisão vem de isLowMemMachine e os
+// valores da máquina NORMAL não podem regredir (gen 2 / calib 5 / jobs 4).
+console.log("\n[Adaptativo] concorrência à RAM — normal intacto, fraca reduz");
+{
+  const cal = read("lib/escrita-calibration.ts");
+  if (cal == null) {
+    bad("lib/escrita-calibration.ts NÃO encontrado");
+  } else {
+    has(cal, "export function isLowMemMachine")
+      ? ok("escrita-calibration.ts exporta isLowMemMachine (decisão pura/testável)")
+      : bad("lib/escrita-calibration.ts: FALTA isLowMemMachine");
+    /IS_LOW_MEM_MACHINE\s*\?\s*1\s*:\s*2/.test(cal)
+      ? ok("GEN_STREAM_CONCURRENCY: fraca=1 / normal=2 (normal intacto)")
+      : bad("lib/escrita-calibration.ts: GEN_STREAM_CONCURRENCY normal deixou de ser 2");
+    /IS_LOW_MEM_MACHINE\s*\?\s*2\s*:\s*5/.test(cal)
+      ? ok("CALIBRATION_CONCURRENCY: fraca=2 / normal=5 (normal intacto)")
+      : bad("lib/escrita-calibration.ts: CALIBRATION_CONCURRENCY normal deixou de ser 5");
+    has(cal, "LOW_MEM_THRESHOLD_MB = 6144")
+      ? ok("limiar 6144MB espelha o heap adaptativo do main")
+      : bad("lib/escrita-calibration.ts: limiar ≠ 6144 (dessincronizou do heap adaptativo)");
+  }
+  const qr = read("components/queue/QueueRunner.tsx");
+  if (qr && !/IS_LOW_MEM_MACHINE\s*\?\s*2\s*:\s*4/.test(qr)) {
+    bad("components/queue/QueueRunner.tsx: MAX_CONCURRENT_STREAMS normal deixou de ser 4");
+  } else if (qr) {
+    ok("MAX_CONCURRENT_STREAMS: fraca=2 / normal=4 (normal intacto)");
+  }
+  const pre = read("electron/preload.js");
+  if (pre && !has(pre, "totalMemMB")) {
+    bad("electron/preload.js: NÃO expõe totalMemMB (renderer não sabe a RAM)");
+  } else if (pre) {
+    ok("preload expõe totalMemMB (RAM síncrona pro renderer)");
+  }
+}
+
 // ── REGRA 4: Parte 2 = exatamente 6 capítulos nas 4 categorias ──
 console.log("\n[Estrutura P2] exatamente 6 capítulos nas 4 categorias");
 // Padrões PROIBIDOS = contagem "5 e 6 / 5-6 / 5 a 6 / 5 ou 6 / máximo 6" na P2.

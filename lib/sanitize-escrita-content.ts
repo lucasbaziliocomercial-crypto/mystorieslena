@@ -127,10 +127,59 @@ const REPORT_ANCHORS: RegExp[] = [
   /NOTA\s+FINAL\s*\(\s*0\s*a\s*10\s*\)/i,
 ];
 
+/**
+ * Marcadores que a ROTA (`app/api/agent/[step]/route.ts`) injeta no stream quando
+ * a SDK falha — `[ERRO] …`, o bloco de login e o de binário ausente. Quando o
+ * socket do `claude.exe` cai DEPOIS que já saiu prosa (pressão de memória na
+ * máquina fraca), o marcador é absorvido no corpo do ÚLTIMO capítulo (vem após a
+ * prosa, sem novo cabeçalho) — o parser o engole e ele chega até o Google Docs
+ * ("os erros no meio do texto"). JAMAIS pode ir pra prosa/export. Bug 13/07/2026.
+ */
+const INJECTED_ERROR_MARKER_RE =
+  /\[ERRO\]|\[LOGIN NECESS[ÁA]RIO NO CLAUDE\]|\[BIN[ÁA]RIO CLAUDE N[ÃA]O ENCONTRADO\]/i;
+/**
+ * Próximo cabeçalho de capítulo — no conteúdo MONOLÍTICO (capítulos concatenados),
+ * o marcador absorvido fica no MEIO do documento; cortamos só do marcador até o
+ * próximo `## Capítulo N`, nunca apagando os capítulos seguintes. Num corpo de UM
+ * capítulo (não há header depois) o corte vai até o fim. Família de header igual
+ * à do parseEscritaBatch (markdown/bold opcionais).
+ */
+const NEXT_CHAPTER_HEADER_RE = /\n#{0,4}\s*\*{0,2}\s*Cap[ií]tulo\s+\d+/i;
+
+/** True se o texto contém um marcador de erro injetado pela rota. */
+export function hasInjectedErrorMarker(text: string): boolean {
+  return !!text && INJECTED_ERROR_MARKER_RE.test(text);
+}
+
+/**
+ * Remove os blocos de marcador de erro injetados: da linha do marcador até o
+ * PRÓXIMO cabeçalho de capítulo (ou o fim do texto). Preserva a prosa anterior e
+ * os capítulos seguintes. Idempotente; trata múltiplos marcadores (vários lotes
+ * podem ter falhado). Puro/testável.
+ */
+export function stripInjectedErrorMarkers(text: string): string {
+  if (!text) return text;
+  let out = text;
+  for (;;) {
+    const m = INJECTED_ERROR_MARKER_RE.exec(out);
+    if (!m) break;
+    // Início da LINHA do marcador (leva junto markdown/prefixo da mesma linha).
+    const lineStart = out.lastIndexOf("\n", m.index) + 1;
+    // Fim do bloco = próximo cabeçalho de capítulo APÓS o marcador, ou o fim.
+    const afterMarker = out.slice(m.index);
+    const nextHeader = NEXT_CHAPTER_HEADER_RE.exec(afterMarker);
+    const blockEnd =
+      nextHeader != null ? m.index + nextHeader.index : out.length;
+    out = out.slice(0, lineStart) + out.slice(blockEnd);
+  }
+  return out;
+}
+
 /** True se o texto tem QUALQUER contaminação (contagem, relatório ou XML cruft). */
 export function hasEscritaContamination(text: string): boolean {
   if (!text) return false;
   if (REPORT_ANCHORS.some((re) => re.test(text))) return true;
+  if (hasInjectedErrorMarker(text)) return true;
   if (hasXmlCruft(text)) return true;
   if (hasCanonBanner(text)) return true;
   if (hasEditorialNote(text)) return true;
@@ -156,6 +205,13 @@ export function stripEscritaContamination(text: string): string {
   if (!hasEscritaContamination(text)) return text;
 
   let out = text;
+
+  // 0) Marcadores de erro injetados pela rota (`[ERRO]`/login/binário) absorvidos
+  //    na prosa quando o socket caiu no meio do lote. Corta só o bloco do marcador
+  //    (até o próximo cabeçalho de capítulo), preservando os capítulos seguintes —
+  //    por isso NÃO é uma REPORT_ANCHOR (que cortaria até o fim). Roda ANTES do
+  //    corte do relatório: são alvos distintos e independentes.
+  if (hasInjectedErrorMarker(out)) out = stripInjectedErrorMarkers(out);
 
   // 1) Relatório do Revisor (apêndice) — corta da 1ª âncora (início da linha
   //    dela) até o fim. min() entre todas as âncoras que casaram.
