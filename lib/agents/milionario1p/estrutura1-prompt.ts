@@ -83,7 +83,6 @@ A regra é:
 | Total de palavras   | ~12.500 (faixa 12.000–13.000) — RIGOROSO                    |
 | Número de capítulos | **6 — sempre. Fixo. Nunca menos, nunca mais.**              |
 | Distribuição        | Início rápido, meio equilibrado, final desenvolvido (caps 5 e 6) |
-| Formato do hook     | Narração curta, linhas soltas, impactante                  |
 | Narração            | **Primeira pessoa — exclusivamente pela FMC**               |
 
 ━━━ NARRAÇÃO — REGRA ABSOLUTA ━━━
@@ -93,48 +92,6 @@ A Parte 1 inteira é narrada pela FMC em primeira pessoa. Ela é a voz do iníci
 ✅ "Eu", "me", "mim", "meu", "minha" são naturais — é a voz da protagonista.
 ✅ Os diálogos de outros personagens aparecem normalmente dentro da narração dela.
 ✅ O leitor só sabe o que ela sabe, só vê o que ela vê, só sente o que ela sente.
-
-━━━ HOOK — OBRIGATÓRIO ━━━
-
-> O HOOK DA PARTE 1 PRECISA SER OBRIGATORIAMENTE A EXPANSÃO DO TÍTULO
-
-Crie um hook extremamente comercial, viciante e irresistível, com clima de romance intenso, tensão emocional e cliffhanger forte no final, para fazer a leitora sentir que precisa comprar e ler a história.
-
-**Regra inegociável do título e do hook:**
-- O título oficial da história chega como bloco "TÍTULO OFICIAL DA HISTÓRIA" no início da mensagem do usuário.
-- O hook principal E a versão alternativa precisam expandir esse título literal — não um tema parecido, não uma reformulação, não uma "interpretação".
-- A primeira frase de cada hook deve ecoar o título de forma reconhecível (palavras-chave do título aparecendo logo na abertura).
-- É proibido inventar outro título, sugerir variações ou ignorar o título por preferência estética.
-- Antes de fechar a etapa de Hook, releia as 2 versões e confirme: a expansão do título está clara em cada uma? Se não, refaça.
-- Se o bloco "TÍTULO OFICIAL" NÃO chegou, CRIE um título provisório comercial a partir da premissa, anuncie-o no bloco "📖 TÍTULO DA HISTÓRIA" e expanda-o no hook — NUNCA bloqueie, NUNCA devolva mensagem de erro.
-
-**Diretrizes do hook:**
-- Comercial, com cara de livro que vende
-- NÃO escreva como sinopse comum nem como resumo frio
-- Despertar curiosidade, obsessão, tensão e urgência emocional
-- Fazer a leitora pensar: "eu preciso saber o que aconteceu"
-- Linguagem envolvente, feminina, fluida e dramática
-- Tom de abertura de romance que prende já na primeira linha
-- Pode ter sensualidade e perigo, mas o principal é tensão emocional + mistério
-- O final TEM que ter um cliffhanger muito forte, encerrando no auge da tensão
-- NÃO entregue a resolução do conflito
-- NÃO explique demais
-- NÃO resuma a história inteira
-- Foco apenas no gancho mais forte e vendável
-- O hook deve parecer o COMEÇO de uma história explosiva
-- **Tamanho: entre 90 e 120 palavras, OBRIGATÓRIO.**
-
-**Estrutura do hook:**
-1. Comece expandindo o título de forma impactante.
-2. Mostre um detalhe forte, provocante ou perigoso da situação.
-3. Faça crescer a tensão emocional, romântica ou psicológica.
-4. Termine com revelação incompleta, ameaça, decisão impossível ou descoberta chocante.
-5. A última frase precisa soar como um abismo narrativo.
-
-**Entregue:**
-- 1 hook principal
-- 1 versão alternativa
-- Ambos com forte apelo comercial, com cliffhanger, sem ser genéricos, sem parecer escritos por IA, com impacto de best-seller digital.
 
 ━━━ UNIVERSO DE PODER E RIQUEZA ━━━
 
@@ -318,7 +275,6 @@ A história precisa ser escrita de forma EXTREMAMENTE simples, direta e sem enro
 ━━━ ❌ PROIBIDO ━━━
 
 ❌ Nomes da lista proibida
-❌ Hook com spoiler
 ❌ Investigações, roubos ou tramas policiais como foco
 ❌ Antagonista passivo
 ❌ Casamento ou filhos na Parte 1
@@ -393,13 +349,6 @@ Entregue exatamente neste formato, com estes cabeçalhos e nesta ordem:
 - Melhor amigo / advogado / sócio / assistente pessoal do MMC: [nome + quem é + função]
 - Antagonista: [nome + quem é + o que faz ATIVAMENTE]
 - Outros: [nomes + quem são + funções]
-
-# 🎣 HOOK
-**Hook principal (90-120 palavras):**
-[texto]
-
-**1 versão alternativa:**
-1. [texto]
 
 # 📚 CAPÍTULOS
 

@@ -6,7 +6,6 @@
  *  • Meta de 12.500 palavras (rigoroso, faixa de tolerância 12.000-13.000)
  *  • 5 a 6 capítulos
  *  • Ritmo acelerado nos iniciais (1-3) e respirado nos finais (4-6)
- *  • Hook expansão do título (90-120 palavras)
  *  • Entrega EMOCIONAL no penúltimo/último cap (3 fases: aproximação → elipse narrativa → manhã seguinte) — SEM cena íntima descrita na Parte 1
  *  • Final com casal junto + dúvida sutil — sem casamento/filhos
  */
@@ -20,7 +19,6 @@ Criar a Parte 1 de uma história de dark romance, completa em si mesma, com todo
 • Total de palavras: ~12.500 — meta rigorosa (faixa aceita 12.000-13.000, alvo 12.500). Já distribuir por capítulos.
 • Número de capítulos: entre 5 e 6 — nunca menos, nunca mais.
 • Distribuição: livre, conforme o ritmo da cena exige.
-• Formato do hook: narração curta, linhas soltas, impactante, expansão do título.
 
 ⚡ RITMO DA HISTÓRIA — REGRA OBRIGATÓRIA
 Capítulos iniciais (1, 2 e início do 3): ritmo acelerado. Apresentação, encontro e início da tensão acontecem rápido. O leitor precisa ser fisgado sem enrolação. Nada de descrições longas de ambientes ou explicações demoradas. Ação, química e conflito desde o início.
@@ -28,36 +26,6 @@ Capítulos iniciais (1, 2 e início do 3): ritmo acelerado. Apresentação, enco
 Capítulos finais (final do 3, 4, 5 e 6 se houver): ritmo mais respirado na resolução. A resolução dos conflitos precisa de mais espaço. Não amontoar tudo em um único capítulo. Distribuir entre dois ou mais. Foco no que os personagens sentem, nas decisões e nas consequências — não em descrições excessivas.
 
 REGRA DE DISTRIBUIÇÃO: se a resolução dos conflitos ficar amontoada em um único capítulo, use 6 capítulos obrigatoriamente. É preferível 6 capítulos bem distribuídos do que 5 com o último sobrecarregado.
-
-🎣 HOOK — OBRIGATÓRIO
-O HOOK DA PARTE 1 PRECISA SER OBRIGATORIAMENTE A EXPANSÃO DO TÍTULO.
-
-Regra inegociável do título e do hook:
-- O título oficial da história chega como bloco "TÍTULO OFICIAL DA HISTÓRIA" no início da mensagem do usuário.
-- O hook principal E a versão alternativa precisam expandir esse título literal — não um tema parecido, não uma reformulação, não uma "interpretação".
-- A primeira frase de cada hook deve ecoar o título de forma reconhecível (palavras-chave do título aparecendo logo na abertura).
-- É proibido inventar outro título, sugerir variações ou ignorar o título por preferência estética.
-- Antes de fechar o hook, releia as 2 versões e confirme: a expansão do título está clara em cada uma? Se não, refaça.
-- Se o bloco "TÍTULO OFICIAL" NÃO chegou, CRIE um título provisório comercial a partir da premissa, anuncie-o no bloco "📖 TÍTULO DA HISTÓRIA" e expanda-o no hook — NUNCA bloqueie, NUNCA devolva mensagem de erro.
-
-O hook deve:
-• Ser comercial, com cara de livro que vende.
-• Despertar curiosidade, obsessão, tensão e urgência emocional.
-• Fazer a leitora pensar: "eu preciso saber o que aconteceu".
-• Ter linguagem envolvente, feminina, fluida e dramática.
-• Pode ter sensualidade e perigo, mas o principal é tensão emocional e mistério.
-• Terminar com cliffhanger muito forte, encerrando no auge da tensão.
-• NÃO entregar a resolução do conflito. NÃO explicar demais. NÃO resumir a história.
-• Ter entre 90 e 120 palavras, OBRIGATORIAMENTE.
-
-Estrutura do hook:
-1) Comece expandindo o título de forma impactante.
-2) Mostre um detalhe forte, provocante ou perigoso da situação.
-3) Faça crescer a tensão emocional, romântica ou psicológica.
-4) Termine com revelação incompleta, ameaça, decisão impossível ou descoberta chocante.
-5) A última frase precisa soar como verdadeiro abismo narrativo.
-
-Entrega: 1 hook principal + 1 versão alternativa, ambos entre 90-120 palavras, com cliffhanger.
 
 🌍 MUNDO DA MÁFIA
 Definir antes de escrever:
@@ -145,7 +113,7 @@ PROIBIDO usar blocos ✦ NOME (ou qualquer marcador de mudança de POV — ✦, 
 Se a estrutura listar um capítulo da Parte 1 com narrador ≠ FMC, é erro: corrija para FMC antes de fechar.
 
 🚫 EVITAR
-❌ Nomes da lista proibida. ❌ Hook com spoiler. ❌ Violência excessiva (salvo pedido). ❌ Antagonista passivo. ❌ Casamento ou filhos na Parte 1. ❌ Final com briga ou casal separado. ❌ Final que pareça incompleto. ❌ Pontas soltas sem intenção. ❌ Saltos de tempo sem explicação. ❌ Diálogos sem identificação. ❌ Diálogos partidos com reflexão interna no meio. ❌ Personagem mencionado sem apresentação. ❌ Ultrapassar significativamente os 12.500. ❌ Começar sem o mapa. ❌ Mudar de ambiente sem transição. ❌ Personagens "ouvirem" conversas através de paredes sem justificativa. ❌ Pular dias/horários sem declarar. ❌ Personagens aparecerem em locais sem mostrar como chegaram. ❌ Objetos do nada. ❌ Ignorar deslocamento. ❌ Mapa desatualizado. ❌ Resolução amontoada em um único capítulo. ❌ Descrever cena íntima na Parte 1 — apenas sugerir que passaram a noite juntos. ❌ Descrição corporal, sensorial ou implícita do ato físico na Parte 1. ❌ Blocos ✦ NOME (ou qualquer marcador visual de mudança de POV — ✦/✧/♦/★) na Parte 1 — esse formato pertence APENAS à Parte 2. ❌ Narrador que não seja a FMC em qualquer trecho da Parte 1 — sem exceção, nem mesmo no cliffhanger final.
+❌ Nomes da lista proibida. ❌ Violência excessiva (salvo pedido). ❌ Antagonista passivo. ❌ Casamento ou filhos na Parte 1. ❌ Final com briga ou casal separado. ❌ Final que pareça incompleto. ❌ Pontas soltas sem intenção. ❌ Saltos de tempo sem explicação. ❌ Diálogos sem identificação. ❌ Diálogos partidos com reflexão interna no meio. ❌ Personagem mencionado sem apresentação. ❌ Ultrapassar significativamente os 12.500. ❌ Começar sem o mapa. ❌ Mudar de ambiente sem transição. ❌ Personagens "ouvirem" conversas através de paredes sem justificativa. ❌ Pular dias/horários sem declarar. ❌ Personagens aparecerem em locais sem mostrar como chegaram. ❌ Objetos do nada. ❌ Ignorar deslocamento. ❌ Mapa desatualizado. ❌ Resolução amontoada em um único capítulo. ❌ Descrever cena íntima na Parte 1 — apenas sugerir que passaram a noite juntos. ❌ Descrição corporal, sensorial ou implícita do ato físico na Parte 1. ❌ Blocos ✦ NOME (ou qualquer marcador visual de mudança de POV — ✦/✧/♦/★) na Parte 1 — esse formato pertence APENAS à Parte 2. ❌ Narrador que não seja a FMC em qualquer trecho da Parte 1 — sem exceção, nem mesmo no cliffhanger final.
 
 📄 LAYOUT DA ESTRUTURA — MODELO DE SAÍDA OBRIGATÓRIO
 
@@ -177,9 +145,6 @@ Trope base / Dinâmica inicial / Tensão principal / Resolução
 Melhor amiga / Homem de confiança / Antagonista / Outros
 
 🗺 MAPA DA HISTÓRIA (tabela: Cap | Dia | Horário | Locais | Transições | Evento-chave)
-
-🎬 HOOK
-[O hook completo, em linhas curtas, expandindo o título sem spoiler — 90-120 palavras]
 
 📖 CAPÍTULOS
 
