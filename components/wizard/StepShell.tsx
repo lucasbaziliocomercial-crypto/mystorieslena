@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -3881,16 +3882,18 @@ function PremissaWizard() {
     setErrorMessage(null);
   }, [setOutput, content, output?.generatedAt, meta]);
 
-  const switchToAutomatic = useCallback(() => {
-    setOutput("premissa", {
-      content: "",
-      generatedAt: new Date().toISOString(),
-      metadata: { ...meta, premissaManualPaste: false },
-    });
-    contentRef.current?.setValue("");
-    setIsEditingManual(false);
-    setErrorMessage(null);
-  }, [setOutput, meta]);
+  // Fluxo MANUAL-only: a geração automática da premissa (briefing → resumo →
+  // Blocos 1-7) foi removida do fluxo. Um roteiro novo abriria na fase
+  // "briefing"; sem esse fluxo, jogamos direto no modo manual pra colar a
+  // premissa que veio pronta de fora. useLayoutEffect evita o flash da UI
+  // automática antes do flip. Só dispara em roteiro realmente novo (sem
+  // briefing digitado e sem job em andamento) — roteiros legados que ficaram
+  // no meio do fluxo automático seguem intactos até concluir.
+  useLayoutEffect(() => {
+    if (phase === "briefing" && !briefing && !premissaJob) {
+      switchToManual();
+    }
+  }, [phase, briefing, premissaJob, switchToManual]);
 
   const saveManualEdit = useCallback(() => {
     contentRef.current?.flush();
@@ -4045,14 +4048,6 @@ function PremissaWizard() {
                 </Button>
               </>
             )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={switchToAutomatic}
-              className="text-muted-foreground"
-            >
-              Voltar ao modo automático
-            </Button>
           </div>
         </div>
 
