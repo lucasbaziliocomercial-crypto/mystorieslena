@@ -12,8 +12,7 @@ import { ESTRUTURA1_PROMPT } from "./estrutura1-prompt";
  *
  * Agente especializado que segue NA RISCA o prompt mestre da Parte 1
  * (11.500 palavras, 6 capítulos fixos, ritmo rápido→equilibrado→desenvolvido,
- * narração 1ª pessoa FMC, hook obrigatório de 90-120 palavras, questionamento
- * sutil no final).
+ * narração 1ª pessoa FMC, questionamento sutil no final).
  *
  * System prompt = regras gerais do projeto (master) + regras específicas
  * da Parte 1 (estrutura1-prompt). User message = Premissa do Step 1 +
@@ -23,7 +22,7 @@ export const estrutura1Agent: Agent = {
   id: "estrutura1",
   label: "Estrutura — Parte 1",
   description:
-    "Monta a estrutura completa da Parte 1 (11.500 palavras, 6 capítulos) seguindo o prompt mestre especializado — hook, mapa, capítulos, cena íntima, questionamento final",
+    "Monta a estrutura completa da Parte 1 (11.500 palavras, 6 capítulos) seguindo o prompt mestre especializado — mapa, capítulos, cena íntima, questionamento final",
   model: MODELS.opus,
   thinking: "adaptive",
   effort: "medium",
@@ -121,15 +120,13 @@ export const estrutura1Agent: Agent = {
     if (titulo) {
       sections.push(
         [
-          `━━━ TÍTULO OFICIAL DA HISTÓRIA (FONTE PRIMÁRIA — usar EXATAMENTE este título no hook) ━━━`,
+          `━━━ TÍTULO OFICIAL DA HISTÓRIA (FONTE PRIMÁRIA — usar EXATAMENTE este título) ━━━`,
           ``,
           `"${titulo}"`,
           ``,
           `⚠️ REGRA INEGOCIÁVEL:`,
-          `• O hook principal E a versão alternativa DEVEM expandir este título literal.`,
-          `• A primeira frase de cada hook precisa ecoar/traduzir o título — não citar de forma decorativa, não trocar por sinônimos, não suavizar.`,
+          `• Use este título EXATO no bloco "📖 TÍTULO DA HISTÓRIA" da saída.`,
           `• É proibido inventar outro título, sugerir alternativas ou ignorar este.`,
-          `• Antes de fechar o hook, releia: a expansão do título está clara nas 2 versões? Se não, refaça.`,
         ].join("\n"),
       );
     } else if (premissa) {
@@ -141,8 +138,6 @@ export const estrutura1Agent: Agent = {
           ``,
           `⚠️ REGRA INEGOCIÁVEL:`,
           `• Defina o título logo no início da saída, no bloco "📖 TÍTULO DA HISTÓRIA".`,
-          `• O hook principal E a versão alternativa DEVEM expandir esse título literal.`,
-          `• A primeira frase de cada hook precisa ecoar o título.`,
           `• NÃO bloqueie, NÃO peça o título à roteirista, NÃO devolva mensagem de erro — gere a ESTRUTURA COMPLETA normalmente.`,
         ].join("\n"),
       );
@@ -165,7 +160,7 @@ export const estrutura1Agent: Agent = {
     }
 
     sections.push(
-      "━━━ AÇÃO ━━━\n\nMonte a ESTRUTURA COMPLETA da Parte 1 seguindo o LAYOUT DE SAÍDA OBRIGATÓRIO definido no system prompt (Mapa → Mundo → Pessoas-Chave → FMC → MMC → Casal → Secundários → Hook → Capítulos → Questionamento → Temas → Arcos → Momentos-chave → Checklist). Comece direto, sem pedir confirmação. Não escreva os capítulos em si — apenas a ESTRUTURA/PLANEJAMENTO.\n\n⚠️ ATENÇÃO CRÍTICA — CONTAGEM DE PALAVRAS: A SOMA das contagens de palavras planejadas para os 6 capítulos DEVE ficar entre 12.000 e 13.000 palavras (ALVO 12.500). Esta é uma REGRA INEGOCIÁVEL. Distribua conforme a tabela do system prompt (~12% / 14% / 18% / 20% / 18% / 18%). Antes de finalizar, SOME mentalmente a quantidade indicada em cada capítulo e CONFIRME que o total está dentro da faixa. Se ficar fora, REDISTRIBUA até bater. Não pule essa verificação.",
+      "━━━ AÇÃO ━━━\n\nMonte a ESTRUTURA COMPLETA da Parte 1 seguindo o LAYOUT DE SAÍDA OBRIGATÓRIO definido no system prompt (Mapa → Mundo → Pessoas-Chave → FMC → MMC → Casal → Secundários → Capítulos → Questionamento → Temas → Arcos → Momentos-chave → Checklist). Comece direto, sem pedir confirmação. Não escreva os capítulos em si — apenas a ESTRUTURA/PLANEJAMENTO.\n\n⚠️ ATENÇÃO CRÍTICA — CONTAGEM DE PALAVRAS: A SOMA das contagens de palavras planejadas para os 6 capítulos DEVE ficar entre 12.000 e 13.000 palavras (ALVO 12.500). Esta é uma REGRA INEGOCIÁVEL. Distribua conforme a tabela do system prompt (~12% / 14% / 18% / 20% / 18% / 18%). Antes de finalizar, SOME mentalmente a quantidade indicada em cada capítulo e CONFIRME que o total está dentro da faixa. Se ficar fora, REDISTRIBUA até bater. Não pule essa verificação.",
     );
 
     return sections.join("\n\n");

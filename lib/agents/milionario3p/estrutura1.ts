@@ -11,8 +11,7 @@ import { ESTRUTURA1_PROMPT } from "./estrutura1-prompt";
  * Etapa 2 — Estrutura da Parte 1 (Romance de Milionário 3ª pessoa, canal Rowan).
  *
  * 10.000 a 11.000 palavras (alvo 10.500), 5-6 capítulos.
- * Hook expansão do título de 90-120 palavras (1 principal + 3 alternativos),
- * narração em terceira pessoa LIMITADA À FMC (sem POV masculino, MMC observado
+ * Narração em terceira pessoa LIMITADA À FMC (sem POV masculino, MMC observado
  * de fora), SEM cena íntima descrita na Parte 1 (apenas elipse: aproximação →
  * porta fechando → manhã seguinte), final feliz sem casamento e sem filhos.
  *
@@ -22,7 +21,7 @@ export const estrutura1Agent: Agent = {
   id: "estrutura1",
   label: "Estrutura — Parte 1",
   description:
-    "Monta a estrutura completa da Parte 1 de Milionário 3p (10.000-11.000 palavras, 5-6 capítulos) — hook expansão do título com 3 alternativos, mapa cena por cena, capítulos com química crescente, narração 3ª pessoa limitada à FMC (sem POV masculino), entrega do casal SEM cena íntima descrita (apenas elipse), final em paz sem casamento e sem filhos",
+    "Monta a estrutura completa da Parte 1 de Milionário 3p (10.000-11.000 palavras, 5-6 capítulos) — mapa cena por cena, capítulos com química crescente, narração 3ª pessoa limitada à FMC (sem POV masculino), entrega do casal SEM cena íntima descrita (apenas elipse), final em paz sem casamento e sem filhos",
   model: MODELS.opus,
   thinking: "adaptive",
   effort: "medium",
@@ -111,15 +110,13 @@ export const estrutura1Agent: Agent = {
     if (titulo) {
       sections.push(
         [
-          `━━━ TÍTULO OFICIAL DA HISTÓRIA (FONTE PRIMÁRIA — usar EXATAMENTE este título no hook) ━━━`,
+          `━━━ TÍTULO OFICIAL DA HISTÓRIA (FONTE PRIMÁRIA — usar EXATAMENTE este título) ━━━`,
           ``,
           `"${titulo}"`,
           ``,
           `⚠️ REGRA INEGOCIÁVEL:`,
-          `• O hook principal E as 3 versões alternativas DEVEM expandir este título literal.`,
-          `• A primeira frase de cada hook precisa ecoar/traduzir o título — não citar de forma decorativa, não trocar por sinônimos, não suavizar.`,
+          `• Use este título EXATO no bloco "📖 TÍTULO DA HISTÓRIA" da saída.`,
           `• É proibido inventar outro título, sugerir alternativas ou ignorar este.`,
-          `• Antes de fechar o hook, releia: a expansão do título está clara nas 4 versões? Se não, refaça.`,
         ].join("\n"),
       );
     } else if (premissa) {
@@ -131,8 +128,6 @@ export const estrutura1Agent: Agent = {
           ``,
           `⚠️ REGRA INEGOCIÁVEL:`,
           `• Defina o título logo no início da saída, no bloco "📖 TÍTULO DA HISTÓRIA".`,
-          `• O hook principal E as 3 versões alternativas DEVEM expandir esse título literal.`,
-          `• A primeira frase de cada hook precisa ecoar o título.`,
           `• NÃO bloqueie, NÃO peça o título à roteirista, NÃO devolva mensagem de erro — gere a ESTRUTURA COMPLETA normalmente.`,
         ].join("\n"),
       );
@@ -155,7 +150,7 @@ export const estrutura1Agent: Agent = {
     }
 
     sections.push(
-      "━━━ AÇÃO ━━━\n\nMonte a ESTRUTURA COMPLETA da Parte 1 seguindo o LAYOUT DE SAÍDA OBRIGATÓRIO definido no system prompt (Mundo → Pessoas-chave → FMC → MMC → Casal → Secundários → Hook + 3 alternativos → Mapa cena por cena → Capítulos → Temas → Arcos → Momentos-chave). Comece direto, sem pedir confirmação. Não escreva os capítulos em si — apenas a ESTRUTURA/PLANEJAMENTO.\n\n⚠️ ATENÇÃO CRÍTICA — CONTAGEM DE PALAVRAS: a SOMA das contagens declaradas para os 5-6 capítulos DEVE ficar entre 10.000 e 11.000 palavras (alvo 10.500). REGRA INEGOCIÁVEL. Antes de finalizar, SOME mentalmente as contagens de cada capítulo e CONFIRME que o total está dentro da faixa. Se ficar fora, REDISTRIBUA até bater.\n\n⚠️ NARRAÇÃO em TERCEIRA PESSOA LIMITADA À FMC — narrador externo que acompanha PRIORITARIAMENTE a heroína. SEM POV masculino. SEM entrar nos pensamentos do MMC (ele aparece apenas pelos atos, falas, gestos observáveis). NÃO é narração da FMC em primeira pessoa.\n\n⚠️ ENTREGA DO CASAL na Parte 1 NÃO TEM cena íntima descrita — apenas elipse (aproximação → porta fechando → manhã seguinte). Final em paz, sem casamento, sem filhos.",
+      "━━━ AÇÃO ━━━\n\nMonte a ESTRUTURA COMPLETA da Parte 1 seguindo o LAYOUT DE SAÍDA OBRIGATÓRIO definido no system prompt (Mundo → Pessoas-chave → FMC → MMC → Casal → Secundários → Mapa cena por cena → Capítulos → Temas → Arcos → Momentos-chave). Comece direto, sem pedir confirmação. Não escreva os capítulos em si — apenas a ESTRUTURA/PLANEJAMENTO.\n\n⚠️ ATENÇÃO CRÍTICA — CONTAGEM DE PALAVRAS: a SOMA das contagens declaradas para os 5-6 capítulos DEVE ficar entre 10.000 e 11.000 palavras (alvo 10.500). REGRA INEGOCIÁVEL. Antes de finalizar, SOME mentalmente as contagens de cada capítulo e CONFIRME que o total está dentro da faixa. Se ficar fora, REDISTRIBUA até bater.\n\n⚠️ NARRAÇÃO em TERCEIRA PESSOA LIMITADA À FMC — narrador externo que acompanha PRIORITARIAMENTE a heroína. SEM POV masculino. SEM entrar nos pensamentos do MMC (ele aparece apenas pelos atos, falas, gestos observáveis). NÃO é narração da FMC em primeira pessoa.\n\n⚠️ ENTREGA DO CASAL na Parte 1 NÃO TEM cena íntima descrita — apenas elipse (aproximação → porta fechando → manhã seguinte). Final em paz, sem casamento, sem filhos.",
     );
 
     return sections.join("\n\n");

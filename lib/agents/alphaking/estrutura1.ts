@@ -12,7 +12,7 @@ import { ESTRUTURA1_PROMPT } from "./estrutura1-prompt";
  *
  * 12.500 palavras (faixa 12.000-13.000, alvo 12.500), 6 capítulos FIXOS,
  * ritmo acelerado nos iniciais (1-2) e desenvolvido nos finais (5-6),
- * narração 1ª pessoa da heroína, hook expansão do título de 90-120 palavras,
+ * narração 1ª pessoa da heroína,
  * cena de marcação flexível (máx. 500 palavras), questionamento sutil no
  * final — sem coroação/herdeiro/casamento sob a lua.
  *
@@ -22,7 +22,7 @@ export const estrutura1Agent: Agent = {
   id: "estrutura1",
   label: "Estrutura — Parte 1",
   description:
-    "Monta a estrutura completa da Parte 1 de Alpha King (12.500 palavras, 6 capítulos fixos) — hook expansão do título, mapa com fase da lua, capítulos com ritmo graduado, marcação flexível, questionamento sutil no final",
+    "Monta a estrutura completa da Parte 1 de Alpha King (12.500 palavras, 6 capítulos fixos) — mapa com fase da lua, capítulos com ritmo graduado, marcação flexível, questionamento sutil no final",
   model: MODELS.opus,
   thinking: "adaptive",
   effort: "medium",
@@ -112,15 +112,13 @@ export const estrutura1Agent: Agent = {
     if (titulo) {
       sections.push(
         [
-          `━━━ TÍTULO OFICIAL DA HISTÓRIA (FONTE PRIMÁRIA — usar EXATAMENTE este título no hook) ━━━`,
+          `━━━ TÍTULO OFICIAL DA HISTÓRIA (FONTE PRIMÁRIA — usar EXATAMENTE este título) ━━━`,
           ``,
           `"${titulo}"`,
           ``,
           `⚠️ REGRA INEGOCIÁVEL:`,
-          `• O hook principal E as 3 versões alternativas DEVEM expandir este título literal.`,
-          `• A primeira frase de cada hook precisa ecoar/traduzir o título — não citar de forma decorativa, não trocar por sinônimos, não suavizar.`,
+          `• Use este título EXATO no bloco "📖 TÍTULO DA HISTÓRIA" da saída.`,
           `• É proibido inventar outro título, sugerir alternativas ou ignorar este.`,
-          `• Antes de fechar o hook, releia: a expansão do título está clara nas 4 versões? Se não, refaça.`,
         ].join("\n"),
       );
     } else if (premissa) {
@@ -132,8 +130,6 @@ export const estrutura1Agent: Agent = {
           ``,
           `⚠️ REGRA INEGOCIÁVEL:`,
           `• Defina o título logo no início da saída, no bloco "📖 TÍTULO DA HISTÓRIA".`,
-          `• O hook principal E as 3 versões alternativas DEVEM expandir esse título literal.`,
-          `• A primeira frase de cada hook precisa ecoar o título.`,
           `• NÃO bloqueie, NÃO peça o título à roteirista, NÃO devolva mensagem de erro — gere a ESTRUTURA COMPLETA normalmente.`,
         ].join("\n"),
       );
@@ -156,7 +152,7 @@ export const estrutura1Agent: Agent = {
     }
 
     sections.push(
-      "━━━ AÇÃO ━━━\n\nMonte a ESTRUTURA COMPLETA da Parte 1 seguindo o LAYOUT DE SAÍDA OBRIGATÓRIO definido no system prompt (Título → Mapa da História com fase da lua → Mundo → Pessoas-chave → Heroína → Alpha King → Casal → Secundários → Hook → Capítulos → Questionamento Final → Temas → Arcos → Momentos-chave). Comece direto, sem pedir confirmação. Não escreva os capítulos em si — apenas a ESTRUTURA/PLANEJAMENTO.\n\n⚠️ ATENÇÃO CRÍTICA #1 — NÚMERO DE CAPÍTULOS: a Parte 1 tem EXATAMENTE 6 capítulos. Nunca menos, nunca mais.\n⚠️ ATENÇÃO CRÍTICA #2 — CONTAGEM DE PALAVRAS: a SOMA das contagens declaradas para os 6 capítulos DEVE ficar entre 12.000 e 13.000 palavras (alvo 12.500). REGRA INEGOCIÁVEL. Antes de finalizar, SOME mentalmente as contagens de cada capítulo e CONFIRME que o total está dentro da faixa. Se ficar fora, REDISTRIBUA até bater.",
+      "━━━ AÇÃO ━━━\n\nMonte a ESTRUTURA COMPLETA da Parte 1 seguindo o LAYOUT DE SAÍDA OBRIGATÓRIO definido no system prompt (Título → Mapa da História com fase da lua → Mundo → Pessoas-chave → Heroína → Alpha King → Casal → Secundários → Capítulos → Questionamento Final → Temas → Arcos → Momentos-chave). Comece direto, sem pedir confirmação. Não escreva os capítulos em si — apenas a ESTRUTURA/PLANEJAMENTO.\n\n⚠️ ATENÇÃO CRÍTICA #1 — NÚMERO DE CAPÍTULOS: a Parte 1 tem EXATAMENTE 6 capítulos. Nunca menos, nunca mais.\n⚠️ ATENÇÃO CRÍTICA #2 — CONTAGEM DE PALAVRAS: a SOMA das contagens declaradas para os 6 capítulos DEVE ficar entre 12.000 e 13.000 palavras (alvo 12.500). REGRA INEGOCIÁVEL. Antes de finalizar, SOME mentalmente as contagens de cada capítulo e CONFIRME que o total está dentro da faixa. Se ficar fora, REDISTRIBUA até bater.",
     );
 
     return sections.join("\n\n");

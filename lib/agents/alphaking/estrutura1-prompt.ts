@@ -34,13 +34,6 @@ O início é corrido. O final é desenvolvido. Nunca o contrário. Evite gastar 
 🎙️ NARRAÇÃO — REGRA ABSOLUTA
 A Parte 1 inteira é narrada pela heroína em primeira pessoa. A leitora vive tudo pelos olhos, pensamentos e sentimentos dela — incluindo as primeiras vezes que ela sente o vínculo, ouve o lobo dentro de si, percebe o cheiro do alpha. "Eu/me/mim/meu/minha" são naturais. Os diálogos de todos os personagens aparecem dentro da narração dela. A leitora só sabe o que ela sabe, vê o que ela vê, sente o que ela sente. Quando o lobo dela aparece (rosna por dentro, observa, sente), também é narrado por ela — como uma segunda voz dentro da própria voz.
 
-🎣 HOOK — OBRIGATÓRIO
-O hook da Parte 1 é SEMPRE a expansão do TÍTULO da história. Comercial, viciante, irresistível, com clima werewolf intenso, tensão do vínculo de mate, peso espiritual e cliffhanger forte no final.
-• Entre 90 e 120 palavras (obrigatório — nunca menos de 90 nem mais de 120).
-• Começa expandindo o título de forma impactante; mostra um detalhe forte/perigoso (a rejeição, o cheiro, o lobo recusando, a Luna substituta); faz crescer a tensão emocional/espiritual; termina com revelação incompleta, ameaça ou descoberta chocante ("ela era a mate verdadeira", "o lobo dele uivou quando ela saiu", "a Moon Goddess não estava terminada").
-• Não é sinopse fria. Não entrega a resolução. Não explica demais o universo — sugere. Linguagem envolvente, feminina, dramática, com peso ancestral.
-Entregue 1 hook principal + 1 versão alternativa — ambos expandindo o título, com cliffhanger, sem genéricos, com impacto de best-seller digital.
-
 🌍 UNIVERSO WEREWOLF — definir antes de escrever
 Reino lobo / alcateia principal; hierarquia local (o Alpha King governa quantas alcateias? há conselho? alcateias rivais?); geografia (montanhas, floresta antiga, território congelado — onde fica o castelo, onde fica a alcateia rival); particularidades (lobos têm marcas específicas? como a Moon Goddess se manifesta? existem lobos raros? como funciona a rejeição neste universo?); o que separa o mundo dele do dela; pessoas-chave ao redor dele.
 
@@ -87,10 +80,9 @@ POSICIONAMENTO DA CENA ÍNTIMA (flexível, depende da premissa): no início/meio
 👤 ALPHA KING (MMC) — nome; idade; quem ele é; passado marcante; fraqueza emocional; o que nela o desarma; estilo de ciúmes.
 💑 O CASAL — trope base; dinâmica inicial; tensão principal; resolução.
 👫 SECUNDÁRIOS — melhor amiga; Beta/aliado; antagonista (o que faz ativamente); outros.
-🎬 HOOK — hook principal (90-120 palavras) + 1 versão alternativa.
 📖 CAPÍTULOS — para cada um dos 6: "Capítulo N — [Título] (± X palavras — ritmo Y)" + o que acontece + papel ativo da heroína + gancho para o próximo.
 ❓ QUESTIONAMENTO FINAL — o que a heroína questiona; como aparece; tom (sutil, leve).
 🔄 ARCOS EMOCIONAIS (Alpha / Heroína / Casal) · 💥 CENA ÍNTIMA / MARCAÇÃO (posicionamento + função) + cenas em que a heroína age.
 
-✅ ANTES DE FINALIZAR: confirme exatamente 6 capítulos; SOME as contagens declaradas e confirme que o total está entre 12.000 e 13.000; hook entre 90-120 palavras expandindo o título; nomes fora da lista proibida ("Luna" só como título); início rápido / final desenvolvido; questionamento final sutil; sem coroação/herdeiro/casamento sob a lua.
+✅ ANTES DE FINALIZAR: confirme exatamente 6 capítulos; SOME as contagens declaradas e confirme que o total está entre 12.000 e 13.000; nomes fora da lista proibida ("Luna" só como título); início rápido / final desenvolvido; questionamento final sutil; sem coroação/herdeiro/casamento sob a lua.
 `;

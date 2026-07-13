@@ -27,26 +27,6 @@ A Parte 2 é o livro pelo qual o leitor pagou. Já se apaixonou na Parte 1 — a
 • Último capítulo: final feliz — casamento + filhos / lua de mel / sonho realizado. ⚠️ Mesmo sendo o fechamento, tem peso CHEIO de palavras (~2.000+, como os outros capítulos) — NUNCA um epílogo curto.
 • Tom geral: mais intenso que a Parte 1 — mais íntimo, mais perigoso, mais resolutivo, mais erótico.
 
-🎣 HOOK — OBRIGATÓRIO
-Hook extremamente comercial, intenso e viciante para a Parte 2 — forte carga emocional, sensação de continuidade, reviravolta chocante e cliffhanger poderoso no final. Deve fazer a leitora sentir que a história ficou ainda mais perigosa, dolorosa, irresistível e impossível de ignorar do que na Parte 1.
-• Entre 90 e 120 palavras, OBRIGATORIAMENTE.
-• Soa como continuação direta de história que terminou com sensação de conquista, alívio ou felicidade na Parte 1.
-• Comece mostrando a paz, estabilidade, rendição emocional ou momento de felicidade do casal no final da Parte 1.
-• Em seguida, quebre essa paz com bomba narrativa: ameaça, revelação, retorno, segredo, traição, risco, perda ou descoberta capaz de destruir tudo.
-• Mostre que a protagonista agora está diante de algo muito maior e mais doloroso.
-• Deixe claro que existe uma escolha difícil ou consequência terrível se aproximando.
-• Termine com cliffhanger muito forte.
-• NÃO resuma a história inteira. NÃO entregue a resolução. NÃO explique demais.
-
-Estrutura obrigatória do hook da Parte 2:
-1) Mostre brevemente a paz/felicidade conquistada.
-2) Introduza a bomba que destrói essa segurança.
-3) Mostre o impacto emocional e o novo risco.
-4) Sugira a escolha impossível, consequência devastadora ou segredo que muda tudo.
-5) Termine com frase final afiada, dolorosa e cheia de suspense.
-
-Entrega: 1 hook principal + 1 versão alternativa, ambas 90-120 palavras, com cliffhanger.
-
 📖 ESTRUTURA DOS CAPÍTULOS
 
 Capítulo 1 — A BOMBA
@@ -85,7 +65,6 @@ Objetivo: a cena deve parecer inevitável, merecida e emocionalmente satisfatór
 ⚠️ Os blocos ✦ NOME aparecem EXCLUSIVAMENTE na Parte 2. A Parte 1 inteira foi narrada pela FMC, sem nenhum bloco ✦ NOME — qualquer flashback que reviva fatos da Parte 1 a partir do POV do MMC mora AQUI, na Parte 2, dentro de um bloco ✦ NOME. NÃO interpretar nada deste prompt como permissão para inserir POV masculino na Parte 1.
 
 Narração principal sempre da FMC. Narração do MMC aparece NO MÁXIMO 3 ou 4 vezes em toda a Parte 2. Nunca em capítulos seguidos — espaçar estrategicamente. Usar apenas em momentos de extrema importância emocional:
-• A Isca de Abertura (se aplicável).
 • A segunda metade do Capítulo 1 (quando a bomba estoura nele).
 • O flashback mais revelador — quando ele finalmente explica por que se apaixonou por ela.
 • O momento em que ele toma a decisão mais difícil da história.
@@ -160,17 +139,14 @@ Mesmos da Parte 1, com mesmos nomes e perfis. Devem ter EVOLUÍDO — não regri
 Frases diretas e claras. Sem rodeios, sem palavras difíceis. Sempre identificar quem está falando. Transições de cena sinalizadas. Diálogos: reflexão interna antes ou depois da fala — nunca no meio. Acessível para leitoras de todas as idades.
 
 🚫 PROIBIDO
-❌ Contradizer datas, locais ou fatos da Parte 1. ❌ Recapitulações longas. ❌ Conflitos sem resolução. ❌ Antagonista que some sem consequência. ❌ Final apressado. ❌ Cena erótica vulgar ou +18. ❌ Segunda cena erótica mais detalhada que a primeira. ❌ Cena erótica sem construção prévia de química, clima e progressão. ❌ Cena erótica nos primeiros capítulos ou no epílogo. ❌ Revelar muito sobre o casal secundário. ❌ Diálogos sem identificação. ❌ Diálogos partidos com reflexão interna no meio. ❌ Dois POVs repetindo a mesma informação. ❌ Personagem novo sem apresentação. ❌ Ultrapassar/cair muito abaixo de 13.500. ❌ Hook fora de 90-120 palavras. ❌ Hook revelando a resolução do conflito. ❌ Começar sem o mapa completo. ❌ Mudar de ambiente sem transição. ❌ Personagens "ouvirem" através de paredes/andares. ❌ Pular dias/horários. ❌ Aparecer em local sem mostrar como chegou. ❌ Objeto sem cenário estabelecido. ❌ Ignorar deslocamento. ❌ Mapa desatualizado. ❌ Mudar POV sem identificação visual obrigatória. ❌ Locais da Parte 1 com características diferentes na Parte 2.
+❌ Contradizer datas, locais ou fatos da Parte 1. ❌ Recapitulações longas. ❌ Conflitos sem resolução. ❌ Antagonista que some sem consequência. ❌ Final apressado. ❌ Cena erótica vulgar ou +18. ❌ Segunda cena erótica mais detalhada que a primeira. ❌ Cena erótica sem construção prévia de química, clima e progressão. ❌ Cena erótica nos primeiros capítulos ou no epílogo. ❌ Revelar muito sobre o casal secundário. ❌ Diálogos sem identificação. ❌ Diálogos partidos com reflexão interna no meio. ❌ Dois POVs repetindo a mesma informação. ❌ Personagem novo sem apresentação. ❌ Ultrapassar/cair muito abaixo de 13.500. ❌ Começar sem o mapa completo. ❌ Mudar de ambiente sem transição. ❌ Personagens "ouvirem" através de paredes/andares. ❌ Pular dias/horários. ❌ Aparecer em local sem mostrar como chegou. ❌ Objeto sem cenário estabelecido. ❌ Ignorar deslocamento. ❌ Mapa desatualizado. ❌ Mudar POV sem identificação visual obrigatória. ❌ Locais da Parte 1 com características diferentes na Parte 2.
 
 📄 LAYOUT DE SAÍDA — MODELO OBRIGATÓRIO
 
 [EMOJI] TÍTULO DA HISTÓRIA — PARTE 2
 Continuação de: [Título da Parte 1]
 
-🎣 [HOOK / ISCA DE ABERTURA — 90 a 120 palavras]
-
 🔗 PONTO DE RETOMADA
-Quem narra a Isca: [MMC ou FMC — quem recebe a bomba]
 Quem narra a 1ª metade do Cap. 1: [...]
 Quem narra a 2ª metade do Cap. 1: [...]
 

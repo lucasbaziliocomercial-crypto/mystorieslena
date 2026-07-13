@@ -72,22 +72,6 @@ Dentro de diálogos, os personagens falam normalmente em primeira pessoa: "Eu te
 
 ⚠️ ATENÇÃO: este regime ONISCIENTE vale APENAS para a Parte 2. A Parte 1 permanece em terceira pessoa LIMITADA à FMC. A Parte 2 é o único ponto da duologia em que o narrador entra também na mente do MMC.
 
-🎣 HOOK — OBRIGATÓRIO
-Hook extremamente comercial, intenso e viciante para a Parte 2 — com forte carga emocional, sensação de continuidade, reviravolta chocante e cliffhanger poderoso no final. Faz a leitora sentir que a história ficou ainda mais perigosa, dolorosa, irresistível e impossível de ignorar do que na Parte 1.
-
-Regras:
-- O hook da Parte 2 deve ter entre 90 e 120 palavras, obrigatoriamente.
-- Soa como continuação direta de uma história que terminou com sensação de conquista, alívio ou felicidade na Parte 1.
-- Comece mostrando a paz, a estabilidade, a rendição emocional ou o momento de felicidade que o casal estava vivendo no final da Parte 1.
-- Em seguida, quebre essa paz com uma bomba narrativa: uma ameaça, revelação, retorno, segredo, traição, risco, perda ou descoberta capaz de destruir tudo.
-- A partir disso, mostre que a protagonista agora está diante de algo muito maior e mais doloroso do que antes.
-- O hook precisa deixar claro que existe uma escolha difícil, uma decisão emocionalmente devastadora ou uma consequência terrível se aproximando.
-- Final com cliffhanger muito forte, deixando suspense sobre o que vai acontecer.
-- Não resuma a história inteira. Não entregue a resolução. Não explique demais.
-- Foque apenas na virada mais forte e vendável da Parte 2.
-- Narrado em terceira pessoa pelo narrador externo, sem jamais mencionar "Parte 1" ou "narrador".
-- Tom envolvente, feminino, fluido, dramático e natural, sem parecer escrito por IA.
-
 📖 ESTRUTURA DOS CAPÍTULOS
 
 Capítulo 1 — [A BOMBA]
@@ -177,8 +161,6 @@ Frases diretas e claras — sem rodeios. Sempre identificar quem está falando. 
 ❌ Narração em primeira pessoa em qualquer trecho — tudo é terceira pessoa, sempre, pelo narrador externo onisciente. Nenhum personagem (FMC, MMC ou qualquer outro) pode narrar. "Eu", "me", "mim", "meu", "minha" só aparecem dentro de diálogos (falas diretas).
 ❌ "Nós", "nosso", "nossa" como voz narrativa — o narrador jamais se inclui na história.
 ❌ Blocos ✦ NOME (e qualquer marcador visual ✦/✧/♦/★/▲) ou marcadores de POV alternado ("POV: ele", "Capítulo X — ponto de vista de [MMC]") — o foco onisciente é fluido, sem blocos rotulados.
-❌ Isca de abertura com menos de 90 ou mais de 120 palavras.
-❌ Isca de abertura revelando a resolução do conflito.
 ❌ Mencionar no texto da história as palavras: "Parte 1", "Parte 2", "capítulo anterior", "livro anterior", "história anterior", "continuação".
 ❌ Mencionar no texto da história as palavras: "narrador", "autor", "escritor", "narração", "leitor", "quem lê", "quem escreve".
 ❌ Qualquer quebra de quarta parede — o narrador nunca se dirige ao leitor, nunca se anuncia, nunca comenta sobre a própria narrativa.
@@ -192,10 +174,6 @@ Frases diretas e claras — sem rodeios. Sempre identificar quem está falando. 
 
 [EMOJI] TÍTULO DA HISTÓRIA — PARTE 2
 Continuação de: [Título da Parte 1]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎣 [ISCA DE ABERTURA — 90 a 120 palavras — narrada em terceira pessoa pelo narrador externo, sem jamais mencionar "Parte 1" ou "narrador"]
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 🔗 PONTO DE RETOMADA
 Foco do narrador na 1ª metade do Cap. 1: [MMC ou FMC — quem está vivendo a rotina em paz]
@@ -244,7 +222,7 @@ Conflito 2: [como foi resolvido]
 Conflito 3: [como foi resolvido]
 
 ✅ CONFIRME (1 linha cada, sem reproduzir as regras)
-- Isca 90–120 palavras, 3ª pessoa onisciente, cliffhanger absoluto; toda narração 3ª pessoa onisciente (acessa FMC e MMC), nenhum personagem narra, narrador nunca se anuncia.
+- Toda narração 3ª pessoa onisciente (acessa FMC e MMC), nenhum personagem narra, narrador nunca se anuncia.
 - Sem marcador ✦ NOME / POV rotulado; sem "eu/nós" na narração (só em diálogos); sem citar "Parte 1/narrador/leitor".
 - Cena erótica posicionada pela curva (nunca nos 1ºs caps nem no epílogo), narrada em 3ª onisciente, sem vocabulário vulgar; ≥3 easter eggs naturais; humor em ≥3 momentos.
 - Coerência total com a história anterior (nomes/datas/locais), todos os conflitos resolvidos; 6 capítulos; total 13.000–14.000; cada um dos 6 capítulos com MÍNIMO ~2.000 palavras (nenhum, nem o último, muito mais curto que os outros); final entrega casamento + (filhos / lua de mel / sonho dela).

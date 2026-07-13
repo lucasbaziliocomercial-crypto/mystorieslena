@@ -19,7 +19,6 @@ Criar a Parte 1 de uma história de romance de milionário em 3ª pessoa centrad
 Total de palavras: ~10.500 (faixa 10.000 a 11.000) — nunca ultrapassar 11.000 (já distribuir por capítulos).
 Número de capítulos: entre 5 e 6 — nunca menos, nunca mais.
 Distribuição: livre, conforme o ritmo da cena exige.
-Formato do hook: narração curta, linhas soltas, impactante.
 
 🎙️ NARRAÇÃO — TERCEIRA PESSOA LIMITADA À FMC (REGRA INEGOCIÁVEL)
 A Parte 1 é narrada em terceira pessoa por um narrador externo, com foco LIMITADO à FMC.
@@ -29,40 +28,6 @@ A Parte 1 é narrada em terceira pessoa por um narrador externo, com foco LIMITA
 - Cenas em que a FMC não está presente: narradas em terceira pessoa pelo mesmo narrador externo, mas mostrando o MMC apenas pelo comportamento observável.
 - ⚠️ Este foco LIMITADO à FMC é a regra da PARTE 1. Na PARTE 2 há mudança de regime — ela passa a usar narrador ONISCIENTE (que acessa também a mente do MMC). Aqui, ao montar a estrutura da Parte 1, mantenha SEMPRE o foco limitado à FMC.
 - PROIBIDO o formato visual ✦ NOME (e variantes ✧/♦/★/▲) — esse marcador é EXCLUSIVO de outras categorias (máfia, milionário-1p). Aqui não existe POV alternado em nenhuma parte, então o marcador NÃO deve aparecer NUNCA, nem como destaque de narrador, nem como quebra de cena. Quebras de cena usam apenas linha em branco ou *** neutro.
-
-🎣 HOOK — OBRIGATÓRIO
-O HOOK DA PARTE 1 PRECISA SER OBRIGATORIAMENTE A EXPANSÃO DO TÍTULO.
-
-Regra inegociável do título e do hook:
-- O título oficial da história chega como bloco "TÍTULO OFICIAL DA HISTÓRIA" no início da mensagem do usuário.
-- O hook principal E a versão alternativa precisam expandir esse título literal — não um tema parecido, não uma reformulação, não uma "interpretação".
-- A primeira frase de cada hook deve ecoar o título de forma reconhecível (palavras-chave do título aparecendo logo na abertura).
-- É proibido inventar outro título, sugerir variações ou ignorar o título por preferência estética.
-- Antes de fechar o hook, releia as 2 versões e confirme: a expansão do título está clara em cada uma? Se não, refaça.
-- Se o bloco "TÍTULO OFICIAL" NÃO chegou, CRIE um título provisório comercial a partir da premissa, anuncie-o no bloco "📖 TÍTULO DA HISTÓRIA" e expanda-o no hook — NUNCA bloqueie, NUNCA devolva mensagem de erro.
-
-Crie um hook extremamente comercial, viciante e irresistível, com clima de romance intenso, tensão emocional e cliffhanger forte no final, para fazer a leitora sentir que precisa comprar e ler a história.
-- O hook deve ser comercial, com cara de livro que vende.
-- Não escreva como sinopse comum, nem como resumo frio.
-- O texto precisa despertar curiosidade, obsessão, tensão e urgência emocional.
-- O hook deve fazer a leitora pensar: "eu preciso saber o que aconteceu".
-- Use linguagem envolvente, feminina, fluida e dramática.
-- O tom deve parecer abertura de romance que prende já na primeira linha.
-- Pode ter sensualidade e perigo, mas o principal é a tensão emocional e o mistério.
-- O final precisa ter um cliffhanger muito forte, encerrando no auge da tensão.
-- Não entregue a resolução do conflito.
-- Não explique demais. Não resuma a história inteira.
-- Foque apenas no gancho mais forte e vendável.
-- O hook deve ter entre 90 e 120 palavras, obrigatoriamente.
-
-Estrutura ao criar o hook:
-- Comece expandindo o título de forma impactante.
-- Mostre um detalhe forte, provocante ou perigoso da situação.
-- Faça crescer a tensão emocional, romântica ou psicológica.
-- Termine com uma revelação incompleta, ameaça, decisão impossível ou descoberta chocante.
-- A última frase precisa soar como um verdadeiro abismo narrativo.
-
-Entregue na estrutura aprovada: 1 hook principal + 1 versão alternativa (ambas entre 90 e 120 palavras, com cliffhanger, sem parecerem genéricas, sem parecerem escritas por IA, com impacto de best-seller digital).
 
 🌍 UNIVERSO DE PODER E RIQUEZA
 Definir antes de escrever:
@@ -168,7 +133,6 @@ Outras regras:
 
 🚫 EVITAR
 - Nomes da lista proibida.
-- Hook com spoiler.
 - Investigações, roubos ou tramas policiais como foco — se mencionados, apenas de forma superficial.
 - Antagonista passivo.
 - Casamento ou filhos na Parte 1.
@@ -231,10 +195,6 @@ Melhor amiga da FMC: [nome + quem é + função]
 Melhor amigo / advogado / sócio / assistente pessoal do MMC: [nome + quem é + função]
 Antagonista: [nome + quem é + o que faz ativamente]
 Outros: [nomes + quem são + funções]
-
-🎬 HOOK
-[1 hook principal — entre 90 e 120 palavras, expandindo o título sem spoiler]
-HOOK ALTERNATIVO: [1 versão alternativa — 90 a 120 palavras]
 
 🗺 MAPA DA HISTÓRIA (cena por cena)
 Cap. | Cena | Dia da semana | Horário | Locais (na ordem) | Transições | Evento-chave (1 frase)

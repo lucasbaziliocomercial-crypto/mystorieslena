@@ -11,8 +11,8 @@ import { ESTRUTURA2_PROMPT } from "./estrutura2-prompt";
  *
  * Agente especializado que segue NA RISCA o prompt mestre da Parte 2
  * (13.000–13.500 palavras, 6 capítulos, narração 1ª pessoa alternando
- * FMC + MMC com 2-4 trechos do MMC, hook de 90-140 palavras, cena íntima
- * em posição flexível (definida pela curva de química), final feliz/epílogo no último).
+ * FMC + MMC com 2-4 trechos do MMC, cena íntima em posição flexível
+ * (definida pela curva de química), final feliz/epílogo no último).
  *
  * System prompt = regras gerais do projeto (master) + regras específicas
  * da Parte 2 (estrutura2-prompt). User message = Premissa do Step 1 +
@@ -23,7 +23,7 @@ export const estrutura2Agent: Agent = {
   id: "estrutura2",
   label: "Estrutura — Parte 2",
   description:
-    "Monta a estrutura completa da Parte 2 (13.000–13.500 palavras, 6 capítulos) seguindo o prompt mestre especializado — hook, mapa com narrador, alternância FMC/MMC, cena íntima em posição flexível, epílogo/final feliz",
+    "Monta a estrutura completa da Parte 2 (13.000–13.500 palavras, 6 capítulos) seguindo o prompt mestre especializado — mapa com narrador, alternância FMC/MMC, cena íntima em posição flexível, epílogo/final feliz",
   model: MODELS.opus,
   thinking: "adaptive",
   effort: "medium",
@@ -146,7 +146,7 @@ export const estrutura2Agent: Agent = {
     }
 
     sections.push(
-      "━━━ AÇÃO ━━━\n\nMonte a ESTRUTURA COMPLETA da Parte 2 seguindo o LAYOUT DE SAÍDA OBRIGATÓRIO definido no system prompt (Mapa com narrador → Hook/Isca → Ponto de Retomada → Distribuição POVs do MMC → Conflitos herdados → Capítulos → Cena Íntima → Easter Eggs → Entrega Final → Resolução → Checklist). Comece direto, sem pedir confirmação. NÃO escreva os capítulos em si — apenas a ESTRUTURA/PLANEJAMENTO.\n\n⚠️ ATENÇÃO CRÍTICA — CONTAGEM DE PALAVRAS: a SOMA das contagens planejadas para os capítulos DEVE ficar entre 13.000 e 13.500 palavras. ZERO tolerância pra fora dessa faixa. Capítulos: EXATAMENTE 6 — nunca menos, nunca mais. Antes de finalizar, SOME mentalmente a contagem de cada capítulo e CONFIRME que o total cabe na faixa 13.000–13.500. Se ficar abaixo, AUMENTE algum(s) capítulo(s); se ficar acima, REDUZA. Cada um dos 6 capítulos com MÍNIMO ~2.000 palavras — nenhum capítulo (nem o último) pode ficar muito mais curto que os outros; o último NÃO é um epílogo curto. Não pule essa verificação.",
+      "━━━ AÇÃO ━━━\n\nMonte a ESTRUTURA COMPLETA da Parte 2 seguindo o LAYOUT DE SAÍDA OBRIGATÓRIO definido no system prompt (Mapa com narrador → Ponto de Retomada → Distribuição POVs do MMC → Conflitos herdados → Capítulos → Cena Íntima → Easter Eggs → Entrega Final → Resolução → Checklist). Comece direto, sem pedir confirmação. NÃO escreva os capítulos em si — apenas a ESTRUTURA/PLANEJAMENTO.\n\n⚠️ ATENÇÃO CRÍTICA — CONTAGEM DE PALAVRAS: a SOMA das contagens planejadas para os capítulos DEVE ficar entre 13.000 e 13.500 palavras. ZERO tolerância pra fora dessa faixa. Capítulos: EXATAMENTE 6 — nunca menos, nunca mais. Antes de finalizar, SOME mentalmente a contagem de cada capítulo e CONFIRME que o total cabe na faixa 13.000–13.500. Se ficar abaixo, AUMENTE algum(s) capítulo(s); se ficar acima, REDUZA. Cada um dos 6 capítulos com MÍNIMO ~2.000 palavras — nenhum capítulo (nem o último) pode ficar muito mais curto que os outros; o último NÃO é um epílogo curto. Não pule essa verificação.",
     );
 
     return sections.join("\n\n");

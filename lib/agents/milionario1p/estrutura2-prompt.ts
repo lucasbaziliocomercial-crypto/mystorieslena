@@ -140,37 +140,6 @@ POV do MMC (2 a 4 trechos):
 - O momento em que ele percebe algo crucial sobre si mesmo ou sobre a relação
 - Informações que mudam a perspectiva do leitor sobre cenas já narradas pela FMC
 
-━━━ HOOK / ISCA DE ABERTURA — OBRIGATÓRIO ━━━
-
-Crie um hook EXTREMAMENTE comercial, intenso e viciante para a Parte 2, com forte carga emocional, sensação de continuidade, reviravolta chocante e cliffhanger poderoso no final. Esse hook deve fazer a leitora sentir que a história ficou ainda mais perigosa, dolorosa, irresistível e impossível de ignorar do que na Parte 1.
-
-**Regras rigorosas:**
-- **Tamanho: entre 90 e 120 palavras (idealmente até 140) — RIGOROSO.**
-- Soa como continuação direta de uma história que terminou com sensação de conquista/alívio/felicidade na Parte 1.
-- Comece mostrando a paz, a estabilidade ou a felicidade que o casal estava vivendo no final da Parte 1.
-- Em seguida, quebre essa paz com uma BOMBA NARRATIVA: ameaça, revelação, retorno, segredo, traição, risco, perda ou descoberta capaz de destruir tudo.
-- Mostre que a protagonista agora está diante de algo MUITO maior e mais doloroso do que antes.
-- Deixe claro que existe uma escolha difícil, decisão emocionalmente devastadora ou consequência terrível se aproximando.
-- Despertar curiosidade, urgência, obsessão e sofrimento romântico.
-- Final com cliffhanger forte, suspense sobre o que vai acontecer/descobrir/escolher/destruir.
-- NÃO resuma a história inteira.
-- NÃO entregue a resolução.
-- NÃO explique demais.
-- Foco apenas na virada mais forte e vendável da Parte 2.
-- Tom envolvente, feminino, fluido, dramático e natural — NUNCA com cara de IA.
-
-**Estrutura obrigatória do hook da Parte 2:**
-1. Mostre brevemente a paz ou felicidade que o casal finalmente tinha conquistado.
-2. Introduza a bomba que destrói essa segurança.
-3. Mostre o impacto emocional e o novo risco.
-4. Sugira a escolha impossível, consequência devastadora ou segredo que muda tudo.
-5. Termine com frase final afiada, dolorosa, cheia de suspense.
-
-**Entregue:**
-- 1 hook principal
-- 1 versão alternativa
-- Ambos com forte apelo comercial, cliffhanger real, sensação de continuação MAIS intensa que a Parte 1.
-
 ━━━ ESTRUTURA DOS CAPÍTULOS ━━━
 
 **Capítulo 1 — [A BOMBA]**
@@ -322,8 +291,6 @@ A estrutura precisa ser escrita com frases diretas e claras, sem rodeios e sem p
 ❌ Diálogos partidos com reflexão interna no meio
 ❌ Personagem novo sem apresentação na primeira menção
 ❌ Ultrapassar 13.500 palavras ou ficar abaixo de 13.000 palavras
-❌ Hook/Isca com menos de 90 ou mais de 140 palavras
-❌ Hook revelando a resolução do conflito
 ❌ POV do MMC narrando a cena íntima — A cena íntima é SEMPRE narrada pela FMC
 ❌ POV do MMC repetindo cenas ou informações já narradas pela FMC
 ❌ Dois trechos consecutivos do MMC sem um trecho da FMC entre eles
@@ -352,14 +319,6 @@ Continuação de: [Título da Parte 1]
 | Cap. | Cena | Dia | Horário | Locais (na ordem) | Transições | Evento-chave | Narrador |
 | ---- | ---- | --- | ------- | ----------------- | ---------- | ------------ | -------- |
 [preencher para todas as cenas de todos os capítulos]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-# 🎣 ISCA DE ABERTURA / HOOK
-[hook principal — 90 a 140 palavras — narrado em 1ª pessoa pela FMC]
-
-**1 versão alternativa:**
-1. [texto]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -410,7 +369,7 @@ Continuação de: [Título da Parte 1]
 - [Cada conflito herdado da Parte 1 + como foi resolvido — uma linha cada]
 
 # ✅ CONFIRME (1 linha cada, sem reproduzir as regras)
-- Isca 90-140 palavras, 1ª pessoa FMC, cliffhanger absoluto; toda narração 1ª pessoa, cada POV identificado pelo nome.
+- Toda narração 1ª pessoa, cada POV identificado pelo nome.
 - 2-4 trechos do MMC (sem dois consecutivos, cada um com info nova); cena íntima narrada pela FMC, sem vocabulário vulgar.
 - Coerência total com a Parte 1 (nomes/datas/locais) e todos os conflitos resolvidos; 6 capítulos; ≥3 easter eggs.
 - Final entrega casamento + (filhos / lua de mel / sonho dela), com EPÍLOGO marcado se houver salto temporal.
