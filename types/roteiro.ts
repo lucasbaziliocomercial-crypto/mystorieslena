@@ -7,6 +7,11 @@ export type StepId =
   | "revisor2"
   | "overview";
 
+// NOTA: o step "overview" (Overview Final) foi removido do FLUXO — não entra
+// mais no STEP_ORDER nem no stepper, então o wizard termina no Revisor. O
+// StepId "overview" e seus agentes/rota continuam no código (inativos) para
+// não quebrar tipos/imports e preservar roteiros legados que já tenham um
+// output de overview salvo.
 export const STEP_ORDER: StepId[] = [
   "premissa",
   "estrutura1",
@@ -14,7 +19,6 @@ export const STEP_ORDER: StepId[] = [
   "escrita",
   "revisor1",
   "revisor2",
-  "overview",
 ];
 
 export const STEP_LABELS: Record<StepId, string> = {
@@ -38,10 +42,11 @@ export function partOfRevisorStep(step: RevisorStepId): 1 | 2 {
 }
 
 /**
- * Nós de EXIBIÇÃO do stepper (6) — colapsa `revisor1`+`revisor2` num único nó
+ * Nós de EXIBIÇÃO do stepper (5) — colapsa `revisor1`+`revisor2` num único nó
  * "Revisor" (o step abre com abas Parte 1 / Parte 2). O modelo de dados continua
- * com os 7 `StepId` reais (`STEP_ORDER`) — isto é só apresentação. `steps` lista
+ * com os 6 `StepId` de `STEP_ORDER` — isto é só apresentação. `steps` lista
  * os `StepId` que aquele nó representa; o primeiro é o destino do clique.
+ * (O StepId "overview" ainda existe no tipo, mas saiu do fluxo — ver STEP_ORDER.)
  */
 export const STEPPER_NODES: { key: string; label: string; steps: StepId[] }[] = [
   { key: "premissa", label: STEP_LABELS.premissa, steps: ["premissa"] },
@@ -49,11 +54,10 @@ export const STEPPER_NODES: { key: string; label: string; steps: StepId[] }[] = 
   { key: "estrutura2", label: STEP_LABELS.estrutura2, steps: ["estrutura2"] },
   { key: "escrita", label: STEP_LABELS.escrita, steps: ["escrita"] },
   { key: "revisor", label: "Revisor", steps: ["revisor1", "revisor2"] },
-  { key: "overview", label: STEP_LABELS.overview, steps: ["overview"] },
 ];
 
 /** Índice (1-based) e total do nó de EXIBIÇÃO que contém `step` — pra o
- *  cabeçalho "Etapa X de Y" bater com os 6 nós colapsados do stepper. */
+ *  cabeçalho "Etapa X de Y" bater com os 5 nós colapsados do stepper. */
 export function displayNodeIndex(step: StepId): { index: number; total: number } {
   const i = STEPPER_NODES.findIndex((n) => n.steps.includes(step));
   return { index: (i === -1 ? 0 : i) + 1, total: STEPPER_NODES.length };
