@@ -142,6 +142,13 @@ export interface ClearCacheResult {
 }
 
 export interface MyStoriesLenaBridge {
+  /**
+   * RAM física da máquina em MB (síncrona, exposta no load do preload). O
+   * renderer usa pra escolher a concorrência ADAPTATIVA à memória (máquina
+   * fraca ≤6GB = menos streams Opus simultâneos = menos queda de socket).
+   * Ausente fora do Electron (web/SSR) → assume máquina normal.
+   */
+  totalMemMB?: number;
   getRuntimeInfo: () => Promise<RuntimeInfo>;
   checkForUpdates: () => Promise<UpdaterCheckResult>;
   downloadUpdate: () => Promise<{ ok: boolean; reason?: string }>;

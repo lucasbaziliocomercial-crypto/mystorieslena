@@ -49,6 +49,7 @@ import {
   type StepId,
   type StepOutput,
 } from "@/types/roteiro";
+import { IS_LOW_MEM_MACHINE } from "@/lib/escrita-calibration";
 
 // Teto de concorrência por STREAMS Opus (não por jobs). Cada job de Escrita usa
 // 2 streams em paralelo (Parte 1 ‖ Parte 2 em run-escrita.ts); todo outro step
@@ -58,7 +59,12 @@ import {
 // JÁ ao lado de uma Escrita pesada (1 Escrita=2 + 2 leves=2 = 4), em vez de o
 // contador de JOBS=2 travar tudo. É um knob: afine pelos logs `[perf]` do
 // run-escrita — poucos 429 → pode subir; muitos 429 → baixe.
-const MAX_CONCURRENT_STREAMS = 4;
+//
+// ADAPTATIVO À RAM: numa máquina ≤6GB cai pra **2** — só UMA Escrita (2 streams)
+// por vez, nunca duas em paralelo (que dariam 4 streams Opus = pico de memória
+// que derruba o socket na máquina fraca da roteirista). 8GB+ segue **4** (zero
+// regressão pro time). Espelha o heap adaptativo (electron/main.js).
+const MAX_CONCURRENT_STREAMS = IS_LOW_MEM_MACHINE ? 2 : 4;
 
 // Custo em streams Opus por job. Só a Escrita roda 2 streams (P1‖P2); o resto, 1.
 const jobStreamCost = (step: string) => (step === "escrita" ? 2 : 1);

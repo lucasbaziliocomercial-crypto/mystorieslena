@@ -24,6 +24,12 @@ import {
 } from "@/lib/parse-revisor-output";
 import { splitThinking } from "@/lib/stream-markers";
 import { normalizeEstruturaTargets } from "@/lib/normalize-estrutura-targets";
+import {
+  detectHardMarker,
+  detectErroMarker,
+  isQuotaErroMarker,
+  isTransientErroMarker,
+} from "@/lib/generation/stream-error-markers";
 
 /** Steps que o motor genérico de chamada única sabe rodar. */
 export const STREAMING_STEPS = [
@@ -79,6 +85,36 @@ class StreamStallError extends Error {
       )}s). Tente gerar de novo.`,
     );
     this.name = "StreamStallError";
+  }
+}
+
+/**
+ * A rota injetou no CORPO do stream um marcador de erro TRANSIENTE (socket do
+ * `claude.exe` caiu, subprocesso morreu, cota estourou) — o "conteúdo" recebido
+ * é uma mensagem de erro disfarçada, NÃO a estrutura/revisão. Tratado como
+ * recuperável: `withStallRetry` refaz a chamada INTEIRA (idempotente — nada é
+ * mutado antes da resposta chegar). Fecha o buraco "socket connection was closed
+ * unexpectedly" que ANTES salvava a estrutura truncada + o `[ERRO]` como se fosse
+ * conteúdo (a Escrita já retentava isso; o motor de chamada única, não). Bug da
+ * máquina fraca da roteirista (pressão de memória derruba o socket), 13/07/2026.
+ */
+class TransientStreamError extends Error {
+  constructor(detail: string) {
+    super(detail);
+    this.name = "TransientStreamError";
+  }
+}
+
+/**
+ * A rota injetou um marcador FATAL (login expirado, binário ausente) ou um
+ * `[ERRO]` genuíno da SDK que repetir NÃO resolve. Propaga com a causa real — o
+ * `QueueRunner`/`StepShell` marca o job como erro e mostra "Gerar novamente" com
+ * a explicação. JAMAIS salvo como conteúdo (era o que truncava a estrutura).
+ */
+class FatalStreamMarkerError extends Error {
+  constructor(reason: string) {
+    super(reason);
+    this.name = "FatalStreamMarkerError";
   }
 }
 
@@ -141,6 +177,28 @@ async function readResponseText(
     throw e;
   }
   if (onLive) onLive(acc);
+
+  // A rota (`app/api/agent/[step]/route.ts`) injeta marcadores de erro NO CORPO
+  // do stream quando a SDK falha COM res.ok=true — indetectável pelo status HTTP.
+  // Se aparecerem, o que veio NÃO é estrutura/revisão: é uma mensagem de erro
+  // disfarçada. Sem esta checagem, o motor salvava o texto truncado + `[ERRO]`
+  // como se fosse o conteúdo (estrutura cortada no meio → contagem de capítulos/
+  // palavras quebrada downstream). Ordem = a MESMA da Escrita (run-escrita.ts):
+  // hard (login/binário) → cota → queda transiente → `[ERRO]` genuíno.
+  //   • hard/genuíno → FatalStreamMarkerError (propaga a causa real; não salva).
+  //   • cota/socket caído/subprocesso morto → TransientStreamError (withStallRetry
+  //     refaz a chamada inteira; idempotente). É a correção do "socket connection
+  //     was closed unexpectedly" na máquina fraca da roteirista.
+  const hardReason = detectHardMarker(acc);
+  if (hardReason) throw new FatalStreamMarkerError(hardReason);
+  if (isQuotaErroMarker(acc) || isTransientErroMarker(acc)) {
+    throw new TransientStreamError(
+      detectErroMarker(acc) ?? "A conexão com o modelo caiu no meio da geração.",
+    );
+  }
+  const erroReason = detectErroMarker(acc);
+  if (erroReason) throw new FatalStreamMarkerError(erroReason);
+
   // Retorna o conteúdo final SEM o raciocínio (thinking). Pros steps sem
   // thinking (Revisor/Premissa/Overview), splitThinking é identidade.
   return splitThinking(acc).content;
@@ -171,12 +229,16 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
 }
 
 /**
- * Roda `fn` e, se o stream TRAVAR (`StreamStallError`), refaz a chamada INTEIRA até
- * `MAX_STALL_RETRIES` com um backoff curto (abort-aware). Self-heal pro caso "duas
- * gerações concorrentes, uma engasga" — a roteirista não precisa reclicar. SÓ o
- * stall é retentado; QUALQUER outro erro (HTTP, abort, erro de conteúdo) propaga na
- * hora (não mascara falha real). Esgotadas as tentativas, o stall propaga e o
- * `QueueRunner` marca o job como erro recuperável. `onPhase` avisa a re-tentativa.
+ * Roda `fn` e, se o stream TRAVAR (`StreamStallError`) ou a rota injetar um
+ * marcador de erro TRANSIENTE (`TransientStreamError` — socket caído, subprocesso
+ * morto, cota), refaz a chamada INTEIRA até `MAX_STALL_RETRIES` com backoff curto
+ * (abort-aware). Self-heal pros casos "duas gerações concorrentes, uma engasga" e
+ * "socket caiu no meio na máquina fraca" — a roteirista não reclica. Só esses dois
+ * são retentados; QUALQUER outro erro (HTTP, abort, `FatalStreamMarkerError` de
+ * login/binário/erro genuíno, erro de conteúdo) propaga na hora (não mascara falha
+ * real). Esgotadas as tentativas, propaga e o `QueueRunner` marca o job como erro
+ * recuperável ("Gerar novamente"), em vez de salvar o `[ERRO]` como conteúdo.
+ * `onPhase` avisa a re-tentativa.
  */
 async function withStallRetry<T>(
   fn: () => Promise<T>,
@@ -188,9 +250,13 @@ async function withStallRetry<T>(
       return await fn();
     } catch (e) {
       if (signal.aborted || (e as Error).name === "AbortError") throw e;
-      if (e instanceof StreamStallError && attempt < MAX_STALL_RETRIES) {
+      const retryable =
+        e instanceof StreamStallError || e instanceof TransientStreamError;
+      if (retryable && attempt < MAX_STALL_RETRIES) {
         onPhase?.(
-          `O modelo engasgou — tentando de novo (${attempt + 1}/${MAX_STALL_RETRIES})…`,
+          e instanceof TransientStreamError
+            ? `A conexão caiu — tentando de novo (${attempt + 1}/${MAX_STALL_RETRIES})…`
+            : `O modelo engasgou — tentando de novo (${attempt + 1}/${MAX_STALL_RETRIES})…`,
         );
         await sleep(1500 * (attempt + 1), signal);
         if (signal.aborted) throw e;

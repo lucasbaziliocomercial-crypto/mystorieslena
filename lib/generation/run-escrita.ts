@@ -65,6 +65,10 @@ import {
   GEN_STREAM_CONCURRENCY,
   QUOTA_BACKOFF_CAP_MS,
 } from "@/lib/escrita-calibration";
+import {
+  isQuotaErroMarker,
+  isTransientErroMarker,
+} from "@/lib/generation/stream-error-markers";
 
 export type EscritaProgress =
   | {
@@ -253,45 +257,12 @@ function detectErroMarker(text: string): string | null {
     : `Erro ao gerar o lote: ${detail || "falha desconhecida na SDK do Claude"}.`;
 }
 
-/**
- * `true` quando o `[ERRO]` injetado é de COTA/rate-limit (transiente) — vs um
- * erro genuíno da SDK/binário (fatal). Espelha a heurística `isQuota` interna do
- * `detectErroMarker` (regex idêntica), mas como predicado, pra o loop de batch
- * decidir RETRY (cota) vs ABORT (resto) sem mudar a assinatura do `detectErroMarker`
- * (que segue retornando a mensagem amigável usada no caminho fatal).
- */
-function isQuotaErroMarker(text: string): boolean {
-  const generic = /\[ERRO\]\s*([\s\S]*)$/.exec(text);
-  if (!generic) return false;
-  const detail = generic[1]?.trim().slice(0, 300) ?? "";
-  return /rate.?limit|quota|usage|limit|429|overloaded|capacity/i.test(detail);
-}
-
-/**
- * `true` quando o `[ERRO]` injetado é uma QUEDA TRANSIENTE do subprocesso do
- * Claude — o binário/CLI que a SDK spawna (`claude.exe`) morreu no meio da
- * geração ("process exited with code N", SIGKILL/SIGTERM, conexão resetada,
- * `fetch failed`) — vs um erro GENUÍNO de código/SDK (fatal). Login/binário
- * ausente já foram tratados antes (`detectHardMarker`), então aqui sobra: cota
- * (`isQuotaErroMarker`), queda transitória (este) ou erro real. A queda é quase
- * sempre instabilidade curta do serviço: passa no retry. Roteado pra MESMA
- * trilha de backoff do quota/stream-stall (retenta e, ao esgotar, degrada pra
- * warning NÃO-fatal — a outra Parte segue e o guard de completude/resume
- * regenera só o que faltou), em vez de abortar a run inteira no 1º toque.
- * Bug "Claude Code process exited with code 3", 07/07/2026.
- * "socket connection was closed unexpectedly"/"closed unexpectedly": o socket do
- * subprocesso `claude.exe` cai sob PRESSÃO DE MEMÓRIA (máquina fraca) no meio do
- * lote — some quando a máquina tem folga (só aparecia na roteirista, nunca no dev).
- * Roteado pra retry como as outras quedas do subprocesso. Bug 10/07/2026.
- */
-function isTransientErroMarker(text: string): boolean {
-  const generic = /\[ERRO\]\s*([\s\S]*)$/.exec(text);
-  if (!generic) return false;
-  const detail = generic[1]?.trim().slice(0, 300) ?? "";
-  return /exited with code|process (?:was )?killed|sigkill|sigterm|econnreset|socket hang ?up|socket connection was closed|closed unexpectedly|fetch failed|network error|terminated unexpectedly/i.test(
-    detail,
-  );
-}
+// isQuotaErroMarker / isTransientErroMarker vêm do módulo COMPARTILHADO
+// `stream-error-markers.ts` (mesmos predicados que o motor de chamada única
+// `run-step.ts` usa) — regex idênticas às que viviam inline aqui. Os
+// construtores de MENSAGEM (`detectHardMarker`/`detectErroMarker` acima) seguem
+// LOCAIS porque o texto amigável da Escrita fala em "o lote" / "Continuar
+// geração" (contexto de batch), diferente do texto do run-step.
 
 /** Sleep que resolve cedo se o signal abortar (não trava o cancelamento). */
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
