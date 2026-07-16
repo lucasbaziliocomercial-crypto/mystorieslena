@@ -24,6 +24,8 @@ import {
 } from "@/lib/parse-revisor-output";
 import { splitThinking } from "@/lib/stream-markers";
 import { normalizeEstruturaTargets } from "@/lib/normalize-estrutura-targets";
+import { countChaptersInEstrutura } from "@/lib/parse-estrutura-chapters";
+import { expectedMinChapters } from "@/lib/expected-min-chapters";
 import {
   detectHardMarker,
   detectErroMarker,
@@ -504,10 +506,29 @@ async function runEstruturaStep(
   }
   const acc = await readResponseText(res, hooks.signal, hooks.onLiveText);
 
+  const part = step === "estrutura1" ? "Parte 1" : "Parte 2";
+
+  // Backstop de TRUNCAMENTO da Estrutura: quando o socket do `claude.exe` cai
+  // "limpo" no meio do stream (encerra cedo SEM injetar [ERRO] — pressão de
+  // memória na máquina fraca da roteirista), a Estrutura sai com menos capítulos
+  // que o mínimo da categoria (ex.: 4 de 6). Sem isto, a Escrita gerava fiel aos
+  // poucos caps (~8k palavras em vez de ~12k; "poucos capítulos, contagem não
+  // bate no Docs") e NADA conferia — o [ERRO] acima só pega queda COM marcador, e
+  // o guard de completude da Escrita só dispara com a Parte VAZIA. Trata como
+  // transiente → withStallRetry refaz a chamada inteira (idempotente); esgotadas
+  // as tentativas, o job erra ("Gerar novamente") em vez de salvar a Estrutura
+  // curta. Bug recorrente da máquina fraca (socket cai no meio da Estrutura), 16/07/2026.
+  const gotChapters = countChaptersInEstrutura(acc);
+  const minChapters = expectedMinChapters(part, r.category);
+  if (gotChapters < minChapters) {
+    throw new TransientStreamError(
+      `A estrutura da ${part} saiu truncada (${gotChapters} de ${minChapters} capítulos esperados). O stream provavelmente caiu no meio — tentando gerar de novo.`,
+    );
+  }
+
   // Trava determinística: garante que os alvos por capítulo somem dentro da
   // faixa total da Parte (o modelo costuma estourar quando o prompt usa
   // placeholders em vez de números fixos). Reescala silenciosamente se preciso.
-  const part = step === "estrutura1" ? "Parte 1" : "Parte 2";
   const normalized = normalizeEstruturaTargets(acc.trim(), part, r.category);
   if (normalized.rescaled) {
     console.info(
