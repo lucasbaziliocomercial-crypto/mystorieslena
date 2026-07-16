@@ -419,6 +419,27 @@ console.log("\n[Word-count] normalize header-first (leitor + escritor em sincron
     : bad("lib/normalize-estrutura-targets.ts: rewriteFooterSum sumiu/não é chamado no reescalonamento (rodapé volta a confundir)");
 }
 
+// ── Backstop de Estrutura TRUNCADA (socket cai limpo → poucos capítulos) ──
+// A Estrutura pode sair com menos capítulos que o mínimo da categoria quando o
+// socket do claude.exe encerra o stream cedo SEM injetar [ERRO] (máquina fraca).
+// runEstruturaStep tem que RETENTAR nesse caso (senão a Escrita gera fiel aos
+// poucos caps → contagem quebrada no Docs). Confirma que o guard está plugado.
+console.log("\n[Estrutura] backstop de truncamento (retenta se vier com poucos capítulos)");
+{
+  const pec = read("lib/expected-min-chapters.ts");
+  pec && /export function expectedMinChapters\(/.test(pec)
+    ? ok("expected-min-chapters.ts exporta expectedMinChapters")
+    : bad("lib/expected-min-chapters.ts: FALTA expectedMinChapters (piso de capítulos por categoria)");
+  // Parte 2 = SEMPRE 6 nas 4 categorias no piso (invariante travado).
+  pec && (pec.match(/"Parte 2":\s*6/g) || []).length >= 4
+    ? ok("piso Parte 2 = 6 nas 4 categorias")
+    : bad("lib/expected-min-chapters.ts: piso da Parte 2 deveria ser 6 nas 4 categorias");
+  const rs = read("lib/generation/run-step.ts");
+  rs && has(rs, "expectedMinChapters") && /gotChapters\s*<\s*minChapters/.test(rs) && has(rs, "TransientStreamError")
+    ? ok("runEstruturaStep retenta Estrutura truncada (TransientStreamError)")
+    : bad("lib/generation/run-step.ts: runEstruturaStep NÃO retenta Estrutura truncada (guard de contagem ausente)");
+}
+
 // ── Veredito ──
 console.log(`\n${"-".repeat(60)}`);
 console.log(`Resultado estático: ${passes} OK · ${warns} avisos · ${fails} reprovações`);
