@@ -440,6 +440,28 @@ console.log("\n[Estrutura] backstop de truncamento (retenta se vier com poucos c
     : bad("lib/generation/run-step.ts: runEstruturaStep NÃO retenta Estrutura truncada (guard de contagem ausente)");
 }
 
+// ── Guard de completude da Escrita (não entregar roteiro CURTO em silêncio) ──
+// A Escrita não pode marcar "pronto" um roteiro com capítulo faltando OU com a
+// soma da Parte abaixo do piso da faixa (calibração/balanço falhou por cota).
+// Deve lançar EscritaIncompleteError → "Continuar geração". Escolha da roteirista.
+console.log("\n[Escrita] guard de completude (capítulo faltando / soma abaixo do piso → bloqueia)");
+{
+  const ec = read("lib/escrita-completeness.ts");
+  ec && /export function findIncompleteProblems\(/.test(ec)
+    ? ok("escrita-completeness.ts exporta findIncompleteProblems")
+    : bad("lib/escrita-completeness.ts: FALTA findIncompleteProblems");
+  const re = read("lib/generation/run-escrita.ts");
+  re && has(re, "findIncompleteProblems") && has(re, "EscritaIncompleteError")
+    ? ok("run-escrita.ts bloqueia entrega incompleta (findIncompleteProblems → EscritaIncompleteError)")
+    : bad("lib/generation/run-escrita.ts: guard de completude NÃO usa findIncompleteProblems");
+  // A UI mostra "Continuar geração" também quando a soma fecha abaixo do piso
+  // (partTotalOutOfRange < min) — persiste após reiniciar o app.
+  const ss = read("components/wizard/StepShell.tsx");
+  ss && /partTotalOutOfRange\.total\s*<\s*w\.partTotalOutOfRange\.min/.test(ss)
+    ? ok("StepShell trata partTotalOutOfRange (abaixo do min) como incompleto")
+    : bad("components/wizard/StepShell.tsx: escritaIncomplete NÃO reconhece partTotalOutOfRange abaixo do min");
+}
+
 // ── Veredito ──
 console.log(`\n${"-".repeat(60)}`);
 console.log(`Resultado estático: ${passes} OK · ${warns} avisos · ${fails} reprovações`);
