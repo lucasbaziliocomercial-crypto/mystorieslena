@@ -55,6 +55,10 @@ import { stripInternalDuplication } from "@/lib/strip-internal-duplication";
 import { stripPovMarkersPart1 } from "@/lib/strip-pov-markers-part1";
 import { stripDuplicateConsecutivePovMarkers } from "@/lib/strip-duplicate-pov-markers";
 import { countWords } from "@/lib/word-count";
+import {
+  findIncompleteProblems,
+  type PartCompleteness,
+} from "@/lib/escrita-completeness";
 import type { EscritaPerfRecord } from "@/lib/perf-metrics";
 import { createLimiter } from "@/lib/concurrency";
 import {
@@ -1307,30 +1311,44 @@ export async function runEscrita(
     calibPasses,
   });
 
-  // ═══ Guard de completude — uma Parte INTEIRA vazia = entrega quebrada ══════
-  // O parcial (a outra Parte) já foi salvo via emitPartial acima. Se uma Parte
-  // ficou com ZERO capítulos (cota estourou no meio, modelo não respondeu, ou o
-  // stream travou e esgotou os retries), NÃO retornamos "pronto" em silêncio —
-  // antes isso deixava o job `done` + notificação "Roteiro pronto ✓" com a
-  // Parte 2 em 0 palavras (bug reportado). Lança EscritaIncompleteError → a fila
-  // marca o job como falho e a UI mostra "Continuar geração" (resume gera só o
-  // que falta). NÃO dispara em cancelamento (signal.aborted) nem em gaps
-  // PARCIAIS (1-2 caps faltando seguem no caminho gracioso dos batchWarnings).
+  // ═══ Guard de completude — a entrega NÃO pode sair curta em silêncio ═══════
+  // O parcial já foi salvo via emitPartial acima. Uma Parte é INCOMPLETA se, em
+  // qualquer Parte: (a) 0 capítulos; (b) MENOS capítulos que a Estrutura declara
+  // (lote largado após esgotar os retries por cota/rede/stall); ou (c) todos os
+  // capítulos presentes mas a SOMA ficou ABAIXO do piso da faixa (a calibração/
+  // balanço, que puxaria a contagem, também falhou por cota — `balancePartTotal`
+  // vira no-op sob saturação da assinatura da equipe). Antes SÓ (a) bloqueava e
+  // (b)/(c) saíam como `done` + notificação "Roteiro pronto ✓" com o roteiro
+  // curto (bug "o doc não respeita a contagem", 16/07/2026). Agora as três lançam
+  // EscritaIncompleteError → a fila marca o job como falho e a UI mostra
+  // "Continuar geração": o resume regenera os capítulos que faltam E re-roda
+  // calibração+balanço (idempotentes) pra fechar a contagem. NÃO dispara em
+  // cancelamento nem em roteiro saudável (todos os caps + soma na faixa = passa
+  // direto → zero regressão pro time). Escolha da roteirista: bloquear e
+  // completar > entregar curto sem avisar. Cobre as 4 categorias (partTotalRange
+  // é category-aware). Ver lib/escrita-completeness.ts.
   if (!signal.aborted && !fatalRaised) {
-    const p1Got = new Set(
-      p1Chapters.map((c) => c.number).filter((n) => n > 0),
-    ).size;
-    const p2Got = new Set(
-      p2Chapters.map((c) => c.number).filter((n) => n > 0),
-    ).size;
-    const emptyParts: string[] = [];
-    if (totalP1 > 0 && p1Got === 0) emptyParts.push("Parte 1");
-    if (totalP2 > 0 && p2Got === 0) emptyParts.push("Parte 2");
-    if (emptyParts.length > 0) {
+    const partData: PartCompleteness[] = (
+      [
+        ["Parte 1", totalP1],
+        ["Parte 2", totalP2],
+      ] as const
+    ).map(([part, expectedChapters]) => {
+      const partChapters = result.chapters.filter(
+        (c) => canonPart(c.part) === canonPart(part) && c.number > 0,
+      );
+      return {
+        part,
+        gotChapters: new Set(partChapters.map((c) => c.number)).size,
+        expectedChapters,
+        words: partChapters.reduce((s, c) => s + countWords(c.content), 0),
+        minWords: partTotalRange(part, category).min,
+      };
+    });
+    const problems = findIncompleteProblems(partData);
+    if (problems.length > 0) {
       throw new EscritaIncompleteError(
-        `${emptyParts.join(" e ")} ${
-          emptyParts.length === 1 ? "ficou vazia" : "ficaram vazias"
-        } (0 capítulos gerados). A geração foi interrompida por erro de cota/rede ou o modelo não respondeu. Os capítulos já prontos estão salvos — clique em "Continuar geração" pra gerar só o que falta.`,
+        `${problems.join("; ")}. A geração foi interrompida por cota/rede ou o modelo não respondeu — os capítulos já prontos estão salvos. Clique em "Continuar geração" pra completar só o que falta (regenera os capítulos que faltam e reajusta a contagem).`,
       );
     }
   }

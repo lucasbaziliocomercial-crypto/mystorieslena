@@ -694,7 +694,18 @@ export function StepShell({ step }: Props) {
     if (chapterCount === 0 || expectedChapterCount === 0) return false;
     const warnings = output?.metadata?.batchWarnings ?? [];
     const hasGap = warnings.some(
-      (w) => w.fatalError || (w.missing?.length ?? 0) > 0,
+      (w) =>
+        w.fatalError ||
+        (w.missing?.length ?? 0) > 0 ||
+        // Total da Parte fechou ABAIXO do piso da faixa (calibração/balanço
+        // falhou por cota) — o aviso fica SALVO em batchWarnings, então o banner
+        // de "Continuar geração" persiste mesmo após reiniciar o app (quando o
+        // job com erro já foi podado). Só o lado CURTO conta como incompleto;
+        // acima do teto (raro) não é "faltando". Espelha o guard de completude
+        // do motor (run-escrita.ts / escrita-completeness.ts). Bug "o doc não
+        // respeita a contagem", 16/07/2026.
+        (w.partTotalOutOfRange != null &&
+          w.partTotalOutOfRange.total < w.partTotalOutOfRange.min),
     );
     return chapterCount < expectedChapterCount || hasGap;
   }, [step, stepJob, isGenerating, chapterCount, expectedChapterCount, output?.metadata?.batchWarnings]);
