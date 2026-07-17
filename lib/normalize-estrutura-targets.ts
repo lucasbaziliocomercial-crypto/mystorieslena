@@ -20,6 +20,7 @@
 
 import {
   splitChapterBlocks,
+  keepLastChapterRun,
   extractTargetFromBlock,
   partTotalRange,
 } from "@/lib/parse-estrutura-targets";
@@ -170,7 +171,11 @@ export function normalizeEstruturaTargets(
   category: RoteiroCategory = DEFAULT_CATEGORY,
 ): NormalizeEstruturaResult {
   const text = estrutura ?? "";
-  const blocks = splitChapterBlocks(text);
+  // Dedup de rascunhos repetidos: enxerga só o ÚLTIMO conjunto de capítulos, senão
+  // uma Estrutura triplicada (18 blocos) faz a soma parecer "na faixa" e desarma o
+  // rescale + o piso. O último run é contíguo até o fim, então a reconstrução por
+  // prefixo abaixo preserva os rascunhos anteriores intactos.
+  const blocks = keepLastChapterRun(splitChapterBlocks(text));
   if (blocks.length === 0) {
     return { text, rescaled: false, sumBefore: 0, sumAfter: 0 };
   }

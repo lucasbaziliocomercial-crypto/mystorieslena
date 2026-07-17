@@ -14,6 +14,11 @@
  * pra ele — a chamada que pediu pode fazer fallback.
  */
 
+// Dedup de rascunhos repetidos da Estrutura (módulo puro/dep-free, testável via
+// node — o resto deste arquivo importa `@/lib/categories`, que o node não resolve).
+import { keepLastChapterRun } from "./chapter-runs.ts";
+export { keepLastChapterRun };
+
 // Markdown opcional + bold opcional — tolerante aos formatos que o modelo
 // pode emitir (`## Capítulo 1`, `Capítulo 1`, `**Capítulo 1**`).
 const CHAPTER_HEADER_REGEX = /^#{0,4}\s*\*{0,2}\s*Cap[ií]tulo\s+(\d+)/im;
@@ -117,7 +122,9 @@ export function extractChapterTargets(
   estrutura: string | undefined,
 ): ChapterTarget[] {
   if (!estrutura?.trim()) return [];
-  const blocks = splitChapterBlocks(estrutura);
+  // Dedup de rascunhos repetidos: a Escrita lê o alvo por aqui, então precisa ver
+  // só o ÚLTIMO conjunto de capítulos (não os 18 de uma Estrutura triplicada).
+  const blocks = keepLastChapterRun(splitChapterBlocks(estrutura));
   return blocks.map((b) => ({
     number: b.number,
     target: extractTargetFromBlock(b.body),
