@@ -68,8 +68,9 @@ PARTE 1 — narração EXCLUSIVA da FMC em 1ª pessoa. O leitor só sabe o que e
 PARTE 2 — FMC como narradora principal + 2 a 4 trechos do MMC em 1ª pessoa.
 - Cada troca de POV identificada com um sub-heading no formato:
 
-### ✦ [NOME DO PERSONAGEM]
+### ✦ [NOME DO PERSONAGEM] — POV masculino/feminino
 
+(o RÓTULO DO POV vem ESCRITO na frente do nome, nos DOIS casos: o trecho do MMC leva "— POV masculino" e o da FMC leva "— POV feminino" (ex.: ### ✦ THIERRY — POV masculino, ### ✦ ANAÏS — POV feminino). NUNCA escreva só ### ✦ [Nome]: a roteirista identifica de quem é o trecho LENDO o roteiro, sem depender de cor nenhuma. O rótulo é o PAPEL (masculino/feminino), nunca um segundo nome.)
 (o "###" é importante — vira heading 3 no Google Docs e aparece na barra de navegação)
 (use EXATAMENTE este caractere Unicode: ✦ — U+2726, "four pointed black star". NUNCA substituir por ♦ ◆ ★ ✧ ou qualquer outro look-alike — só ✦ é reconhecido pelo exporter como marcador de POV. Se escapar pra outro símbolo, o trecho do MMC perde o destaque visual da Parte 2.)
 - Quando o capítulo da Parte 2 começa, coloque sempre o ### ✦ [Nome] do narrador inicial logo abaixo do título do capítulo, mesmo que seja a FMC.
@@ -173,7 +174,7 @@ Aplique TODAS antes de considerar qualquer capítulo finalizado. Não são suges
 11. PREVENÇÃO DE HATE — antes de finalizar, passe o capítulo por: decisões têm justificativa emocional visível? Informação tem origem? Interesse romântico tem falhas reais mostradas? Estrutura frasal repetida >2? Traço descrito 2x? Velocidade emocional compatível? Leitor sabe ONDE/QUANDO/COMO? Um leitor implicante encontraria algo? Se sim — VOLTE E CORRIJA.
 
 12. QUEBRA DE 4ª PAREDE — GRAVÍSSIMO. TOLERÂNCIA ZERO. O texto JAMAIS pode mencionar: "parte 1", "parte 2", "capítulo anterior", "capítulo 3", "versão", "contagem de palavras", "TODO", "inserir", "revisar". Em particular: PROIBIDO escrever a contagem do capítulo no fim dele, em QUALQUER formato — sem prefixo ('(2.097 palavras)', '*2.103 palavras*', '2103 palavras') E com prefixo ('(Contagem: 1.764 palavras)', 'Contagem de palavras: 1764', 'Total: 2103 palavras', 'Total de palavras: 1764'). Não anuncie totais. Referência a eventos passados SEMPRE por contexto narrativo ("desde a noite em que...", "semanas atrás, quando ele...").
-    NOTA: os cabeçalhos estruturais "# PARTE 1", "# PARTE 2", "## Capítulo N — Título" e "### ✦ Nome" do FORMATO DE SAÍDA são marcadores aceitos — NÃO contam como quebra de 4ª parede. A regra vale apenas para o CORPO da narrativa, dentro dos parágrafos.
+    NOTA: os cabeçalhos estruturais "# PARTE 1", "# PARTE 2", "## Capítulo N — Título" e "### ✦ Nome — POV masculino/feminino" do FORMATO DE SAÍDA são marcadores aceitos — NÃO contam como quebra de 4ª parede. A regra vale apenas para o CORPO da narrativa, dentro dos parágrafos.
 
 13. CONSISTÊNCIA DE LOCAIS ENTRE PARTES — GRAVÍSSIMO. Se a mansão ficou a 40min do centro na Parte 1, fica a 40min para sempre. Se apartamento é no 12º, é no 12º para sempre.
 
@@ -421,7 +422,7 @@ Entregue SEMPRE neste formato, nesta ordem, com estes marcadores exatos. NÃO in
 ⚠️ HIERARQUIA DE HEADINGS (importante porque o roteiro será exportado pra Google Docs e os marcadores viram a barra de navegação lateral):
 - "PARTE 1" e "PARTE 2" → heading 1 (#)
 - "Capítulo N — Título" → heading 2 (##)
-- Marcador de troca de POV na Parte 2 → heading 3 (### ✦ Nome do Personagem)
+- Marcador de troca de POV na Parte 2 → heading 3 (### ✦ Nome do Personagem — POV masculino/feminino)
 
 ═══════════════════════════════════════
 ROTEIRO
@@ -443,11 +444,11 @@ ROTEIRO
 
 ## Capítulo 1 — [Título]
 
-### ✦ [Nome do Personagem que está narrando — FMC ou MMC]
+### ✦ [Nome do Personagem que está narrando] — POV feminino (se FMC) / POV masculino (se MMC)
 
 [texto da cena na perspectiva desse personagem]
 
-### ✦ [Outro Personagem — quando trocar POV]
+### ✦ [Outro Personagem — quando trocar POV] — POV masculino/feminino
 
 [texto da nova cena no novo POV]
 

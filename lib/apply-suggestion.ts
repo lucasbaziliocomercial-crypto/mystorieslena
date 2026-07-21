@@ -23,7 +23,7 @@ import {
   concatenateChapters,
   parseEscritaChaptersDirect,
 } from "./parse-escrita-output";
-import { findTrechoInText } from "./parse-revisor-output";
+import { findTrechoInText, insertsParagraphs } from "./parse-revisor-output";
 import { findTrechoWindow } from "./trecho-window";
 import { validateRewrite } from "./validate-rewrite";
 
@@ -387,7 +387,14 @@ export async function applySuggestionsToScope(params: {
       const { original, corrigido } = pairs[i]!;
       if (!original || corrigido === undefined) continue;
       if (original === corrigido) continue; // no-op silencioso
-      // Find+replace de TODAS as ocorrências (mesmo padrão do applyCorrections).
+      // Find+replace de TODAS as ocorrências (mesmo padrão do applyCorrections)
+      // — MENOS quando a correção insere parágrafos novos: aí só a PRIMEIRA,
+      // senão o mesmo bloco de prosa é cravado em cada ocorrência da âncora e
+      // o roteiro sai com parágrafos duplicados (mesma trava do
+      // `applyCorrections`; bug de 21/07/2026). Aqui o risco é maior: o prompt
+      // pede N pares pro mesmo erro transversal, então replicar cada par por
+      // todas as ocorrências multiplicava as inserções.
+      const blockInsertion = insertsParagraphs(original, corrigido);
       const before = updatedContent;
       let cursor = updatedContent;
       let replacedAny = false;
@@ -399,6 +406,7 @@ export async function applySuggestionsToScope(params: {
           corrigido +
           cursor.slice(range.end);
         replacedAny = true;
+        if (blockInsertion) break;
         if (corrigido.includes(original)) break;
       }
       updatedContent = cursor;

@@ -13,7 +13,10 @@
  */
 
 import type { EscritaChapter } from "@/types/roteiro";
-import { countWords } from "./word-count";
+// `.ts` explícito (como em export-html/strip-internal-duplication): deixa o
+// módulo importável por `node scripts/*.mjs` sem bundler — é o que permite os
+// testes e2e exercitarem o dedup real em vez de uma cópia do algoritmo.
+import { countWords } from "./word-count.ts";
 
 export interface DuplicateGroup {
   part: string | undefined;
@@ -25,8 +28,27 @@ export interface DuplicateGroup {
   keepIndex: number;
 }
 
+/**
+ * Título normalizado pra chave de duplicata: caixa, acentuação de espaços e
+ * pontuação de borda não fazem duas versões do MESMO capítulo virarem dois
+ * capítulos. Sem isso, "O acordo" e "O Acordo" (o modelo re-emite o título com
+ * caixa diferente ao regerar) escapavam do dedup e o capítulo saía DUAS VEZES
+ * no `content` — parágrafos duplicados no roteiro final (bug de 21/07/2026).
+ *
+ * NÃO mexe no `part`: manter a Parte crua é o que impede um capítulo da Parte 2
+ * sem banner de colidir com o de mesmo número da Parte 1 e ser DESCARTADO (a
+ * estratégia "longest" apaga o perdedor — perder capítulo é pior que duplicar).
+ */
+function normalizeTitleForKey(t: string | undefined): string {
+  return (t ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/^[—–\-:.\s]+|[—–\-:.\s]+$/g, "");
+}
+
 function groupKey(c: EscritaChapter): string {
-  return `${c.part ?? ""}|${c.number}|${c.title ?? ""}`;
+  return `${c.part ?? ""}|${c.number}|${normalizeTitleForKey(c.title)}`;
 }
 
 /**

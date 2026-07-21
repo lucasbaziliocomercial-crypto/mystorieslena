@@ -41,11 +41,31 @@ const POV_SYMBOL_CLASS = "[\\u2726\\u2666\\u25C6]";
  *   heading, caso o strip rode sobre conteúdo já curado/reescrito).
  * O grupo do nome EXIGE ao menos uma letra/dígito — assim `✦ ✦ ✦` (divisória
  * decorativa, sem nome) NÃO casa e é preservado como quebra de cena.
+ *
+ * ⚠️ O RÓTULO DE PAPEL no fim (`— POV masculino` / `— POV feminino`) é OPCIONAL
+ * e fica FORA do grupo do nome. Desde 1.1.19 o prompt da Escrita manda escrever
+ * o rótulo colado no marcador, e as 3 categorias com ✦ também pedem o nome em
+ * **negrito** — a combinação `✦ **NOME** — POV masculino` punha o sufixo DEPOIS
+ * do `**` de fecho e a linha deixava de casar, derrubando esta trava de origem
+ * justo quando o modelo vaza um POV do MMC pra Parte 1 (bug recorrente da LENA).
+ * Manter em sincronia com o formato do `POV_MARKER_RULE`.
  */
+const POV_ROLE_SUFFIX = `(?:[—–-][ \\t]*POV[ \\t]+(?:masculino|feminino)[ \\t]*)?`;
+
+/** O mesmo rótulo, pra limpar o NOME capturado (ver uso abaixo). */
+const POV_ROLE_SUFFIX_TRAIL_RE =
+  /(?:[—–-]\s*POV\s+(?:masculino|feminino)\s*)+$/i;
+
 const NAMED_POV_MARKER_RE = new RegExp(
   `^[ \\t]*(?:#{1,3}[ \\t]*)?\\*{0,2}${POV_SYMBOL_CLASS}[ \\t]+\\*{0,2}` +
     `([^\\n*]*[A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç0-9][^\\n*]*?)` +
-    `\\*{0,2}[ \\t]*$`,
+    `\\*{0,2}[ \\t]*${POV_ROLE_SUFFIX}\\*{0,2}[ \\t]*$`,
+  // `i` por causa do RÓTULO: os prompts pedem o nome em CAIXA ALTA, e o modelo
+  // uniformiza a linha toda ("✦ **DANTE** — POV MASCULINO"). Sem o flag, esse
+  // par negrito+caixa escapava da trava. As classes do NOME já cobriam as duas
+  // caixas, e a exigência de letra/dígito segue barrando a divisória `✦ ✦ ✦`.
+  // Mesmo tratamento do irmão `normalizeMarkerName` (strip-duplicate-pov-markers).
+  "i",
 );
 
 /**
@@ -66,7 +86,11 @@ export function stripPovMarkersPart1(content: string): {
   for (const line of content.split("\n")) {
     const m = line.match(NAMED_POV_MARKER_RE);
     if (m) {
-      removed.push(m[1].trim());
+      // Só o NOME no aviso da roteirista: o `[^\n*]*` inicial do grupo é guloso,
+      // então num marcador sem negrito (`✦ THIERRY — POV masculino`) o rótulo
+      // entra na captura. A linha é removida de qualquer jeito — isto é só pra o
+      // banner dizer "THIERRY", não "THIERRY — POV masculino".
+      removed.push(m[1].replace(POV_ROLE_SUFFIX_TRAIL_RE, "").trim());
       continue; // descarta a linha do marcador — a prosa ao redor fica intacta
     }
     kept.push(line);

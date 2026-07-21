@@ -77,6 +77,36 @@ function check(name, condition, detail = "") {
   check("preserva `**✦ ✦ ✦**` (divisória em negrito)", divBold.removed.length === 0, JSON.stringify(divBold));
 }
 
+// RÓTULO DE PAPEL no marcador (formato do POV_MARKER_RULE desde 1.1.19).
+// A combinação negrito + sufixo (`✦ **NOME** — POV masculino`) punha o rótulo
+// DEPOIS do `**` de fecho e a linha deixava de casar — a trava de origem caía
+// justo no bug recorrente do POV do MMC vazando pra Parte 1.
+{
+  const c1 = stripPovMarkersPart1("Linha um.\n\n✦ THIERRY — POV masculino\n\nLinha dois.");
+  check("remove `✦ NOME — POV masculino`", c1.removed.length === 1 && c1.removed[0] === "THIERRY", JSON.stringify(c1.removed));
+
+  const c2 = stripPovMarkersPart1("Linha um.\n\n✦ **THIERRY** — POV masculino\n\nLinha dois.");
+  check("remove `✦ **NOME** — POV masculino` (negrito + rótulo)", c2.removed.length === 1 && c2.removed[0] === "THIERRY", JSON.stringify(c2.removed));
+
+  const c3 = stripPovMarkersPart1("Linha um.\n\n### ✦ **SOLVEIG** — POV feminino\n\nLinha dois.");
+  check("remove `### ✦ **NOME** — POV feminino`", c3.removed.length === 1 && c3.removed[0] === "SOLVEIG", JSON.stringify(c3.removed));
+
+  const c4 = stripPovMarkersPart1("Linha um.\n\n**✦ GENNARO — POV masculino**\n\nLinha dois.");
+  check("remove `**✦ NOME — POV masculino**` (negrito na linha toda)", c4.removed.length === 1, JSON.stringify(c4.removed));
+
+  // Rótulo em CAIXA ALTA: os prompts pedem o NOME em caixa alta e o modelo
+  // uniformiza a linha inteira. Sem o flag `i` na regex, o par negrito+caixa
+  // escapava da trava.
+  const c4b = stripPovMarkersPart1("Linha um.\n\n✦ **DANTE** — POV MASCULINO\n\nLinha dois.");
+  check("remove `✦ **NOME** — POV MASCULINO` (rótulo em caixa alta)", c4b.removed.length === 1 && c4b.removed[0] === "DANTE", JSON.stringify(c4b.removed));
+
+  const c4c = stripPovMarkersPart1("Linha um.\n\n### ✦ **SOLVEIG** — POV FEMININO\n\nLinha dois.");
+  check("remove `### ✦ **NOME** — POV FEMININO` (caixa alta)", c4c.removed.length === 1 && c4c.removed[0] === "SOLVEIG", JSON.stringify(c4c.removed));
+
+  const c5 = stripPovMarkersPart1("Cena.\n\n✦ ✦ ✦\n\nCena.");
+  check("divisória `✦ ✦ ✦` segue preservada (não ganhou rótulo)", c5.removed.length === 0, JSON.stringify(c5.removed));
+}
+
 {
   // prosa que MENCIONA ✦ no meio da frase (não é linha isolada de marcador) — mantém
   const prose = stripPovMarkersPart1("Ela desenhou uma estrela ✦ THIERRY no guardanapo, rindo.");
