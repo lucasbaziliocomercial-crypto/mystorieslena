@@ -48,8 +48,10 @@
  */
 
 import type { EscritaChapter } from "@/types/roteiro";
-import { stripChapterTitleAnnotation } from "./strip-chapter-annotations";
-import { stripEscritaContamination } from "./sanitize-escrita-content";
+// `.ts` explícito — mesmo motivo do dedup-chapters: mantém o módulo importável
+// por node cru nos testes e2e (o bundler resolve os dois formatos).
+import { stripChapterTitleAnnotation } from "./strip-chapter-annotations.ts";
+import { stripEscritaContamination } from "./sanitize-escrita-content.ts";
 
 export interface ParsedEscritaOutput {
   /** Texto do roteiro completo — pronto pra leitura/edição. */

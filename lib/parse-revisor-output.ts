@@ -775,6 +775,27 @@ export function serializeRevisorErrors(errors: RevisorError[]): string {
   return `<erros_detalhados>\n${blocks.join("\n\n")}\n</erros_detalhados>`;
 }
 
+/** Nº de parágrafos de um trecho (linha em branco = separador). */
+function countParagraphs(s: string): number {
+  return s.split(/\n[ \t]*\n/).filter((p) => p.trim().length > 0).length;
+}
+
+/**
+ * A correção INSERE parágrafos novos (bloco de prosa) em vez de trocar texto
+ * no lugar? Usado por `applyCorrections` pra decidir entre trocar TODAS as
+ * ocorrências (substituição local — o erro transversal) e trocar só a
+ * PRIMEIRA (inserção de bloco — replicá-la duplicaria prosa em pontos não
+ * relacionados; bug "parágrafos duplicados depois da revisão", 21/07/2026).
+ *
+ * Alta precisão de propósito: só conta como inserção de bloco quando o
+ * corrigido tem MAIS parágrafos que o original. Trocar uma frase por outra
+ * frase (mesmo que bem maior), corrigir um nome repetido ou reescrever um
+ * parágrafo inteiro continuam valendo pra todas as ocorrências, como antes.
+ */
+export function insertsParagraphs(original: string, corrigido: string): boolean {
+  return countParagraphs(corrigido) > countParagraphs(original);
+}
+
 /**
  * Aplica uma lista de correções num texto-base (find+replace).
  * Tenta primeiro match literal; se o trecho não bate exatamente (aspas
@@ -836,12 +857,24 @@ export function applyCorrections(
     // Loop até esgotar as ocorrências. Cada iteração re-procura a partir do
     // texto JÁ atualizado — evita match recursivo se a substituição contém
     // o trecho original (raro, mas seguro).
+    //
+    // ⚠️ EXCEÇÃO ANTI-DUPLICAÇÃO (bug "parágrafos duplicados depois da revisão",
+    // 21/07/2026): a troca de TODAS as ocorrências só vale pra substituição
+    // LOCAL (troca de palavra/frase — o erro transversal pra que ela foi feita).
+    // Quando o `trecho_corrigido` ACRESCENTA parágrafos (inserção de bloco: o
+    // Revisor pode emitir de 3 a 15 parágrafos num card), replicar isso em toda
+    // ocorrência de uma âncora curta CRAVA o mesmo bloco de prosa em pontos não
+    // relacionados do roteiro — foi o que a roteirista viu ao colar no Docs.
+    // Nesse caso trocamos só a PRIMEIRA ocorrência: inserir um bloco novo em N
+    // lugares nunca é a intenção do card. Ver `insertsParagraphs`.
+    const blockInsertion = insertsParagraphs(original, corrigido);
     let replacedAny = false;
     while (true) {
       const range = findTrechoInText(text, original);
       if (!range) break;
       text = text.slice(0, range.start) + corrigido + text.slice(range.end);
       replacedAny = true;
+      if (blockInsertion) break;
       // Se trecho_corrigido contém o trecho_original (caso de inserção
       // aditiva, ex: "X" → "X Y"), o while geraria loop infinito.
       // Detecta isso comparando o conteúdo resultante: se o ponto de

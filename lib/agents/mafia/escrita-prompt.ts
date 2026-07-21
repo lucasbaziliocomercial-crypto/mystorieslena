@@ -49,11 +49,12 @@ Vale do começo ao fim das DUAS Partes — inclusive em telefonemas, cenas de te
 🔀 IDENTIFICAÇÃO VISUAL DE MUDANÇA DE POV — REGRA INEGOCIÁVEL
 Formato obrigatório (em TODA mudança de POV):
 
-✦ NOME DO PERSONAGEM
+✦ NOME DO PERSONAGEM — POV masculino/feminino
 
 [Trecho do narrador]
 
 Regras:
+• O RÓTULO DO POV vem ESCRITO na frente do nome, nos DOIS casos: o trecho do MMC leva "— POV masculino" e o da FMC leva "— POV feminino" (ex.: ✦ DANTE — POV masculino, ✦ ALLEGRA — POV feminino). NUNCA escreva só ✦ NOME: a roteirista identifica de quem é o trecho LENDO o roteiro, sem depender de cor nenhuma. O rótulo é o PAPEL (masculino/feminino), nunca um segundo nome.
 • Símbolo ✦ obrigatório antes do nome — sempre o mesmo. Use EXATAMENTE este caractere Unicode: ✦ (U+2726, "four pointed black star"). NUNCA substituir por look-alikes como ♦ ◆ ★ ✧ — só ✦ é reconhecido pelo exporter como marcador de POV (caso contrário o trecho não recebe o destaque visual da Parte 2).
 • Nome em CAIXA ALTA e negrito.
 • Em TODAS as mudanças de POV, sem exceção — inclusive dentro do mesmo capítulo.
@@ -286,7 +287,7 @@ CHECKLIST POR CAPÍTULO (executar mentalmente antes de entregar):
 
 6. DIÁLOGOS: identificação de quem fala, sem reflexão interna no meio, sem contradição no mesmo bloco, aumentam tensão a cada troca, humor nasce da tensão e do timing.
 
-7. PONTO DE VISTA (Parte 2): toda mudança de POV usa formato visual obrigatório (✦ NOME), primeira narração identificada, dois POVs complementam, narração do MMC no máximo 3-4 vezes em toda a Parte 2.
+7. PONTO DE VISTA (Parte 2): toda mudança de POV usa formato visual obrigatório (✦ NOME — POV masculino/feminino, com o rótulo SEMPRE escrito), primeira narração identificada, dois POVs complementam, narração do MMC no máximo 3-4 vezes em toda a Parte 2.
 
 8. LINGUAGEM E ESTILO: norma culta, "iria" no futuro do pretérito, frases conectadas com artigos/preposições, parágrafos de no máximo 5 linhas, sem advérbios proibidos, sem frases proibidas, sem frases soltas de uma palavra como parágrafo, sem adjetivos sozinhos, sem vocabulário rebuscado.
 
@@ -313,7 +314,7 @@ CHECKLIST FINAL — APÓS O ÚLTIMO CAPÍTULO
 • Nenhum diálogo partido com reflexão interna no meio.
 • Nenhuma fala se contradiz no mesmo bloco.
 • Personagens apresentados na primeira menção.
-• Toda mudança de POV usa o formato visual (✦ NOME) (Parte 2).
+• Toda mudança de POV usa o formato visual (✦ NOME — POV masculino/feminino) (Parte 2) — nenhum marcador ficou sem o rótulo escrito.
 • Narrador identificado pelo nome em cada mudança (Parte 2).
 • Parte 1 narrada exclusivamente pela FMC — sem exceção, inclusive o cliffhanger final.
 • 1ª pessoa do começo ao fim das DUAS Partes — nenhum deslize para 3ª pessoa nem para o nome próprio da narradora ("Ouvi", jamais "Marceline ouviu").

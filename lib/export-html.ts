@@ -89,8 +89,31 @@ function noHighlight(inner: string): string {
 const POV_SYMBOL_CLASS = "[\\u2726\\u2666\\u25C6]"; // ✦ ♦ ◆
 const POV_PREFIX_STRIP_RE = new RegExp(`^${POV_SYMBOL_CLASS}\\s*`);
 
+/**
+ * Sufixo de PAPEL no marcador (`✦ LUCA — POV masculino`). O prompt da Escrita
+ * manda o modelo escrever o rótulo junto do nome (pra a roteirista enxergar
+ * "POV masculino" na frente do MMC mesmo lendo o roteiro CRU — no app, no copiar
+ * como texto, no docx antigo), então o exporter precisa:
+ *   • REMOVÊ-LO antes de canonizar o nome — senão `nomeCanonico` devolveria
+ *     "luca — pov masculino" e o match de nome com o MMC/FMC ficaria à mercê da
+ *     interseção de tokens; e
+ *   • NÃO re-anexar por cima — sem isso o heading saía "✦ LUCA — POV masculino
+ *     — POV masculino" (sufixo duplicado, bug real reproduzido no export).
+ * Aceita travessão/hífen, com ou sem acento no rótulo, em qualquer caixa.
+ */
+// O `+` cobre conteúdo LEGADO que já foi salvo com o sufixo duplicado
+// (`✦ LUCA — POV masculino — POV masculino`, produzido pelo export antes do fix):
+// sem ele o strip tirava só o último e o heading saía duplicado de novo.
+const POV_ROLE_SUFFIX_RE =
+  /(?:\s*[—–-]\s*POV\s+(?:masculino|feminino))+\s*$/i;
+
+/** Nome do marcador sem o `✦` e sem o sufixo de papel — só a pessoa. */
+function nomeSemPapel(s: string): string {
+  return s.replace(POV_PREFIX_STRIP_RE, "").replace(POV_ROLE_SUFFIX_RE, "").trim();
+}
+
 function nomeCanonico(s: string): string {
-  return s.replace(POV_PREFIX_STRIP_RE, "").trim().toLowerCase();
+  return nomeSemPapel(s).toLowerCase();
 }
 
 /**
@@ -160,6 +183,18 @@ function preprocessRoteiro(raw: string): string {
   // pra cobrir `✦ **SALVATORE**` (negrito só no nome) — sem o lado de dentro,
   // esse marcador NÃO era reconhecido, o trecho do MMC virava prosa sem POV
   // (sem verde) e o rótulo do POV feminino vazava pra cima da fala dele.
+  // Antes da promoção, tira o **negrito** de ao redor do NOME numa linha de
+  // marcador. O `\*{0,2}` dos dois lados do grupo só funciona quando o negrito
+  // fecha no FIM da linha — com o rótulo de papel depois dele
+  // (`✦ **LUCA** — POV masculino`, formato que o POV_MARKER_RULE pede) a linha
+  // NÃO casava, ficava como prosa e o trecho do MMC perdia POV, verde e rótulo.
+  preprocessed = preprocessed.replace(
+    new RegExp(
+      `^([ \\t]*\\*{0,2}${POV_SYMBOL_CLASS}[ \\t]+)\\*{2}([^\\n*]+?)\\*{2}`,
+      "gm",
+    ),
+    (_m, head, name) => `${head}${name}`,
+  );
   preprocessed = preprocessed.replace(
     new RegExp(
       `^[ \\t]*\\*{0,2}${POV_SYMBOL_CLASS}[ \\t]+\\*{0,2}([^\\n*]+?)\\*{0,2}[ \\t]*$`,
@@ -191,7 +226,10 @@ export function detectMaleLeadName(raw: string): string | null {
     const h3 = line.match(/^###\s+(.+)$/);
     if (!h3) continue;
 
-    const display = h3[1].replace(POV_PREFIX_STRIP_RE, "").trim();
+    // `nomeSemPapel` (não só o strip do ✦): o marcador vem com o rótulo do POV
+    // colado (`✦ LUCA — POV masculino`) e o nome da PESSOA é o que interessa
+    // aqui — senão "✦ LUCA" e "✦ LUCA — POV masculino" viram dois narradores.
+    const display = nomeSemPapel(h3[1]);
     if (!display) continue;
 
     const canonical = display.toLowerCase();
@@ -478,7 +516,10 @@ export function detectMaleLeadFromFullRoteiro(raw: string): string | null {
 
     const h3 = line.match(/^###\s+(.+)$/);
     if (h3) {
-      const display = h3[1].replace(POV_PREFIX_STRIP_RE, "").trim();
+      // `nomeSemPapel` (não só o strip do ✦): o marcador vem com o rótulo do POV
+      // colado (`✦ LUCA — POV masculino`) e o nome da PESSOA é o que interessa
+      // aqui — senão "✦ LUCA" e "✦ LUCA — POV masculino" viram dois narradores.
+      const display = nomeSemPapel(h3[1]);
       if (display) {
         currentPovCanonical = display.toLowerCase();
         ensureBucket(currentPovCanonical, display);
@@ -776,8 +817,29 @@ export function escritaContentToHtml(
         else if (headingMatchesMmc || femaleLeadCanonical !== null)
           roleTag = " — POV masculino";
       }
+      // Sufixo que o MODELO já escreveu no marcador (`✦ LUCA — POV masculino`,
+      // instruído pelo POV_MARKER_RULE). Fallback quando o exporter NÃO consegue
+      // decidir o papel (Estrutura sem os campos Nome: do MMC/FMC → roleTag
+      // vazio): antes o rótulo sumia no export e a roteirista via só "✦ LUCA",
+      // sem nada identificando o POV masculino. Agora o que veio do roteiro é
+      // preservado. Quando o exporter TEM certeza, a etiqueta dele manda (o
+      // nome sai sem o sufixo original, então nunca duplica).
+      // ⚠️ Só marcador de POV é reescrito. Um `### Subtítulo` comum (sem ✦) sai
+      // exatamente como veio — sem ✦ postiço e sem etiqueta de papel.
+      const isPovMarker = POV_PREFIX_STRIP_RE.test(h3[1].trim());
+      let headingText = h3[1];
+      if (isPovMarker) {
+        const sourceRoleSuffix = (
+          h3[1].trim().match(POV_ROLE_SUFFIX_RE)?.[0] ?? ""
+        )
+          .trim()
+          .replace(/^[—–-]\s*/, "");
+        const displayTag =
+          roleTag || (sourceRoleSuffix ? ` — ${sourceRoleSuffix}` : "");
+        headingText = `✦ ${nomeSemPapel(h3[1])}${displayTag}`;
+      }
       out.push(
-        `<h3 style="${STYLE_POV_HEADING}">${noHighlight(escapeHtml(h3[1]) + roleTag)}</h3>`,
+        `<h3 style="${STYLE_POV_HEADING}">${noHighlight(escapeHtml(headingText))}</h3>`,
       );
       continue;
     }
