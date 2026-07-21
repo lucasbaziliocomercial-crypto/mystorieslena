@@ -1029,6 +1029,16 @@ export async function runEscrita(
               const newCh = parsedFix.find((p) => p.number === cand.ch.number);
               if (!newCh?.content) continue;
 
+              // A calibração (Sonnet, ramo EXPANDIR) às vezes GANHA palavras
+              // repetindo prosa que o capítulo já tinha — e este era o ÚNICO
+              // output de geração que não passava pela trava de duplicação (ela
+              // roda no batch, ANTES daqui, então nunca via o texto do Sonnet).
+              // Sem isto, a duplicata inflada batia o alvo, era aceita e chegava
+              // intacta no Revisor ("sempre o mesmo erro"). Passa pela MESMA
+              // trava determinística de alta precisão (idempotente; no-op em
+              // texto já limpo) ANTES de medir e de gravar.
+              const fixedContent = stripInternalDuplication(newCh.content).content;
+
               // Aceita NO LUGAR (mergedChapters()/snapshot() já refletem), mas com
               // duas travas anti-oscilação:
               //  (1) se o novo já está DENTRO da faixa ±threshold, aceita sempre
@@ -1039,7 +1049,7 @@ export async function runEscrita(
               //      gate antigo ("mais perto") e disparava o ping-pong que queima
               //      os 3 passes. Rejeitar o cruzamento mantém o melhor mesmo-lado
               //      e tenta de novo conservador.
-              const newWords = countWords(newCh.content);
+              const newWords = countWords(fixedContent);
               const newDev = newWords - target;
               const curDev = current - target;
               const inBand =
@@ -1059,7 +1069,7 @@ export async function runEscrita(
               if (idx2 >= 0) {
                 partChapters[idx2] = {
                   ...partChapters[idx2]!,
-                  content: newCh.content,
+                  content: fixedContent,
                   title: newCh.title ?? partChapters[idx2]!.title,
                   generatedAt: new Date().toISOString(),
                 };
@@ -1209,12 +1219,19 @@ export async function runEscrita(
               const newCh = parsedFix.find((p) => p.number === pick.ch.number);
               if (!newCh?.content) return;
 
+              // Mesma trava de duplicação da calibração: o balanço também
+              // reescreve o capítulo via Sonnet (ramo EXPANDIR) e gravava o
+              // resultado sem passar pela dedup. Limpa o restart inequívoco na
+              // origem (idempotente; no-op em texto já limpo) ANTES de medir e
+              // gravar — senão a duplicata inflada bate o alvo e vai pro Revisor.
+              const fixedContent = stripInternalDuplication(newCh.content).content;
+
               // Só aceita se andou na direção pedida E ficou DENTRO da faixa do
               // alvo PEDIDO (newTarget ± margem). Como newTarget ≤ alvo individual
               // e Σ(newTargets) ≤ aim (meio da faixa), a soma da Parte fica ≤ aim +
               // margens dos poucos caps tocados < teto da Parte — nunca cruza pro
               // outro lado, mesmo se o Sonnet desobedecer o próprio teto.
-              const newWords = countWords(newCh.content);
+              const newWords = countWords(fixedContent);
               const movedRight = below ? newWords > cur : newWords < cur;
               const bounded = below
                 ? newWords <= pick.newTarget + margin
@@ -1227,7 +1244,7 @@ export async function runEscrita(
               if (idx2 >= 0) {
                 partChapters[idx2] = {
                   ...partChapters[idx2]!,
-                  content: newCh.content,
+                  content: fixedContent,
                   title: newCh.title ?? partChapters[idx2]!.title,
                   generatedAt: new Date().toISOString(),
                 };
