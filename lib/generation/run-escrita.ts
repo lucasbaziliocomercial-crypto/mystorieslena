@@ -477,7 +477,7 @@ export async function runEscrita(
   let backoffMs = 0;
   // [perf] calibração — antes só ia pro console (linha [perf] … recalibração) e
   // evaporava; agora acumula pra pousar no perf.jsonl e o checkup poder decidir
-  // CALIBRATION_MAX_PASSES/alvo×0,99 com dado. Só observabilidade.
+  // CALIBRATION_MAX_PASSES/mira da Escrita com dado. Só observabilidade.
   let calibCapsOutOfTarget = 0; // caps fora do alvo ±8% (P1+P2)
   let calibToExpand = 0; // destes, quantos estavam CURTOS (viés "escreve curto")
   let calibToShorten = 0; // quantos estavam LONGOS
@@ -1091,9 +1091,9 @@ export async function runEscrita(
 
   // ═══ Balanço de TOTAL da Parte — fecha o que a calibração por-cap não fecha ══
   // A calibração ACIMA só toca caps cujo desvio passa de ±CALIBRATION_THRESHOLD do
-  // alvo INDIVIDUAL. Mas a Escrita mira ×0,99 (milionário-3p ×0,97) e, como o modelo
-  // tende a subescrever a mira, os caps ainda podem cair curtos DENTRO do ±8% — então
-  // a SOMA da Parte pode fechar abaixo do piso do `partTotalRange` e NADA a puxava de volta (a "fase 2 — balanço de
+  // alvo INDIVIDUAL. Mas a Escrita mira ×1,02 (milionário-3p ×1,00) e, como o modelo
+  // tende a subescrever a mira, os caps ainda podem cair fora do ±8% — então
+  // a SOMA da Parte pode fechar fora do `partTotalRange` e NADA a puxava de volta (a "fase 2 — balanço de
   // total" que o CLAUDE.md atribuía ao Revisor nunca existiu no código). Aqui está,
   // na ORIGEM (Escrita), pra a roteirista ver o total já dentro da faixa no
   // "Capítulo gerado". Expande os caps mais curtos (ou encurta os mais longos) via
@@ -1291,7 +1291,7 @@ export async function runEscrita(
   // onLiveText só na Parte 1 (um stream coerente; dois embaralhariam o preview).
   // O `.then(calibratePart→balancePartTotal)` faz o ajuste da P1 sobrepor a cauda
   // da P2 (aproveita a cota ociosa). Ordem: 1º calibra os outliers ±8% por cap, 2º
-  // balanceia o TOTAL da Parte (fecha o resíduo sistemático da mira ×0,99/×0,97).
+  // balanceia o TOTAL da Parte (fecha o resíduo sistemático da mira ×1,02/×1,00).
   const batchesPhaseStart = Date.now();
   await Promise.all([
     // P1 é a fundação — não recebe contexto cruzado (5º arg ausente).
