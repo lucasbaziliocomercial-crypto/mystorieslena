@@ -89,8 +89,8 @@ export const CALIBRATION_MAX_PASSES = 3;
 /**
  * Máximo de passes do BALANÇO DE TOTAL da Parte (`balancePartTotal` em
  * `run-escrita.ts`). A calibração por-capítulo acima só toca caps com desvio
- * >±CALIBRATION_THRESHOLD do alvo INDIVIDUAL — mas a Escrita mira ×0,99 (milionário-3p
- * ×0,97) e os caps podem cair curtos DENTRO do ±8%, então a SOMA da Parte pode fechar abaixo do piso do
+ * >±CALIBRATION_THRESHOLD do alvo INDIVIDUAL — mas a Escrita mira ×1,02 (milionário-3p
+ * ×1,00) e os caps podem cair fora do ±8% em qualquer direção, então a SOMA da Parte pode fechar fora do
  * `partTotalRange` e nada a puxava de volta. O balanço expande os caps mais
  * curtos (ou encurta os mais longos) até o total entrar na faixa, mirando o MEIO
  * da faixa pra absorver a imprecisão do Sonnet. Cada cap é limitado ao seu
